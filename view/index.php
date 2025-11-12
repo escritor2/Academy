@@ -2,7 +2,6 @@
 
 require_once "../model/Connect.php";
 $pdo = Connect::connect();
-Connect::sefuder($pdo);
 
 require_once "../helper/viewHelper.php";
 
@@ -14,14 +13,12 @@ switch ($uri){
         require __DIR__ . '/../controller/HomeController.php';
         homeController();
         break;
-    case "/cu":
-        require __DIR__ . "/../controller/cuController.php";
-        cuController();
+    case "/techfit":
+        require __DIR__ . "/../controller/TechfitController.php";
+        techfitController();
         break;
-        
     default:
         echo "Erro 404 - Página não encontrada";
         break;
-        
 }
 ?>

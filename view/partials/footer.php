@@ -1,5 +1,4 @@
 
-// ...existing code...
 <footer class="site-footer" role="contentinfo">
   <div class="footer-container">
     <div class="footer-left">
@@ -34,4 +33,3 @@
   <button id="back-to-top" class="back-to-top" aria-label="Voltar ao topo" title="Voltar ao topo">↑</button>
 
 </footer>
-// ...existing code...
