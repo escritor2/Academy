@@ -1,4 +1,4 @@
-// --- NOVO SCRIPT DO MENU SANDUÍCHE ---
+// --- SCRIPT DO MENU SANDUÍCHE ---
 const btnSandwich = document.getElementById('btn-sandwich');
 const sandwichMenu = document.getElementById('sandwich-menu');
 const menuOverlay = document.getElementById('menu-overlay');
@@ -34,7 +34,11 @@ if (btnLogin) {
         modal.classList.add('ativo');
         formLogin.style.display = 'block';
         formCadastro.style.display = 'none';
-        modalTitulo.innerText = 'Acesse sua Conta'; // Muda o título
+        
+        modalTitulo.dataset.translate = 'modalTitleLogin'; 
+        if (window.applyTranslations) {
+            window.applyTranslations(localStorage.getItem('language') || 'pt');
+        }
     });
 }
 
@@ -44,7 +48,11 @@ if (btnCadastro) {
         modal.classList.add('ativo');
         formLogin.style.display = 'none';
         formCadastro.style.display = 'block';
-        modalTitulo.innerText = 'Crie sua Conta'; // Muda o título
+        
+        modalTitulo.dataset.translate = 'modalTitleRegister'; 
+        if (window.applyTranslations) {
+            window.applyTranslations(localStorage.getItem('language') || 'pt');
+        }
     });
 }
 
@@ -67,7 +75,11 @@ if (linkMudarCadastro) {
         e.preventDefault();
         formLogin.style.display = 'none';
         formCadastro.style.display = 'block';
-        modalTitulo.innerText = 'Crie sua Conta'; // Muda o título
+        
+        modalTitulo.dataset.translate = 'modalTitleRegister';
+        if (window.applyTranslations) {
+            window.applyTranslations(localStorage.getItem('language') || 'pt');
+        }
     });
 }
 
@@ -76,7 +88,11 @@ if (linkMudarLogin) {
         e.preventDefault();
         formLogin.style.display = 'block';
         formCadastro.style.display = 'none';
-        modalTitulo.innerText = 'Acesse sua Conta'; // Muda o título
+        
+        modalTitulo.dataset.translate = 'modalTitleLogin';
+        if (window.applyTranslations) {
+            window.applyTranslations(localStorage.getItem('language') || 'pt');
+        }
     });
 }
 
@@ -90,35 +106,33 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// --- SCRIPT DE TEMA ---
+// --- SCRIPT DE TEMA (LÓGICA SIMPLIFICADA) ---
 
 const themeSelect = document.getElementById('tema-select');
 const htmlEl = document.documentElement;
 
 /**
  * Aplica o tema selecionado e o salva no localStorage.
- * @param {string} theme - O tema a ser aplicado ('system', 'light', 'dark', 'colorblind').
+ * @param {string} theme - A escolha do usuário no dropdown (ex: 'system', 'light', 'mono1').
  */
 function applyTheme(theme) {
-    let activeTheme = theme;
     
-    // Se for 'system', descobre qual tema o sistema está usando
+    let themeToApply = theme;
+    
+    // Se a escolha for 'system', descobrimos qual tema aplicar
     if (theme === 'system') {
         const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-        activeTheme = systemPrefersLight ? 'light' : 'dark';
-    }
-
-    // Aplica o tema ao HTML
-    if (theme === 'colorblind') {
-         htmlEl.setAttribute('data-theme', 'colorblind');
-    } else {
-         htmlEl.setAttribute('data-theme', activeTheme);
+        themeToApply = systemPrefersLight ? 'light' : 'dark';
     }
     
-    // Salva a *escolha* do usuário (ex: 'system') no localStorage
+    // Aplicamos o tema final (ex: 'light', 'dark', 'colorblind', 'mono1', 'mono2')
+    // O CSS vai cuidar de todas as regras de estilo com base neste atributo
+    htmlEl.setAttribute('data-theme', themeToApply);
+    
+    // Salvamos a *escolha original* do usuário (ex: 'system')
     localStorage.setItem('theme', theme); 
     
-    // Garante que o <select> mostre o valor correto (ex: 'system')
+    // Garantimos que o dropdown mostre a *escolha original*
     if (themeSelect) {
         themeSelect.value = theme; 
     }
@@ -146,5 +160,4 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
     const savedTheme = localStorage.getItem('theme') || 'system';
     applyTheme(savedTheme);
 })();
-
 // --- FIM DO SCRIPT DE TEMA ---
