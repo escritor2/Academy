@@ -1,61 +1,150 @@
- // Modal
-        const modal = document.getElementById('modal-auth');
-        const btnLogin = document.getElementById('btn-login');
-        const btnCadastro = document.getElementById('btn-cadastro');
-        const btnFechar = document.querySelector('.modal__fechar');
-        const formLogin = document.getElementById('form-login');
-        const formCadastro = document.getElementById('form-cadastro');
-        const linkMudarCadastro = document.getElementById('link-mudar-cadastro');
-        const linkMudarLogin = document.getElementById('link-mudar-login');
+// --- NOVO SCRIPT DO MENU SANDUÍCHE ---
+const btnSandwich = document.getElementById('btn-sandwich');
+const sandwichMenu = document.getElementById('sandwich-menu');
+const menuOverlay = document.getElementById('menu-overlay');
 
-        btnLogin.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.classList.add('ativo');
-            formLogin.style.display = 'block';
-            formCadastro.style.display = 'none';
-        });
+// Função para abrir/fechar o menu
+function toggleMenu() {
+    sandwichMenu.classList.toggle('ativo');
+    menuOverlay.classList.toggle('ativo');
+}
 
-        btnCadastro.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.classList.add('ativo');
-            formLogin.style.display = 'none';
-            formCadastro.style.display = 'block';
-        });
+// Event Listeners para o menu
+if (btnSandwich && sandwichMenu && menuOverlay) {
+    btnSandwich.addEventListener('click', toggleMenu);
+    menuOverlay.addEventListener('click', toggleMenu);
+}
+// --- FIM DO SCRIPT DO MENU ---
 
-        btnFechar.addEventListener('click', () => {
+
+// Modal
+const modal = document.getElementById('modal-auth');
+const btnLogin = document.getElementById('btn-login');
+const btnCadastro = document.getElementById('btn-cadastro');
+const btnFechar = document.querySelector('.modal__fechar');
+const formLogin = document.getElementById('form-login');
+const formCadastro = document.getElementById('form-cadastro');
+const linkMudarCadastro = document.getElementById('link-mudar-cadastro');
+const linkMudarLogin = document.getElementById('link-mudar-login');
+const modalTitulo = document.getElementById('modal-titulo'); // Pega o título do modal
+
+if (btnLogin) {
+    btnLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.classList.add('ativo');
+        formLogin.style.display = 'block';
+        formCadastro.style.display = 'none';
+        modalTitulo.innerText = 'Acesse sua Conta'; // Muda o título
+    });
+}
+
+if (btnCadastro) {
+    btnCadastro.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.classList.add('ativo');
+        formLogin.style.display = 'none';
+        formCadastro.style.display = 'block';
+        modalTitulo.innerText = 'Crie sua Conta'; // Muda o título
+    });
+}
+
+if (btnFechar) {
+    btnFechar.addEventListener('click', () => {
+        modal.classList.remove('ativo');
+    });
+}
+
+if (modal) {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
             modal.classList.remove('ativo');
-        });
+        }
+    });
+}
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('ativo');
-            }
-        });
+if (linkMudarCadastro) {
+    linkMudarCadastro.addEventListener('click', (e) => {
+        e.preventDefault();
+        formLogin.style.display = 'none';
+        formCadastro.style.display = 'block';
+        modalTitulo.innerText = 'Crie sua Conta'; // Muda o título
+    });
+}
 
-        linkMudarCadastro.addEventListener('click', (e) => {
-            e.preventDefault();
-            formLogin.style.display = 'none';
-            formCadastro.style.display = 'block';
-        });
+if (linkMudarLogin) {
+    linkMudarLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        formLogin.style.display = 'block';
+        formCadastro.style.display = 'none';
+        modalTitulo.innerText = 'Acesse sua Conta'; // Muda o título
+    });
+}
 
-        linkMudarLogin.addEventListener('click', (e) => {
-            e.preventDefault();
-            formLogin.style.display = 'block';
-            formCadastro.style.display = 'none';
-        });
+// Scroll effect no header
+window.addEventListener('scroll', () => {
+    const header = document.querySelector('.cabecalho');
+    if (window.scrollY > 50) {
+        header.style.padding = '0.5rem 5%';
+    } else {
+        header.style.padding = '1rem 5%';
+    }
+});
 
-        // Scroll effect no header
-        window.addEventListener('scroll', () => {
-            const header = document.querySelector('.cabecalho');
-            if (window.scrollY > 50) {
-                header.style.padding = '0.5rem 5%';
-            } else {
-                header.style.padding = '1rem 5%';
-            }
-        });
+// --- SCRIPT DE TEMA ---
 
-        // Animação nas atividades
-        const atividades = document.querySelectorAll('.atividade__item');
-        atividades.forEach((ativ, index) => {
-            ativ.style.animationDelay = `${index * 0.1}s`;
-        });
+const themeSelect = document.getElementById('tema-select');
+const htmlEl = document.documentElement;
+
+/**
+ * Aplica o tema selecionado e o salva no localStorage.
+ * @param {string} theme - O tema a ser aplicado ('system', 'light', 'dark', 'colorblind').
+ */
+function applyTheme(theme) {
+    let activeTheme = theme;
+    
+    // Se for 'system', descobre qual tema o sistema está usando
+    if (theme === 'system') {
+        const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+        activeTheme = systemPrefersLight ? 'light' : 'dark';
+    }
+
+    // Aplica o tema ao HTML
+    if (theme === 'colorblind') {
+         htmlEl.setAttribute('data-theme', 'colorblind');
+    } else {
+         htmlEl.setAttribute('data-theme', activeTheme);
+    }
+    
+    // Salva a *escolha* do usuário (ex: 'system') no localStorage
+    localStorage.setItem('theme', theme); 
+    
+    // Garante que o <select> mostre o valor correto (ex: 'system')
+    if (themeSelect) {
+        themeSelect.value = theme; 
+    }
+}
+
+// 1. Ouve mudanças no seletor de tema
+if (themeSelect) {
+    themeSelect.addEventListener('change', (e) => {
+        applyTheme(e.target.value);
+    });
+}
+
+// 2. Ouve mudanças no tema do *sistema operacional*
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    const savedTheme = localStorage.getItem('theme');
+    // Se o usuário tiver escolhido 'system', atualiza o tema
+    if (savedTheme === 'system') {
+        applyTheme('system');
+    }
+});
+
+// 3. Aplica o tema salvo ao carregar a página
+(function onPageLoad() {
+    // Pega o tema salvo, ou usa 'system' como padrão
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
+})();
+
+// --- FIM DO SCRIPT DE TEMA ---
