@@ -3,7 +3,7 @@ class Usuario {
     private $nome;
     private $email;
     private $senha;
-    private $tipo; // 'aluno', 'funcionario', 'admin'
+    private $tipo;
 
     public function __construct($nome, $email, $senha, $tipo = 'aluno') {
         $this->nome = $nome;
