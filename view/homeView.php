@@ -10,9 +10,7 @@
 <body>
     <header class="cabecalho">
         <div class="cabecalho__logo-busca">
-            <a href="/" title="Página Inicial TechFit">
                 <div class="logo"></div>
-            </a>
             <div class="busca">
                 <input type="text" placeholder="Buscar Aulas, Planos ou Produtos" class="busca__input">
                 <button class="busca__botao">🔍</button>
