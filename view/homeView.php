@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="img/logo-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="src/front.css">
     <title>TECHFIT: A Academia que Inspira | Planos e Atividades</title>
@@ -72,12 +73,12 @@
             <div class="secao__lista">
                 <div class="produto__item">
                     <h3 style="text-align:center">Whey Protein</h3><br>
-                    <div class="produto__imagem"><img src="" alt="Whey Protein"></div>
+                    <div class="produto__imagem"><img src="img/whey.png" alt="Whey Protein"></div>
                     <p class="produto__info">Suplemento, Chocolate, R$ 129,90</p>
                 </div>
                 <div class="produto__item">
                     <h3 style="text-align:center">Garrafa Térmica</h3><br>
-                    <div class="produto__imagem"><img src="" alt="Garrafa Térmica"></div>
+                    <div class="produto__imagem"><img src="img/garrafa.png" alt="Garrafa Térmica"></div>
                     <p class="produto__info">Acessório, 1 Litro, R$ 45,00</p>
                 </div>
                 <div class="produto__item">
