@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/front.css">
     <title>TECHFIT: A Academia que Inspira | Planos e Atividades</title>
-    <link rel="stylesheet" href="front.css">
 </head>
 <body>
     <header class="cabecalho">
@@ -134,7 +134,7 @@
             </form>
         </div>
     </div>
-  <script src="tradução.js"></script>
-  <script src="main.js"></script>
+  <script src="src/tradução.js"></script>
+  <script src="src/main.js"></script>
 </body>
 </html>
