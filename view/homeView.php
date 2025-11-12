@@ -10,9 +10,7 @@
 <body>
     <header class="cabecalho">
         <div class="cabecalho__logo-busca">
-            <a href="/" title="Página Inicial TechFit">
                 <div class="logo"></div>
-            </a>
             <div class="busca">
                 <input type="text" placeholder="Buscar Aulas, Planos ou Produtos" class="busca__input">
                 <button class="busca__botao">🔍</button>
@@ -73,19 +71,23 @@
             <h2 class="secao__titulo">Produtos para seu Treino</h2>
             <div class="secao__lista">
                 <div class="produto__item">
-                    <div class="produto__imagem">💪 Whey Protein</div>
+                    <h3 style="text-align:center">Whey Protein</h3><br>
+                    <div class="produto__imagem"><img src="" alt="Whey Protein"></div>
                     <p class="produto__info">Suplemento, Chocolate, R$ 129,90</p>
                 </div>
                 <div class="produto__item">
-                    <div class="produto__imagem">🥤 Garrafa Térmica</div>
+                    <h3 style="text-align:center">Garrafa Térmica</h3><br>
+                    <div class="produto__imagem"><img src="" alt="Garrafa Térmica"></div>
                     <p class="produto__info">Acessório, 1 Litro, R$ 45,00</p>
                 </div>
                 <div class="produto__item">
-                    <div class="produto__imagem">🏋️ Kit Elásticos</div>
+                    <h3 style="text-align:center">Kit Elásticos</h3><br>
+                    <div class="produto__imagem"><img src="" alt="Kit Elásticos"></div>
                     <p class="produto__info">Acessório, 5 Níveis, R$ 89,90</p>
                 </div>
                 <div class="produto__item">
-                    <div class="produto__imagem">🧤 Luva de Treino</div>
+                    <h3 style="text-align:center">Luva de Treino</h3><br>
+                    <div class="produto__imagem"><img src="" alt="Luva de Treino"></div>
                     <p class="produto__info">Vestuário, Couro, R$ 55,00</p>
                 </div>
             </div>
@@ -134,7 +136,7 @@
             </form>
         </div>
     </div>
-  <script src="src/tradução.js"></script>
-  <script src="src/main.js"></script>
+    <script src="src/main.js"></script>
+    <script src="src/traducao.js"></script>
 </body>
 </html>
