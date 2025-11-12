@@ -62,57 +62,87 @@
 
         <section class="secao-atividades">
             <h2 class="secao__titulo" data-translate="featuredActivities">Atividades em Destaque</h2>
-            <div class="secao__lista">
-                <div class="atividade__item">
-                    <h3 style="text-align:center" data-translate="functionalTraining">Treinamento Funcional</h3><br>
-                    <div class="atividade__conteudo"><img src="img/ex-funcional.png" alt="Treinamento Funcional"></div>
-                    <button class="atividade__navegacao"></button>
-                </div>
-                
-                <div class="atividade__item">
-                    <h3 style="text-align:center" data-translate="yogaStretching">Yoga e Alongamento</h3><br>
-                    <div class="atividade__conteudo"><img src="img/yoga.png" alt="Yoga e Alongamento"></div>
-                    <button class="atividade__navegacao"></button>
-                </div>
-                
-                <div class="atividade__item">
-                    <h3 style="text-align:center" data-translate="swimmingHydro">Natação/Hidroginástica</h3><br>
-                    <div class="atividade__conteudo"><img src="img/natacao.png" alt="Natação/Hidroginástica"></div>
-                    <button class="atividade__navegacao"></button>
-                </div>
-                
-                <div class="atividade__item">
-                    <h3 style="text-align:center" data-translate="boxeFitness">Boxe Fitness</h3><br>
-                    <div class="atividade__conteudo"><img src="img/boxe.png" alt="Boxe Fitness"></div>
-                    <button class="atividade__navegacao"></button>
-                </div>
+            
+            <button class="carousel-button prev" data-carousel="atividades-carousel" aria-label="Anterior">‹</button>
+            <div class="carousel-wrapper">
+                <div class="secao__lista" id="atividades-carousel">
+                    <div class="atividade__item">
+                        <h3 style="text-align:center" data-translate="functionalTraining">Treinamento Funcional</h3><br>
+                        <div class="atividade__conteudo"><img src="img/ex-funcional.png" alt="Treinamento Funcional"></div>
+                        <button class="atividade__navegacao"></button>
+                    </div>
+                    
+                    <div class="atividade__item">
+                        <h3 style="text-align:center" data-translate="yogaStretching">Yoga e Alongamento</h3><br>
+                        <div class="atividade__conteudo"><img src="img/yoga.png" alt="Yoga e Alongamento"></div>
+                        <button class="atividade__navegacao"></button>
+                    </div>
+                    
+                    <div class="atividade__item">
+                        <h3 style="text-align:center" data-translate="swimmingHydro">Natação/Hidroginástica</h3><br>
+                        <div class="atividade__conteudo"><img src="img/natacao.png" alt="Natação/Hidroginástica"></div>
+                        <button class="atividade__navegacao"></button>
+                    </div>
+                    
+                    <div class="atividade__item">
+                        <h3 style="text-align:center" data-translate="boxeFitness">Boxe Fitness</h3><br>
+                        <div class="atividade__conteudo"><img src="img/boxe.png" alt="Boxe Fitness"></div>
+                        <button class="atividade__navegacao"></button>
+                    </div>
+                    
+                    </div>
             </div>
+            <button class="carousel-button next" data-carousel="atividades-carousel" aria-label="Próximo">›</button>
+            
         </section>
 
         <section class="secao produtos">
             <h2 class="secao__titulo" data-translate="trainingProducts">Produtos para seu Treino</h2>
-            <div class="secao__lista">
-                <div class="produto__item">
-                    <h3 style="text-align:center" data-translate="wheyProtein">Whey Protein</h3><br>
-                    <div class="produto__imagem"><img src="img/whey.png" alt="Whey Protein"></div>
-                    <p class="produto__info"><span data-translate="supplement">Suplemento</span>, Chocolate, R$ 129,90</p>
-                </div>
-                <div class="produto__item">
-                    <h3 style="text-align:center" data-translate="thermicBottle">Garrafa Térmica</h3><br>
-                    <div class="produto__imagem"><img src="img/garrafa.png" alt="Garrafa Térmica"></div>
-                    <p class="produto__info"><span data-translate="accessory">Acessório</span>, 1 Litro, R$ 45,00</p>
-                </div>
-                <div class="produto__item">
-                    <h3 style="text-align:center" data-translate="elasticKit">Kit Elásticos</h3><br>
-                    <div class="produto__imagem"><img src="img/kit-elasticos.png" alt="Kit Elásticos"></div>
-                    <p class="produto__info"><span data-translate="accessory">Acessório</span>, 5 Níveis, R$ 89,90</p>
-                </div>
-                <div class="produto__item">
-                    <h3 style="text-align:center" data-translate="trainingGlove">Luva de Treino</h3><br>
-                    <div class="produto__imagem"><img src="img/luvas.png" alt="Luva de Treino"></div>
-                    <p class="produto__info"><span data-translate="apparel">Vestuário</span>, Couro, R$ 55,00</p>
-                </div>
+            
+            <button class="carousel-button prev" data-carousel="produtos-carousel" aria-label="Anterior">‹</button>
+            <div class="carousel-wrapper">
+                <div class="secao__lista" id="produtos-carousel">
+                    
+                    <div class="produto__item">
+                        <h3 style="text-align:center" data-translate="wheyProtein">Whey Protein</h3><br>
+                        <div class="produto__imagem"><img src="img/whey.png" alt="Whey Protein"></div>
+                        <div class="produto__detalhes">
+                            <p class="produto__info" data-translate="wheyInfo">Suplemento, Chocolate</p>
+                            <p class="produto__preco">R$ 129,90</p>
+                        </div>
+                    </div>
+                    
+                    <div class="produto__item">
+                        <h3 style="text-align:center" data-translate="thermicBottle">Garrafa Térmica</h3><br>
+                        <div class="produto__imagem"><img src="img/garrafa.png" alt="Garrafa Térmica"></div>
+                        <div class="produto__detalhes">
+                            <p class="produto__info" data-translate="bottleInfo">Acessório, 1 Litro</p>
+                            <p class="produto__preco">R$ 45,00</p>
+                        </div>
+                    </div>
+                    
+                    <div class="produto__item">
+                        <h3 style="text-align:center" data-translate="elasticKit">Kit Elásticos</h3><br>
+                        <div class="produto__imagem"><img src="img/kit-elasticos.png" alt="Kit Elásticos"></div>
+                        <div class="produto__detalhes">
+                            <p class="produto__info" data-translate="kitInfo">Acessório, 5 Níveis</p>
+                            <p class="produto__preco">R$ 89,90</p>
+                        </div>
+                    </div>
+                    
+                    <div class="produto__item">
+                        <h3 style="text-align:center" data-translate="trainingGlove">Luva de Treino</h3><br>
+                        <div class="produto__imagem"><img src="img/luvas.png" alt="Luva de Treino"></div>
+                        <div class="produto__detalhes">
+                            <p class="produto__info" data-translate="gloveInfo">Vestuário, Couro</p>
+                            <p class="produto__preco">R$ 55,00</p>
+                        </div>
+                    </div>
+                    
+                    </div>
             </div>
+            <button class="carousel-button next" data-carousel="produtos-carousel" aria-label="Próximo">›</button>
+
         </section>
     </main>
 

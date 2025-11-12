@@ -3,13 +3,11 @@ const btnSandwich = document.getElementById('btn-sandwich');
 const sandwichMenu = document.getElementById('sandwich-menu');
 const menuOverlay = document.getElementById('menu-overlay');
 
-// Função para abrir/fechar o menu
 function toggleMenu() {
     sandwichMenu.classList.toggle('ativo');
     menuOverlay.classList.toggle('ativo');
 }
 
-// Event Listeners para o menu
 if (btnSandwich && sandwichMenu && menuOverlay) {
     btnSandwich.addEventListener('click', toggleMenu);
     menuOverlay.addEventListener('click', toggleMenu);
@@ -26,7 +24,7 @@ const formLogin = document.getElementById('form-login');
 const formCadastro = document.getElementById('form-cadastro');
 const linkMudarCadastro = document.getElementById('link-mudar-cadastro');
 const linkMudarLogin = document.getElementById('link-mudar-login');
-const modalTitulo = document.getElementById('modal-titulo'); // Pega o título do modal
+const modalTitulo = document.getElementById('modal-titulo'); 
 
 if (btnLogin) {
     btnLogin.addEventListener('click', (e) => {
@@ -111,53 +109,67 @@ window.addEventListener('scroll', () => {
 const themeSelect = document.getElementById('tema-select');
 const htmlEl = document.documentElement;
 
-/**
- * Aplica o tema selecionado e o salva no localStorage.
- * @param {string} theme - A escolha do usuário no dropdown (ex: 'system', 'light', 'mono1').
- */
 function applyTheme(theme) {
     
     let themeToApply = theme;
     
-    // Se a escolha for 'system', descobrimos qual tema aplicar
     if (theme === 'system') {
         const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
         themeToApply = systemPrefersLight ? 'light' : 'dark';
     }
     
-    // Aplicamos o tema final (ex: 'light', 'dark', 'colorblind', 'mono1', 'mono2')
-    // O CSS vai cuidar de todas as regras de estilo com base neste atributo
     htmlEl.setAttribute('data-theme', themeToApply);
-    
-    // Salvamos a *escolha original* do usuário (ex: 'system')
     localStorage.setItem('theme', theme); 
     
-    // Garantimos que o dropdown mostre a *escolha original*
     if (themeSelect) {
         themeSelect.value = theme; 
     }
 }
 
-// 1. Ouve mudanças no seletor de tema
 if (themeSelect) {
     themeSelect.addEventListener('change', (e) => {
         applyTheme(e.target.value);
     });
 }
 
-// 2. Ouve mudanças no tema do *sistema operacional*
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
     const savedTheme = localStorage.getItem('theme');
-    // Se o usuário tiver escolhido 'system', atualiza o tema
     if (savedTheme === 'system') {
         applyTheme('system');
     }
 });
 
-// 3. Aplica o tema salvo ao carregar a página
 (function onPageLoad() {
-    // Pega o tema salvo, ou usa 'system' como padrão
     const savedTheme = localStorage.getItem('theme') || 'system';
     applyTheme(savedTheme);
 })();
 // --- FIM DO SCRIPT DE TEMA ---
+
+
+// --- NOVO SCRIPT DO CARROSSEL ---
+document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.carousel-button');
+
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const carouselId = button.dataset.carousel;
+            const carouselList = document.getElementById(carouselId);
+            
+            if (carouselList) {
+                const carouselWrapper = carouselList.parentElement;
+                
+                // Calcula o quanto rolar
+                // Pega o primeiro item do carrossel para saber a largura
+                const firstItem = carouselList.querySelector('.atividade__item, .produto__item');
+                if (!firstItem) return;
+
+                // Largura do item + gap (2rem = 32px)
+                const scrollAmount = firstItem.offsetWidth + 32; 
+                const direction = button.classList.contains('prev') ? -1 : 1;
+
+                carouselWrapper.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+            }
+        });
+    });
+});
+// --- FIM DO SCRIPT DO CARROSSEL ---

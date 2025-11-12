@@ -88,6 +88,9 @@ html[data-theme="light"] .atividade__item:hover {
 html[data-theme="light"] .produto__info {
     color: rgba(26, 26, 46, 0.7);
 }
+html[data-theme="light"] .produto__preco {
+    color: var(--primary); 
+}
 html[data-theme="light"] .modal__conteudo {
     background: rgba(244, 247, 252, 0.98);
     border: 2px solid rgba(0, 0, 0, 0.1);
@@ -124,21 +127,14 @@ html[data-theme="light"] #tema-select option {
 
 /* 👁️ INÍCIO TEMA DALTONISMO (ALTO CONTRASTE ATUALIZADO) */
 html[data-theme="colorblind"] {
-    /* 1. Força cores base de alto contraste */
-    --dark: #000000;  /* Fundo preto puro */
-    --light: #FFFFFF; /* Texto branco puro */
-    
-    /* 2. Define cores seguras (Azul/Amarelo) */
+    --dark: #000000;  
+    --light: #FFFFFF; 
     --primary: var(--accent);
     --secondary: #004E89;
     --accent: #F7B801;
-    
-    /* 3. Substitui todos os gradientes por cores sólidas seguras */
     --gradient-1: var(--secondary);
     --gradient-2: var(--accent);
     --gradient-3: var(--secondary);
-    
-    /* 4. Aplica filtro de alto contraste em TUDO (imagens, texto, etc.) */
     filter: contrast(1.75); 
 }
 /* 👁️ FIM TEMA DALTONISMO */
@@ -167,7 +163,6 @@ body {
     position: fixed;
     top: 0;
     width: 100%;
-    /* Padding horizontal reduzido */
     padding: 1rem 2%;
     display: flex;
     justify-content: space-between;
@@ -185,11 +180,9 @@ body {
 .cabecalho__logo-busca {
     display: flex;
     align-items: center;
-    /* Gap reduzido */
     gap: 1.5rem;
 }
 
-/* CSS ATUALIZADO DO LOGO - AGORA CIRCULAR */
 .logo {
     width: 60px; 
     height: 60px; 
@@ -209,18 +202,15 @@ body {
     width: 100%; 
     object-fit: cover; 
 }
-/* FIM CSS LOGO */
 
 
 /* --- CORREÇÃO DA LÓGICA DE TROCA DO LOGO --- */
-/* Padrão (Escuro e Daltônico) */
 .logo .logo-dark {
     display: block;
 }
 .logo .logo-light {
     display: none;
 }
-/* Apenas no Claro */
 html[data-theme="light"] .logo .logo-light {
     display: block;
 }
@@ -271,12 +261,9 @@ html[data-theme="light"] .logo .logo-dark {
 .menu {
     display: none;
 }
-
-/* Ajusta o container de utilitários para ser uma linha */
 .cabecalho__utilitarios {
     display: flex;
     flex-direction: row; 
-    /* Gap reduzido */
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap; 
@@ -334,16 +321,13 @@ html[data-theme="light"] .logo .logo-dark {
     transform: translateY(-2px);
     color: #FFFFFF;
 }
-
-/* Estilo para os novos botões de ícone */
 .utilitario__link--icon {
     font-size: 1.2rem;
     line-height: 1;
-    padding: 0.6rem; /* Padding circular */
+    padding: 0.6rem; 
 }
-/* Ajuste de tamanho para o ícone de cadastro (prancheta) */
 #btn-cadastro {
-    font-size: 1.4rem; /* Um pouco maior para equivaler ao 👤 */
+    font-size: 1.4rem; 
 }
 
 /* --- NOVOS ESTILOS DO MENU SANDUÍCHE (LADO DIREITO) --- */
@@ -426,7 +410,6 @@ html[data-theme="light"] .logo .logo-dark {
     margin-top: 100px;
     padding: 3rem 5%;
 }
-/* ... (O resto do seu CSS permanece o mesmo) ... */
 .hero {
     height: 70vh;
     display: flex;
@@ -507,12 +490,72 @@ html[data-theme="light"] .logo .logo-dark {
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
-.secao__lista {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-bottom: 4rem;
+
+
+/* --- ESTILOS DO CARROSSEL (ADICIONADOS) --- */
+.secao-atividades,
+.secao.produtos {
+    position: relative; 
+    padding: 0 4rem; 
 }
+
+.carousel-wrapper {
+    overflow-x: auto; 
+    scroll-behavior: smooth; 
+    scroll-snap-type: x mandatory; 
+    
+    /* Esconde a barra de scroll */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE e Edge */
+}
+.carousel-wrapper::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.carousel-wrapper .secao__lista {
+    display: flex;
+    flex-wrap: nowrap; /* Impede a quebra de linha */
+    gap: 2rem;
+    margin-bottom: 0; 
+    padding-bottom: 1.5rem; 
+}
+
+.carousel-wrapper .atividade__item,
+.carousel-wrapper .produto__item {
+    scroll-snap-align: start; 
+    flex: 0 0 300px; /* Largura fixa para cada item */
+}
+
+.carousel-button {
+    position: absolute;
+    top: 55%; 
+    transform: translateY(-50%);
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s ease;
+}
+.carousel-button:hover {
+    background: var(--primary);
+    transform: translateY(-50%) scale(1.1);
+}
+.carousel-button.prev {
+    left: 1rem;
+}
+.carousel-button.next {
+    right: 1rem;
+}
+/* --- FIM DOS ESTILOS DO CARROSSEL --- */
+
+
 .atividade__item {
     border-radius: 20px;
     overflow: hidden;
@@ -578,6 +621,8 @@ html[data-theme="light"] .logo .logo-dark {
     background: rgba(255, 255, 255, 0.4);
     transform: rotate(90deg);
 }
+
+/* --- ESTILOS ATUALIZADOS DO PRODUTO --- */
 .produto__item {
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid rgba(255, 255, 255, 0.1);
@@ -618,10 +663,28 @@ html[data-theme="light"] .logo .logo-dark {
     height: 100%;
     object-fit: cover;
 }
+.produto__detalhes {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    gap: 1rem;
+}
 .produto__info {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.9rem;
+    line-height: 1.4;
 }
+.produto__preco {
+    color: var(--primary);
+    font-size: 1.1rem;
+    font-weight: 800;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+/* --- FIM DOS ESTILOS DE PRODUTO --- */
+
+
 .modal {
     display: none;
     position: fixed;
@@ -635,6 +698,7 @@ html[data-theme="light"] .logo .logo-dark {
     align-items: center;
     justify-content: center;
 }
+/* ... (Resto do CSS do modal) ... */
 .modal.ativo {
     display: flex;
 }
@@ -767,6 +831,23 @@ html[data-theme="light"] .logo .logo-dark {
          background-position: right 0.8rem center;
          background-size: 0.6rem;
      }
+     
+    /* Ajuste carrossel mobile */
+    .carousel-wrapper .atividade__item,
+    .carousel-wrapper .produto__item {
+        flex: 0 0 80%; /* Itens ficam maiores no mobile */
+    }
+    .secao-atividades,
+    .secao.produtos {
+        padding: 0; /* Remove padding lateral para os botões */
+    }
+    .carousel-button {
+        /* Move os botões para mais perto da borda */
+        left: 0.5rem;
+    }
+    .carousel-button.next {
+        right: 0.5rem;
+    }
 }
 
 
@@ -787,8 +868,13 @@ html[data-theme="light"] .logo .logo-dark {
         gap: 0.5rem;
     }
 
-    /* Esconde os botões de Login/Cadastro/Idioma, deixando só Tema/Menu */
     #btn-login, #btn-cadastro, .utilitario__idioma {
         display: none;
+    }
+
+    /* Ajuste carrossel mobile pequeno */
+    .carousel-wrapper .atividade__item,
+    .carousel-wrapper .produto__item {
+        flex: 0 0 90%; /* Itens quase do tamanho da tela */
     }
 }
