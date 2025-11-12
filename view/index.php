@@ -1,7 +1,7 @@
 <?php
 
 require_once "../model/Connect.php";
-$pdo = Connect::connect();//
+$pdo = Connect::connect();
 
 require_once "../helper/viewHelper.php";
 

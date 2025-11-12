@@ -9,6 +9,6 @@
      <main>
         <?=$conteudo;?>
      </main>
-     <?php require_once __DIR__ . "/../partials/footer.php"?>
+     <?php require_once __DIR__ . "/../partials/homeView.php"?>
 </body>  
 </html>
