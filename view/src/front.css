@@ -890,3 +890,25 @@ html[data-theme="light"] .logo .logo-dark {
         flex: 0 0 90%; /* Itens quase do tamanho da tela */
     }
 }
+
+/* Estilos para o VLibras */
+.vw-container {
+    position: relative;
+    z-index: 10000;
+}
+
+div[vw] {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+}
+
+div[vw] .access-button {
+    border-radius: 50% !important;
+    background: var(--primary) !important;
+}
+
+div[vw] .access-button:hover {
+    background: var(--secondary) !important;
+}

@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- FIM DO SCRIPT DO CARROSSEL ---
 
 
-// --- NOVOS SCRIPTS DE NAVEGAÇÃO E PESQUISA ---
+// --- NOVOS SCRIPTS DE NAVEGAÇÃO E PESQUISA (COM CORREÇÃO) ---
 document.addEventListener('DOMContentLoaded', () => {
     
     // --- Elementos de Navegação ---
@@ -183,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos da Pesquisa ---
     const searchButton = document.querySelector('.busca__botao');
     const searchInput = document.querySelector('.busca__input');
+    const heroSection = document.getElementById('secao-hero'); // Pega o Hero
 
     // --- Função de Navegação ---
     navLinks.forEach(link => {
@@ -205,6 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 mainSections.forEach(section => {
                     section.style.display = 'block';
                 });
+
+                // --- !! CORREÇÃO ADICIONADA AQUI !! ---
+                // Limpa a barra de pesquisa para resetar o estado.
+                if (searchInput) {
+                    searchInput.value = ""; 
+                }
+                // --- FIM DA CORREÇÃO ---
+
             } else if (targetId) {
                 const targetSection = document.getElementById(targetId);
                 if (targetSection) {
@@ -216,46 +225,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Função de Pesquisa ---
+    // --- Função de Pesquisa (MODIFICADA) ---
     function performSearch() {
         const searchTerm = searchInput.value.toLowerCase().trim();
 
-        // 1. Mostra todas as seções para que a pesquisa funcione
-        mainSections.forEach(section => {
-            section.style.display = 'block';
-        });
-
-        // 2. Itera e filtra os itens
-        allItems.forEach(item => {
-            const titleElement = item.querySelector('h3');
-            if (titleElement) {
-                const title = titleElement.textContent.toLowerCase();
-                if (title.includes(searchTerm)) {
-                    item.style.display = ''; // Usa '' para reverter ao CSS original
-                } else {
-                    item.style.display = 'none';
-                }
-            }
-        });
-
-        // 3. Esconde seções que ficaram vazias
-        mainSections.forEach(section => {
-            if (section.id === 'secao-hero') return; // Nunca esconde o Hero
+        if (searchTerm.length > 0) {
+            // --- ESTAMOS A PESQUISAR ---
             
-            const allItemsInSection = section.querySelectorAll('.atividade__item, .produto__item');
-            if (allItemsInSection.length === 0) return; // Não faz nada se a seção não tiver itens
+            // 1. Esconde o Hero
+            if (heroSection) {
+                heroSection.style.display = 'none';
+            }
 
-            let allHidden = true;
-            allItemsInSection.forEach(item => {
-                if (item.style.display !== 'none') {
-                    allHidden = false; // Encontrou um item visível
+            // 2. Mostra as secções de conteúdo (atividades, produtos)
+            mainSections.forEach(section => {
+                if (section.id !== 'secao-hero') { // Não mexe no hero aqui
+                    section.style.display = 'block';
                 }
             });
 
-            if (allHidden) {
-                section.style.display = 'none'; // Esconde a seção
-            }
-        });
+            // 3. Itera e filtra os itens
+            allItems.forEach(item => {
+                const titleElement = item.querySelector('h3');
+                if (titleElement) {
+                    const title = titleElement.textContent.toLowerCase();
+                    if (title.includes(searchTerm)) {
+                        item.style.display = ''; // Mostra
+                    } else {
+                        item.style.display = 'none'; // Esconde
+                    }
+                }
+            });
+
+            // 4. Esconde secções que ficaram vazias
+            mainSections.forEach(section => {
+                if (section.id === 'secao-hero') return; // Ignora o hero
+                
+                const allItemsInSection = section.querySelectorAll('.atividade__item, .produto__item');
+                if (allItemsInSection.length === 0) return; 
+
+                let allHidden = true;
+                allItemsInSection.forEach(item => {
+                    if (item.style.display !== 'none') {
+                        allHidden = false; 
+                    }
+                });
+
+                if (allHidden) {
+                    section.style.display = 'none'; 
+                }
+            });
+
+        } else {
+            // --- PESQUISA LIMPA ---
+            // Reseta a página (mostra tudo)
+            
+            // 1. Mostra todas as seções
+            mainSections.forEach(section => {
+                section.style.display = 'block';
+            });
+
+            // 2. Mostra todos os itens
+            allItems.forEach(item => {
+                item.style.display = '';
+            });
+        }
     }
 
     if (searchButton) {
@@ -263,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (searchInput) {
-        // Pesquisa em tempo real
         searchInput.addEventListener('input', performSearch); 
     }
 });
