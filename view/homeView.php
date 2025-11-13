@@ -189,6 +189,17 @@
         <a href="#" class="sandwich-menu__item" data-translate="products" data-target="secao-produtos">Produtos</a>
         <a href="#" class="sandwich-menu__item" data-translate="subscriptions" data-target="home">Inscrições</a>
     </nav>
+    
+    <div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div class="vw-plugin-top-wrapper"></div>
+        </div>
+    </div>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+    <script>
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+    </script>
 
     <script src="src/main.js"></script>
     <script src="src/traducao.js"></script>

@@ -196,7 +196,7 @@ const translations = {
         
         // Hero Section
         'heroTitle': 'Transformez Votre Corps, Élevez Votre Esprit',
-        'heroSubtitle': 'La salle de sport la plus moderne de São Paulo. Équipements haut de gamme, instructeurs certifiés et resultados garantis.',
+        'heroSubtitle': 'La salle de sport la plus moderne de São Paulo. Équipements haut de gamme, instructeurs certifiés et résultats garantis.',
         'heroCta': 'Commencez Maintenant',
         
         // Activities Section
@@ -241,7 +241,7 @@ const translations = {
     'de': {
         'pageTitle': 'TECHFIT: Das Fitnessstudio, das Inspiriert | Pläne & Aktivitäten',
         // Header
-        'searchPlaceholder': 'Kurse, Pläne ou Produkte suchen',
+        'searchPlaceholder': 'Kurse, Pläne oder Produkte suchen',
         'loginTooltip': 'Auf Ihr Konto zugreifen',
         'registerTooltip': 'Neues Konto erstellen',
         'menuTooltip': 'Navigationsmenü öffnen',
@@ -609,58 +609,6 @@ const languageOptions = [
 let currentLanguage = localStorage.getItem('language') || 'pt'; // Padrão 'pt'
 
 /**
- * Gerencia o widget VLibras baseado no idioma atual
- * @param {string} lang - O código do idioma
- */
-function manageVLibras(lang) {
-    const vwContainer = document.querySelector('.vw-container');
-    const vlibrasWidget = document.querySelector('div[vw]');
-    
-    // Remove o widget existente se presente
-    if (vlibrasWidget) {
-        vlibrasWidget.remove();
-    }
-    
-    // Remove qualquer container do VLibras antigo
-    if (vwContainer) {
-        vwContainer.remove();
-    }
-    
-    // Só carrega o VLibras para português
-    if (lang === 'pt') {
-        // Cria o container do VLibras
-        const vwDiv = document.createElement('div');
-        vwDiv.className = 'vw-container';
-        vwDiv.innerHTML = `
-            <div vw class="enabled">
-                <div vw-access-button class="active"></div>
-                <div vw-plugin-wrapper>
-                    <div class="vw-plugin-top-wrapper"></div>
-                </div>
-            </div>
-        `;
-        
-        // Adiciona ao final do body
-        document.body.appendChild(vwDiv);
-        
-        // Recarrega o script do VLibras
-        const existingScript = document.querySelector('script[src="https://vlibras.gov.br/app/vlibras-plugin.js"]');
-        if (existingScript) {
-            existingScript.remove();
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://vlibras.gov.br/app/vlibras-plugin.js';
-        script.onload = function() {
-            if (window.VLibras) {
-                new window.VLibras.Widget('https://vlibras.gov.br/app');
-            }
-        };
-        document.body.appendChild(script);
-    }
-}
-
-/**
  * Aplica as traduções na página com base no idioma selecionado.
  * @param {string} lang - O código do idioma (ex: 'pt', 'en').
  */
@@ -745,7 +693,6 @@ function changeLanguage(lang) {
     }
     
     applyTranslations(lang);
-    manageVLibras(lang); // ← GERENCIA O VLIBRAS BASEADO NO IDIOMA
 }
 
 // Exporta a função para que o main.js possa usá-la
@@ -865,8 +812,7 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// APLICA A TRADUÇÃO E GERENCIA O VLIBRAS QUANDO A PÁGINA CARREGA
+// APLICA A TRADUÇÃO QUANDO A PÁGINA CARREGA
 document.addEventListener('DOMContentLoaded', () => {
     applyTranslations(currentLanguage);
-    manageVLibras(currentLanguage); // ← INICIALIZA O VLIBRAS NO CARREGAMENTO
 });
