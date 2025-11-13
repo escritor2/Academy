@@ -14,8 +14,8 @@
         <div class="cabecalho__logo-busca">
             
             <div class="logo">
-                <img src="img/logo-techfit-dark.png" alt="TechFit Logo" class="logo-dark">
-                <img src="img/logo-techfit-light.png" alt="TechFit Logo" class="logo-light">
+                <img src="img/logo-inicial.png" alt="TechFit Logo" class="logo-dark">
+                <img src="img/logo-inicial.png" alt="TechFit Logo" class="logo-light">
             </div>
 
             <div class="busca">
@@ -52,7 +52,8 @@
     </header>
 
     <main class="conteudo-principal">
-        <section class="hero">
+        
+        <section class="hero" id="secao-hero">
             <div class="hero__conteudo">
                 <h1 class="hero__titulo" data-translate="heroTitle">Transforme Seu Corpo, Eleve Sua Mente</h1>
                 <p class="hero__subtitulo" data-translate="heroSubtitle">A academia mais moderna de São Paulo. Equipamentos de ponta, instrutores certificados e resultados garantidos.</p>
@@ -60,7 +61,7 @@
             </div>
         </section>
 
-        <section class="secao-atividades">
+        <section class="secao-atividades" id="secao-atividades">
             <h2 class="secao__titulo" data-translate="featuredActivities">Atividades em Destaque</h2>
             
             <button class="carousel-button prev" data-carousel="atividades-carousel" aria-label="Anterior">‹</button>
@@ -71,38 +72,33 @@
                         <div class="atividade__conteudo"><img src="img/ex-funcional.png" alt="Treinamento Funcional"></div>
                         <button class="atividade__navegacao"></button>
                     </div>
-                    
                     <div class="atividade__item">
                         <h3 style="text-align:center" data-translate="yogaStretching">Yoga e Alongamento</h3><br>
                         <div class="atividade__conteudo"><img src="img/yoga.png" alt="Yoga e Alongamento"></div>
                         <button class="atividade__navegacao"></button>
                     </div>
-                    
                     <div class="atividade__item">
                         <h3 style="text-align:center" data-translate="swimmingHydro">Natação/Hidroginástica</h3><br>
                         <div class="atividade__conteudo"><img src="img/natacao.png" alt="Natação/Hidroginástica"></div>
                         <button class="atividade__navegacao"></button>
                     </div>
-                    
                     <div class="atividade__item">
                         <h3 style="text-align:center" data-translate="boxeFitness">Boxe Fitness</h3><br>
                         <div class="atividade__conteudo"><img src="img/boxe.png" alt="Boxe Fitness"></div>
                         <button class="atividade__navegacao"></button>
                     </div>
-                    
-                    </div>
+                </div>
             </div>
             <button class="carousel-button next" data-carousel="atividades-carousel" aria-label="Próximo">›</button>
             
         </section>
 
-        <section class="secao produtos">
+        <section class="secao produtos" id="secao-produtos">
             <h2 class="secao__titulo" data-translate="trainingProducts">Produtos para seu Treino</h2>
             
             <button class="carousel-button prev" data-carousel="produtos-carousel" aria-label="Anterior">‹</button>
             <div class="carousel-wrapper">
                 <div class="secao__lista" id="produtos-carousel">
-                    
                     <div class="produto__item">
                         <h3 style="text-align:center" data-translate="wheyProtein">Whey Protein</h3><br>
                         <div class="produto__imagem"><img src="img/whey.png" alt="Whey Protein"></div>
@@ -111,7 +107,6 @@
                             <p class="produto__preco">R$ 129,90</p>
                         </div>
                     </div>
-                    
                     <div class="produto__item">
                         <h3 style="text-align:center" data-translate="thermicBottle">Garrafa Térmica</h3><br>
                         <div class="produto__imagem"><img src="img/garrafa.png" alt="Garrafa Térmica"></div>
@@ -120,7 +115,6 @@
                             <p class="produto__preco">R$ 45,00</p>
                         </div>
                     </div>
-                    
                     <div class="produto__item">
                         <h3 style="text-align:center" data-translate="elasticKit">Kit Elásticos</h3><br>
                         <div class="produto__imagem"><img src="img/kit-elasticos.png" alt="Kit Elásticos"></div>
@@ -129,7 +123,6 @@
                             <p class="produto__preco">R$ 89,90</p>
                         </div>
                     </div>
-                    
                     <div class="produto__item">
                         <h3 style="text-align:center" data-translate="trainingGlove">Luva de Treino</h3><br>
                         <div class="produto__imagem"><img src="img/luvas.png" alt="Luva de Treino"></div>
@@ -138,8 +131,7 @@
                             <p class="produto__preco">R$ 55,00</p>
                         </div>
                     </div>
-                    
-                    </div>
+                </div>
             </div>
             <button class="carousel-button next" data-carousel="produtos-carousel" aria-label="Próximo">›</button>
 
@@ -191,11 +183,11 @@
     
     <div id="menu-overlay" class="overlay"></div>
     <nav id="sandwich-menu" class="sandwich-menu">
-        <a href="#" class="sandwich-menu__item" data-translate="home">Home</a>
-        <a href="#" class="sandwich-menu__item" data-translate="plans">Planos</a>
-        <a href="#" class="sandwich-menu__item" data-translate="classes">Aulas</a>
-        <a href="#" class="sandwich-menu__item" data-translate="products">Produtos</a>
-        <a href="#" class="sandwich-menu__item" data-translate="subscriptions">Inscrições</a>
+        <a href="#" class="sandwich-menu__item" data-translate="home" data-target="home">Home</a>
+        <a href="#" class="sandwich-menu__item" data-translate="plans" data-target="home">Planos</a>
+        <a href="#" class="sandwich-menu__item" data-translate="classes" data-target="secao-atividades">Aulas</a>
+        <a href="#" class="sandwich-menu__item" data-translate="products" data-target="secao-produtos">Produtos</a>
+        <a href="#" class="sandwich-menu__item" data-translate="subscriptions" data-target="home">Inscrições</a>
     </nav>
     
     <div vw class="enabled">

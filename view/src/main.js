@@ -146,7 +146,7 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
 // --- FIM DO SCRIPT DE TEMA ---
 
 
-// --- NOVO SCRIPT DO CARROSSEL ---
+// --- SCRIPT DO CARROSSEL ---
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.carousel-button');
 
@@ -158,13 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (carouselList) {
                 const carouselWrapper = carouselList.parentElement;
                 
-                // Calcula o quanto rolar
-                // Pega o primeiro item do carrossel para saber a largura
                 const firstItem = carouselList.querySelector('.atividade__item, .produto__item');
                 if (!firstItem) return;
 
-                // Largura do item + gap (2rem = 32px)
-                const scrollAmount = firstItem.offsetWidth + 32; 
+                const scrollAmount = firstItem.offsetWidth + 32; // Largura do item + gap (32px = 2rem)
                 const direction = button.classList.contains('prev') ? -1 : 1;
 
                 carouselWrapper.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
@@ -173,3 +170,101 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 // --- FIM DO SCRIPT DO CARROSSEL ---
+
+
+// --- NOVOS SCRIPTS DE NAVEGAÇÃO E PESQUISA ---
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // --- Elementos de Navegação ---
+    const navLinks = document.querySelectorAll('#sandwich-menu .sandwich-menu__item');
+    const mainSections = document.querySelectorAll('.conteudo-principal > section');
+    const allItems = document.querySelectorAll('.atividade__item, .produto__item');
+
+    // --- Elementos da Pesquisa ---
+    const searchButton = document.querySelector('.busca__botao');
+    const searchInput = document.querySelector('.busca__input');
+
+    // --- Função de Navegação ---
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault(); 
+            const targetId = link.dataset.target;
+
+            // 1. Esconde todas as seções
+            mainSections.forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // 2. Mostra todos os itens (para resetar qualquer pesquisa)
+            allItems.forEach(item => {
+                item.style.display = ''; // Reverte para o CSS padrão
+            });
+            
+            // 3. Mostra a(s) seção(ões) alvo
+            if (targetId === 'home') {
+                mainSections.forEach(section => {
+                    section.style.display = 'block';
+                });
+            } else if (targetId) {
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.style.display = 'block';
+                }
+            }
+            
+            toggleMenu(); // Fecha o menu
+        });
+    });
+
+    // --- Função de Pesquisa ---
+    function performSearch() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+
+        // 1. Mostra todas as seções para que a pesquisa funcione
+        mainSections.forEach(section => {
+            section.style.display = 'block';
+        });
+
+        // 2. Itera e filtra os itens
+        allItems.forEach(item => {
+            const titleElement = item.querySelector('h3');
+            if (titleElement) {
+                const title = titleElement.textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    item.style.display = ''; // Usa '' para reverter ao CSS original
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+        });
+
+        // 3. Esconde seções que ficaram vazias
+        mainSections.forEach(section => {
+            if (section.id === 'secao-hero') return; // Nunca esconde o Hero
+            
+            const allItemsInSection = section.querySelectorAll('.atividade__item, .produto__item');
+            if (allItemsInSection.length === 0) return; // Não faz nada se a seção não tiver itens
+
+            let allHidden = true;
+            allItemsInSection.forEach(item => {
+                if (item.style.display !== 'none') {
+                    allHidden = false; // Encontrou um item visível
+                }
+            });
+
+            if (allHidden) {
+                section.style.display = 'none'; // Esconde a seção
+            }
+        });
+    }
+
+    if (searchButton) {
+        searchButton.addEventListener('click', performSearch);
+    }
+    
+    if (searchInput) {
+        // Pesquisa em tempo real
+        searchInput.addEventListener('input', performSearch); 
+    }
+});
+// --- FIM DOS NOVOS SCRIPTS ---

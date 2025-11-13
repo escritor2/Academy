@@ -91,6 +91,19 @@ html[data-theme="light"] .produto__info {
 html[data-theme="light"] .produto__preco {
     color: var(--primary); 
 }
+
+/* --- CORREÇÃO BOTÃO CARROSSEL MODO CLARO --- */
+html[data-theme="light"] .carousel-button {
+    background: rgba(0, 0, 0, 0.1); /* Fundo escuro transparente */
+    color: var(--light); /* Usa a variável de texto escuro */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+html[data-theme="light"] .carousel-button:hover {
+    background: var(--primary);
+    color: #FFFFFF; /* Texto branco no hover */
+}
+/* --- FIM DA CORREÇÃO --- */
+
 html[data-theme="light"] .modal__conteudo {
     background: rgba(244, 247, 252, 0.98);
     border: 2px solid rgba(0, 0, 0, 0.1);
@@ -504,17 +517,16 @@ html[data-theme="light"] .logo .logo-dark {
     scroll-behavior: smooth; 
     scroll-snap-type: x mandatory; 
     
-    /* Esconde a barra de scroll */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE e Edge */
+    scrollbar-width: none; 
+    -ms-overflow-style: none; 
 }
 .carousel-wrapper::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none; 
 }
 
 .carousel-wrapper .secao__lista {
     display: flex;
-    flex-wrap: nowrap; /* Impede a quebra de linha */
+    flex-wrap: nowrap; 
     gap: 2rem;
     margin-bottom: 0; 
     padding-bottom: 1.5rem; 
@@ -523,7 +535,7 @@ html[data-theme="light"] .logo .logo-dark {
 .carousel-wrapper .atividade__item,
 .carousel-wrapper .produto__item {
     scroll-snap-align: start; 
-    flex: 0 0 300px; /* Largura fixa para cada item */
+    flex: 0 0 300px; 
 }
 
 .carousel-button {
