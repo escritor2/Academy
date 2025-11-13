@@ -1,4 +1,4 @@
-<!-- <?php
+<?php
 class Connect {
     static private $pdo;
     static public function connect(){
