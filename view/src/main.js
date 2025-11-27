@@ -104,8 +104,8 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// --- SCRIPT DE TEMA (LÓGICA SIMPLIFICADA) ---
-
+// --- SCRIPT DE TEMA ---
+    
 const themeSelect = document.getElementById('tema-select');
 const htmlEl = document.documentElement;
 

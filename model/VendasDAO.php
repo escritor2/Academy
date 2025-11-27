@@ -1,62 +1,92 @@
 <?php
 require_once __DIR__ . '/Venda.php';
+require_once __DIR__ . '/Connect.php';
 
 class VendasDAO {
-    private $vendas = [];
-    private $arquivo = 'Venda.json';
+    private $pdo;
 
     public function __construct() {
-        if (file_exists($this->arquivo)) {
-            $dados = file_get_contents($this->arquivo);
-            $vendasArray = json_decode($dados, true);
-            
-            if ($vendasArray) {
-                foreach ($vendasArray as $id => $info) {
-                    $this->vendas[$id] = new Venda(
-                        $info['produto'],
-                        $info['cliente'],
-                        $info['quantidade'],
-                        $info['valorTotal'],
-                        $info['data']
-                    );
-                }
-            }
-        }
+        $this->pdo = Connect::connect();
+        $this->criarTabelaSeNaoExistir();
     }
 
-    private function salvar() {
-        $dados = [];
-        foreach ($this->vendas as $id => $venda) {
-            $dados[$id] = [
-                'produto' => $venda->getProduto(),
-                'cliente' => $venda->getCliente(),
-                'quantidade' => $venda->getQuantidade(),
-                'valorTotal' => $venda->getValorTotal(),
-                'data' => $venda->getData()
-            ];
-        }
-        file_put_contents($this->arquivo, json_encode($dados, JSON_PRETTY_PRINT));
+    private function criarTabelaSeNaoExistir() {
+        $sql = "CREATE TABLE IF NOT EXISTS vendas (
+            id VARCHAR(20) PRIMARY KEY,
+            produto VARCHAR(100) NOT NULL,
+            cliente VARCHAR(100) NOT NULL,
+            quantidade INT NOT NULL,
+            valorTotal DECIMAL(10,2) NOT NULL,
+            data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $this->pdo->exec($sql);
     }
 
     public function criarVenda(Venda $venda) {
         $id = uniqid();
-        $venda->setId($id);
-        $this->vendas[$id] = $venda;
-        $this->salvar();
-        return $id;
+        $sql = "INSERT INTO vendas (id, produto, cliente, quantidade, valorTotal, data) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+        
+        try {
+            $stmt->execute([
+                $id,
+                $venda->getProduto(),
+                $venda->getCliente(),
+                $venda->getQuantidade(),
+                $venda->getValorTotal(),
+                $venda->getData()
+            ]);
+            return $id;
+        } catch (PDOException $e) {
+            return false;
+        }
     }
 
     public function lerVendas() {
-        return $this->vendas;
+        $sql = "SELECT * FROM vendas ORDER BY data DESC";
+        $stmt = $this->pdo->query($sql);
+        $vendas = [];
+        
+        while ($row = $stmt->fetch()) {
+            $venda = new Venda(
+                $row['produto'],
+                $row['cliente'],
+                $row['quantidade'],
+                $row['valorTotal'],
+                $row['data']
+            );
+            $venda->setId($row['id']);
+            $vendas[$row['id']] = $venda;
+        }
+        return $vendas;
     }
 
     public function buscarPorId($id) {
-        return isset($this->vendas[$id]) ? $this->vendas[$id] : null;
+        $sql = "SELECT * FROM vendas WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$id]);
+        
+        $row = $stmt->fetch();
+        if ($row) {
+            $venda = new Venda(
+                $row['produto'],
+                $row['cliente'],
+                $row['quantidade'],
+                $row['valorTotal'],
+                $row['data']
+            );
+            $venda->setId($row['id']);
+            return $venda;
+        }
+        return null;
     }
 
     public function excluirVenda($id) {
-        unset($this->vendas[$id]);
-        $this->salvar();
+        $sql = "DELETE FROM vendas WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        return $stmt->execute([$id]);
     }
 }
 ?>

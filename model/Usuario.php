@@ -5,7 +5,7 @@ class Usuario {
     private $senha;
     private $tipo;
 
-    public function __construct($nome, $email, $senha, $tipo = 'aluno') {
+    public function __construct($nome, $email, $senha, $tipo ='cliente') {
         $this->nome = $nome;
         $this->email = $email;
         $this->senha = $senha;

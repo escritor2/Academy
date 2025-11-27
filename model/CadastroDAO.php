@@ -1,60 +1,83 @@
 <?php
 require_once __DIR__ . '/Usuario.php';
+require_once __DIR__ . '/Connect.php';
 
 class CadastroDAO {
-    private $usuarios = [];
-    private $arquivo = 'Usuario.json';
+    private $pdo;
 
     public function __construct() {
-        if (file_exists($this->arquivo)) {
-            $dados = file_get_contents($this->arquivo);
-            $usuariosArray = json_decode($dados, true);
-            
-            if ($usuariosArray) {
-                foreach ($usuariosArray as $email => $info) {
-                    $this->usuarios[$email] = new Usuario(
-                        $info['nome'],
-                        $info['email'],
-                        $info['senha'],
-                        $info['tipo']
-                    );
-                }
-            }
-        }
+        $this->pdo = Connect::connect();
+        $this->criarTabelaSeNaoExistir();
     }
 
-    private function salvar() {
-        $dados = [];
-        foreach ($this->usuarios as $email => $usuario) {
-            $dados[$email] = [
-                'nome' => $usuario->getNome(),
-                'email' => $usuario->getEmail(),
-                'senha' => $usuario->getSenha(),
-                'tipo' => $usuario->getTipo()
-            ];
-        }
-        file_put_contents($this->arquivo, json_encode($dados, JSON_PRETTY_PRINT));
+    private function criarTabelaSeNaoExistir() {
+        $sql = "CREATE TABLE IF NOT EXISTS usuarios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(100) NOT NULL,
+            email VARCHAR(100) NOT NULL UNIQUE,
+            senha VARCHAR(255) NOT NULL,
+            tipo ENUM('aluno', 'admin', 'funcionario') DEFAULT 'aluno',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $this->pdo->exec($sql);
     }
 
     public function criarUsuario(Usuario $usuario) {
-        if (isset($this->usuarios[$usuario->getEmail()])) {
-            return false; // Usuário já existe
-        }
+        $sql = "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
         
-        $this->usuarios[$usuario->getEmail()] = $usuario;
-        $this->salvar();
-        return true;
+        try {
+            $stmt->execute([
+                $usuario->getNome(),
+                $usuario->getEmail(),
+                $usuario->getSenha(),
+                $usuario->getTipo()
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            return false;
+        }
     }
 
     public function autenticar($email, $senha) {
-        if (isset($this->usuarios[$email]) && $this->usuarios[$email]->getSenha() === $senha) {
-            return $this->usuarios[$email];
+        $sql = "SELECT * FROM usuarios WHERE email = ? AND senha = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$email, $senha]);
+        
+        $row = $stmt->fetch();
+        if ($row) {
+            return new Usuario($row['nome'], $row['email'], $row['senha'], $row['tipo']);
         }
         return false;
     }
 
     public function buscarPorEmail($email) {
-        return isset($this->usuarios[$email]) ? $this->usuarios[$email] : null;
+        $sql = "SELECT * FROM usuarios WHERE email = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$email]);
+        
+        $row = $stmt->fetch();
+        if ($row) {
+            return new Usuario($row['nome'], $row['email'], $row['senha'], $row['tipo']);
+        }
+        return null;
+    }
+
+    public function listarUsuarios() {
+        $sql = "SELECT * FROM usuarios";
+        $stmt = $this->pdo->query($sql);
+        $usuarios = [];
+        
+        while ($row = $stmt->fetch()) {
+            $usuarios[$row['email']] = new Usuario(
+                $row['nome'],
+                $row['email'],
+                $row['senha'],
+                $row['tipo']
+            );
+        }
+        return $usuarios;
     }
 }
 ?>

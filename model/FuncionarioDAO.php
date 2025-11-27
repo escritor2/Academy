@@ -1,62 +1,73 @@
 <?php
 require_once __DIR__ . '/Funcionario.php';
+require_once __DIR__ . '/Connect.php';
 
 class FuncionarioDAO {
-    private $funcionarios = [];
-    private $arquivo = 'Funcionario.json';
+    private $pdo;
 
     public function __construct() {
-        if (file_exists($this->arquivo)) {
-            $dados = file_get_contents($this->arquivo);
-            $funcionariosArray = json_decode($dados, true);
-            
-            if ($funcionariosArray) {
-                foreach ($funcionariosArray as $nome => $info) {
-                    $this->funcionarios[$nome] = new Funcionario(
-                        $info['nome'],
-                        $info['cargo'],
-                        $info['salario'],
-                        $info['email']
-                    );
-                }
-            }
-        }
+        $this->pdo = Connect::connect();
+        $this->criarTabelaSeNaoExistir();
     }
 
-    private function salvar() {
-        $dados = [];
-        foreach ($this->funcionarios as $nome => $funcionario) {
-            $dados[$nome] = [
-                'nome' => $funcionario->getNome(),
-                'cargo' => $funcionario->getCargo(),
-                'salario' => $funcionario->getSalario(),
-                'email' => $funcionario->getEmail()
-            ];
-        }
-        file_put_contents($this->arquivo, json_encode($dados, JSON_PRETTY_PRINT));
+    private function criarTabelaSeNaoExistir() {
+        $sql = "CREATE TABLE IF NOT EXISTS funcionarios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(100) NOT NULL UNIQUE,
+            cargo VARCHAR(50) NOT NULL,
+            salario DECIMAL(10,2) NOT NULL,
+            email VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $this->pdo->exec($sql);
     }
 
     public function criarFuncionario(Funcionario $funcionario) {
-        $this->funcionarios[$funcionario->getNome()] = $funcionario;
-        $this->salvar();
-    }
-
-    public function lerFuncionarios() {
-        return $this->funcionarios;
-    }
-
-    public function atualizarFuncionario($nome, $cargo, $salario, $email) {
-        if (isset($this->funcionarios[$nome])) {
-            $this->funcionarios[$nome]->setCargo($cargo);
-            $this->funcionarios[$nome]->setSalario($salario);
-            $this->funcionarios[$nome]->setEmail($email);
-            $this->salvar();
+        $sql = "INSERT INTO funcionarios (nome, cargo, salario, email) VALUES (?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+        
+        try {
+            $stmt->execute([
+                $funcionario->getNome(),
+                $funcionario->getCargo(),
+                $funcionario->getSalario(),
+                $funcionario->getEmail()
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            return false;
         }
     }
 
+    public function lerFuncionarios() {
+        $sql = "SELECT * FROM funcionarios";
+        $stmt = $this->pdo->query($sql);
+        $funcionarios = [];
+        
+        while ($row = $stmt->fetch()) {
+            $funcionarios[$row['nome']] = new Funcionario(
+                $row['nome'],
+                $row['cargo'],
+                $row['salario'],
+                $row['email']
+            );
+        }
+        return $funcionarios;
+    }
+
+    public function atualizarFuncionario($nome, $cargo, $salario, $email) {
+        $sql = "UPDATE funcionarios SET cargo = ?, salario = ?, email = ? WHERE nome = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        return $stmt->execute([$cargo, $salario, $email, $nome]);
+    }
+
     public function excluirFuncionario($nome) {
-        unset($this->funcionarios[$nome]);
-        $this->salvar();
+        $sql = "DELETE FROM funcionarios WHERE nome = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        return $stmt->execute([$nome]);
     }
 }
 ?>

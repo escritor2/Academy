@@ -1,67 +1,89 @@
 <?php
 require_once __DIR__ . '/Aluno.php';
+require_once __DIR__ . '/Connect.php';
 
 class AlunoDAO {
-    private $alunoArray = [];   
-    private $alunoJson = 'Aluno.json';
+    private $pdo;
 
     public function __construct() {
-        if (file_exists($this->alunoJson)) {
-            $conteudoAluno = file_get_contents($this->alunoJson);
-            $dadosAlunoEmArray = json_decode($conteudoAluno, true);
-
-            if ($dadosAlunoEmArray) {
-                foreach ($dadosAlunoEmArray as $nome => $info) {
-                    $this->alunoArray[$nome] = new Aluno(
-                        $info['nome'],
-                        $info['idade'],
-                        $info['cpf'],
-                        $info['matricula']
-                    );
-                }
-            }
-        }
+        $this->pdo = Connect::connect();
+        $this->criarTabelaSeNaoExistir();
     }
 
-    private function salvarAluno() {
-        $dadosParaSalvar = [];
-
-        foreach ($this->alunoArray as $nome => $aluno) {
-            $dadosParaSalvar[$nome] = [
-                'nome' => $aluno->getNome(),
-                'idade' => $aluno->getIdade(),
-                'cpf' => $aluno->getCpf(),
-                'matricula' => $aluno->getMatricula()
-            ];
-        }
-        file_put_contents($this->alunoJson, json_encode($dadosParaSalvar, JSON_PRETTY_PRINT));
+    private function criarTabelaSeNaoExistir() {
+        $sql = "CREATE TABLE IF NOT EXISTS alunos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(100) NOT NULL UNIQUE,
+            idade INT NOT NULL,
+            cpf VARCHAR(14) NOT NULL UNIQUE,
+            matricula VARCHAR(20) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $this->pdo->exec($sql);
     }
 
-    // Create
+
     public function criarAluno(Aluno $aluno) {
-        $this->alunoArray[$aluno->getNome()] = $aluno;
-        $this->salvarAluno();
-    }
-
-    // Read
-    public function lerAluno() {
-        return $this->alunoArray;
-    }
-
-    // Update
-    public function atualizarAluno($nome, $idade, $cpf, $matricula) {
-        if (isset($this->alunoArray[$nome])) {
-            $this->alunoArray[$nome]->setIdade($idade);
-            $this->alunoArray[$nome]->setCpf($cpf);
-            $this->alunoArray[$nome]->setMatricula($matricula);
+        $sql = "INSERT INTO alunos (nome, idade, cpf, matricula) VALUES (?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+        
+        try {
+            $stmt->execute([
+                $aluno->getNome(),
+                $aluno->getIdade(),
+                $aluno->getCpf(),
+                $aluno->getMatricula()
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            return false;
         }
-        $this->salvarAluno();
     }
 
-    // Delete
+  
+    public function lerAluno() {
+        $sql = "SELECT * FROM alunos";
+        $stmt = $this->pdo->query($sql);
+        $alunos = [];
+        
+        while ($row = $stmt->fetch()) {
+            $alunos[$row['nome']] = new Aluno(
+                $row['nome'],
+                $row['idade'],
+                $row['cpf'],
+                $row['matricula']
+            );
+        }
+        return $alunos;
+    }
+
+
+    public function atualizarAluno($nome, $idade, $cpf, $matricula) {
+        $sql = "UPDATE alunos SET idade = ?, cpf = ?, matricula = ? WHERE nome = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        return $stmt->execute([$idade, $cpf, $matricula, $nome]);
+    }
+
     public function excluirAluno($nome) {
-        unset($this->alunoArray[$nome]);
-        $this->salvarAluno();
+        $sql = "DELETE FROM alunos WHERE nome = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        return $stmt->execute([$nome]);
+    }
+
+
+    public function buscarPorNome($nome) {
+        $sql = "SELECT * FROM alunos WHERE nome = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$nome]);
+        
+        $row = $stmt->fetch();
+        if ($row) {
+            return new Aluno($row['nome'], $row['idade'], $row['cpf'], $row['matricula']);
+        }
+        return null;
     }
 }
 ?>

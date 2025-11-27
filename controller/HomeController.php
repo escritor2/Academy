@@ -1,4 +1,4 @@
 <?php
 function homeController(){
-    render("homeView", "tEcHfIt");
+    render("homeView", "Página Inicial");
 }

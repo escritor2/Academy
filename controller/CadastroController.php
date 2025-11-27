@@ -9,8 +9,20 @@ class CadastroController {
         $this->dao = new CadastroDAO();
     }
 
-    public function criarUsuario($nome, $email, $senha, $tipo) {
+    public function criarUsuario($cpf, $nome, $email, $senha, $tipo='cliente') {
         $usuario = new Usuario($nome, $email, $senha, $tipo);
+        switch ($tipo) {
+            °
+            case 'cliente':
+                $aluno = new Aluno($nome,null,$cpf, "2025.$cpf");
+                break;
+            case 'instrutor':
+                $usuario->setTipo('instrutor');
+                break;
+            default:
+                $usuario->setTipo('cliente');
+                break;
+        }
         return $this->dao->criarUsuario($usuario);
     }
 
