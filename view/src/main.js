@@ -1,19 +1,33 @@
-// --- SCRIPT DO MENU SANDUÍCHE ---
-const btnSandwich = document.getElementById('btn-sandwich');
-const sandwichMenu = document.getElementById('sandwich-menu');
-const menuOverlay = document.getElementById('menu-overlay');
+// --- SCRIPT DO MENU SANDUÍCHE (CORRIGIDO) ---
+document.addEventListener('DOMContentLoaded', function() {
+    const btnSandwich = document.getElementById('btn-sandwich');
+    const sandwichMenu = document.getElementById('sandwich-menu');
+    const menuOverlay = document.getElementById('menu-overlay');
 
-function toggleMenu() {
-    sandwichMenu.classList.toggle('ativo');
-    menuOverlay.classList.toggle('ativo');
-}
+    function toggleMenu() {
+        const isActive = sandwichMenu.classList.contains('ativo');
+        sandwichMenu.classList.toggle('ativo');
+        menuOverlay.classList.toggle('ativo');
+        
+        // Previne scroll do body quando menu está aberto
+        document.body.style.overflow = isActive ? 'auto' : 'hidden';
+    }
 
-if (btnSandwich && sandwichMenu && menuOverlay) {
-    btnSandwich.addEventListener('click', toggleMenu);
-    menuOverlay.addEventListener('click', toggleMenu);
-}
+    if (btnSandwich && sandwichMenu && menuOverlay) {
+        btnSandwich.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleMenu();
+        });
+        
+        menuOverlay.addEventListener('click', toggleMenu);
+        
+        // Fecha menu ao clicar em um item
+        document.querySelectorAll('.sandwich-menu__item').forEach(item => {
+            item.addEventListener('click', toggleMenu);
+        });
+    }
+});
 // --- FIM DO SCRIPT DO MENU ---
-
 
 // Modal
 const modal = document.getElementById('modal-auth');
@@ -105,7 +119,6 @@ window.addEventListener('scroll', () => {
 });
 
 // --- SCRIPT DE TEMA ---
-    
 const themeSelect = document.getElementById('tema-select');
 const htmlEl = document.documentElement;
 
@@ -145,7 +158,6 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
 })();
 // --- FIM DO SCRIPT DE TEMA ---
 
-
 // --- SCRIPT DO CARROSSEL ---
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.carousel-button');
@@ -158,10 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (carouselList) {
                 const carouselWrapper = carouselList.parentElement;
                 
+                // Calcula o quanto rolar
                 const firstItem = carouselList.querySelector('.atividade__item, .produto__item');
                 if (!firstItem) return;
 
-                const scrollAmount = firstItem.offsetWidth + 32; // Largura do item + gap (32px = 2rem)
+                const scrollAmount = firstItem.offsetWidth + 32; 
                 const direction = button.classList.contains('prev') ? -1 : 1;
 
                 carouselWrapper.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
@@ -171,133 +184,179 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // --- FIM DO SCRIPT DO CARROSSEL ---
 
-
-// --- NOVOS SCRIPTS DE NAVEGAÇÃO E PESQUISA (COM CORREÇÃO) ---
-document.addEventListener('DOMContentLoaded', () => {
+// --- EFEITOS PREMIUM MELHORADOS ---
+document.addEventListener('DOMContentLoaded', function() {
+    // Sistema de partículas para cards
+    const cards = document.querySelectorAll('.produto__item, .atividade__item');
     
-    // --- Elementos de Navegação ---
-    const navLinks = document.querySelectorAll('#sandwich-menu .sandwich-menu__item');
-    const mainSections = document.querySelectorAll('.conteudo-principal > section');
-    const allItems = document.querySelectorAll('.atividade__item, .produto__item');
-
-    // --- Elementos da Pesquisa ---
-    const searchButton = document.querySelector('.busca__botao');
-    const searchInput = document.querySelector('.busca__input');
-    const heroSection = document.getElementById('secao-hero'); // Pega o Hero
-
-    // --- Função de Navegação ---
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault(); 
-            const targetId = link.dataset.target;
-
-            // 1. Esconde todas as seções
-            mainSections.forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // 2. Mostra todos os itens (para resetar qualquer pesquisa)
-            allItems.forEach(item => {
-                item.style.display = ''; // Reverte para o CSS padrão
-            });
-            
-            // 3. Mostra a(s) seção(ões) alvo
-            if (targetId === 'home') {
-                mainSections.forEach(section => {
-                    section.style.display = 'block';
-                });
-
-                // --- !! CORREÇÃO ADICIONADA AQUI !! ---
-                // Limpa a barra de pesquisa para resetar o estado.
-                if (searchInput) {
-                    searchInput.value = ""; 
-                }
-                // --- FIM DA CORREÇÃO ---
-
-            } else if (targetId) {
-                const targetSection = document.getElementById(targetId);
-                if (targetSection) {
-                    targetSection.style.display = 'block';
-                }
-            }
-            
-            toggleMenu(); // Fecha o menu
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function(e) {
+            createCardParticles(e, this);
         });
+        
+        // Adiciona scanner
+        const scanner = document.createElement('div');
+        scanner.className = 'scanner';
+        this.appendChild(scanner);
     });
-
-    // --- Função de Pesquisa (MODIFICADA) ---
-    function performSearch() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-
-        if (searchTerm.length > 0) {
-            // --- ESTAMOS A PESQUISAR ---
+    
+    function createCardParticles(e, element) {
+        const particles = 12;
+        const rect = element.getBoundingClientRect();
+        
+        for (let i = 0; i < particles; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
             
-            // 1. Esconde o Hero
-            if (heroSection) {
-                heroSection.style.display = 'none';
-            }
-
-            // 2. Mostra as secções de conteúdo (atividades, produtos)
-            mainSections.forEach(section => {
-                if (section.id !== 'secao-hero') { // Não mexe no hero aqui
-                    section.style.display = 'block';
-                }
-            });
-
-            // 3. Itera e filtra os itens
-            allItems.forEach(item => {
-                const titleElement = item.querySelector('h3');
-                if (titleElement) {
-                    const title = titleElement.textContent.toLowerCase();
-                    if (title.includes(searchTerm)) {
-                        item.style.display = ''; // Mostra
-                    } else {
-                        item.style.display = 'none'; // Esconde
-                    }
-                }
-            });
-
-            // 4. Esconde secções que ficaram vazias
-            mainSections.forEach(section => {
-                if (section.id === 'secao-hero') return; // Ignora o hero
-                
-                const allItemsInSection = section.querySelectorAll('.atividade__item, .produto__item');
-                if (allItemsInSection.length === 0) return; 
-
-                let allHidden = true;
-                allItemsInSection.forEach(item => {
-                    if (item.style.display !== 'none') {
-                        allHidden = false; 
-                    }
-                });
-
-                if (allHidden) {
-                    section.style.display = 'none'; 
-                }
-            });
-
-        } else {
-            // --- PESQUISA LIMPA ---
-            // Reseta a página (mostra tudo)
+            // Posição aleatória dentro do card
+            const x = Math.random() * rect.width;
+            const y = Math.random() * rect.height;
             
-            // 1. Mostra todas as seções
-            mainSections.forEach(section => {
-                section.style.display = 'block';
-            });
-
-            // 2. Mostra todos os itens
-            allItems.forEach(item => {
-                item.style.display = '';
-            });
+            // Velocidade e direção aleatórias
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 2;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            
+            // Tamanho e cor aleatórios
+            const size = 2 + Math.random() * 4;
+            const hue = 15 + Math.random() * 30; // Tons laranja
+            const saturation = 80 + Math.random() * 20;
+            const lightness = 50 + Math.random() * 20;
+            
+            particle.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                background: hsl(${hue}, ${saturation}%, ${lightness}%);
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 10000;
+                left: ${x}px;
+                top: ${y}px;
+                --tx: ${vx};
+                --ty: ${vy};
+                animation: particleExplosion 1.2s ease-out forwards;
+                box-shadow: 0 0 10px hsl(${hue}, ${saturation}%, ${lightness}%);
+            `;
+            
+            element.appendChild(particle);
+            
+            setTimeout(() => {
+                if (particle.parentNode) {
+                    particle.remove();
+                }
+            }, 1200);
         }
     }
-
-    if (searchButton) {
-        searchButton.addEventListener('click', performSearch);
+    
+    // Efeito de ripple nos botões
+    const buttons = document.querySelectorAll('.utilitario__botao, .utilitario__link, .hero__cta, .form__botao--submit');
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            createRipple(e, this);
+        });
+    });
+    
+    function createRipple(e, element) {
+        const ripple = document.createElement('div');
+        const rect = element.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top - size / 2;
+        
+        ripple.style.cssText = `
+            position: absolute;
+            width: ${size}px;
+            height: ${size}px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            left: ${x}px;
+            top: ${y}px;
+            transform: scale(0);
+            animation: ripple 0.6s ease-out forwards;
+        `;
+        
+        element.style.position = 'relative';
+        element.style.overflow = 'hidden';
+        element.appendChild(ripple);
+        
+        setTimeout(() => {
+            ripple.remove();
+        }, 600);
     }
     
-    if (searchInput) {
-        searchInput.addEventListener('input', performSearch); 
+    // Efeito de digitação para o hero
+    const heroTitle = document.querySelector('.hero__titulo');
+    if (heroTitle) {
+        // Remove a animação de digitação após completar
+        setTimeout(() => {
+            heroTitle.style.animation = 'glow 2s ease-in-out infinite alternate';
+            heroTitle.style.borderRight = 'none';
+        }, 3500);
     }
+    
+    // Efeito parallax suave no hero
+    window.addEventListener('scroll', function() {
+        const scrolled = window.pageYOffset;
+        const hero = document.querySelector('.hero');
+        if (hero) {
+            hero.style.transform = `translateY(${scrolled * 0.5}px)`;
+        }
+    });
+    
+    // Intersection Observer para animação dos cards
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    // Observa todos os cards
+    document.querySelectorAll('.produto__item, .atividade__item').forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(card);
+    });
 });
-// --- FIM DOS NOVOS SCRIPTS ---
+
+// Adiciona estilos CSS para os novos efeitos
+const premiumStyles = document.createElement('style');
+premiumStyles.textContent = `
+    @keyframes ripple {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+    
+    .produto__item, .atividade__item {
+        transform-style: preserve-3d;
+        perspective: 1000px;
+    }
+    
+    .produto__conteudo, .atividade__conteudo {
+        transform: translateZ(20px);
+    }
+    
+    /* Efeito de loading para imagens */
+    .produto__imagem img, .atividade__imagem img {
+        transition: filter 0.3s ease;
+    }
+    
+    .produto__imagem img.loading, .atividade__imagem img.loading {
+        filter: blur(10px);
+    }
+`;
+document.head.appendChild(premiumStyles);

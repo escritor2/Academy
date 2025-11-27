@@ -4,64 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TechFit - Painel Completo</title>
-    
-    <!-- Bibliotecas Externas 
-      -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        
-        /* Animações de Transição de Abas */
-        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Estilos da Agenda */
-        .calendar-day { min-height: 100px; cursor: pointer; transition: all 0.2s; }
-        .calendar-day:hover { background-color: rgba(255, 255, 255, 0.05); }
-        .calendar-day.selected { border: 2px solid #f97316; background-color: rgba(249, 115, 22, 0.1); }
-        .calendar-day.today { background-color: rgba(249, 115, 22, 0.15); border: 2px solid #f97316; }
-        
-        /* Scrollbar Personalizada */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
-
-        /* Notificação Toast (Pop-up de sucesso) */
-        #toast-container {
-            position: fixed; bottom: 20px; right: 20px; z-index: 50;
-            transform: translateY(100px); opacity: 0;
-            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-        }
-        #toast-container.show { transform: translateY(0); opacity: 1; }
-
-        /* Animação do Botão Timer */
-        .timer-btn.active {
-            background-color: #f97316; color: white; border-color: #f97316;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-        /* Animação do Cronômetro Global Ativo */
-        .global-timer-active {
-            color: #4ade80; /* Verde neon */
-            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
-        }
-    </style>
 </head>
 <body class="bg-gray-900 text-white overflow-hidden h-screen flex">
-
     <!-- Elementos Ocultos para o Picture-in-Picture (PiP) -->
     <canvas id="pip-canvas" width="400" height="300" style="display: none;"></canvas>
-    <!-- Importante: opacity 0.01 para garantir que o browser renderize, mas invisível -->
     <video id="pip-video" muted autoplay playsinline loop style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none;"></video>
 
     <!-- Notificação Flutuante (Toast) -->
-    <div id="toast-container" class="bg-green-600 text-white px-6 py-4 rounded-lg shadow-xl flex items-center">
+    <div id="toast-container" class="toast-container">
         <i data-lucide="check-circle" class="w-6 h-6 mr-3"></i>
         <div>
             <h4 class="font-bold">Sucesso!</h4>
@@ -70,34 +23,34 @@
     </div>
 
     <!-- BARRA LATERAL (Sidebar) -->
-    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col z-20 hidden md:flex">
-        <div class="h-20 flex items-center justify-center border-b border-gray-700">
+    <aside class="sidebar">
+        <div class="sidebar-header">
             <h1 class="text-2xl font-bold italic tracking-tighter">Tech<span class="text-orange-500">Fit</span></h1>
         </div>
 
-        <nav class="flex-1 px-4 py-6 space-y-2">
-            <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu Principal</p>
+        <nav class="sidebar-nav">
+            <p class="nav-title">Menu Principal</p>
             
-            <button onclick="app.nav.switchTab('treinos')" id="btn-treinos" class="nav-item w-full flex items-center px-4 py-3 bg-orange-600 text-white rounded-lg transition-all group">
+            <button onclick="app.nav.switchTab('treinos')" id="btn-treinos" class="nav-item active">
                 <i data-lucide="dumbbell" class="w-5 h-5 mr-3"></i> Meus Treinos
             </button>
             
-            <button onclick="app.nav.switchTab('agenda')" id="btn-agenda" class="nav-item w-full flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 hover:text-white rounded-lg transition-all group">
+            <button onclick="app.nav.switchTab('agenda')" id="btn-agenda" class="nav-item">
                 <i data-lucide="calendar" class="w-5 h-5 mr-3"></i> Agenda
             </button>
             
-            <button onclick="app.nav.switchTab('dieta')" id="btn-dieta" class="nav-item w-full flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 hover:text-white rounded-lg transition-all group">
+            <button onclick="app.nav.switchTab('dieta')" id="btn-dieta" class="nav-item">
                 <i data-lucide="utensils" class="w-5 h-5 mr-3"></i> Dieta
             </button>
             
-            <button onclick="app.nav.switchTab('perfil')" id="btn-perfil" class="nav-item w-full flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 hover:text-white rounded-lg transition-all group">
+            <button onclick="app.nav.switchTab('perfil')" id="btn-perfil" class="nav-item">
                 <i data-lucide="user" class="w-5 h-5 mr-3"></i> Perfil
             </button>
         </nav>
         
-        <div class="p-4 border-t border-gray-700 flex items-center">
-            <div class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center font-bold">CS</div>
-            <div class="ml-3">
+        <div class="sidebar-footer">
+            <div class="user-avatar">CS</div>
+            <div class="user-info">
                 <p class="text-sm font-medium">Carlos Silva</p>
                 <p class="text-xs text-gray-400">Aluno Premium</p>
             </div>
@@ -105,36 +58,32 @@
     </aside>
 
     <!-- CONTEÚDO PRINCIPAL -->
-    <main class="flex-1 overflow-y-auto bg-gray-900 relative">
-
+    <main class="main-content">
         <!-- ================= SECÇÃO: TREINOS ================= -->
-        <div id="view-treinos" class="view-section active p-8">
-            <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div id="view-treinos" class="view-section active">
+            <header class="section-header">
                 <div>
                     <h2 class="text-3xl font-bold">Meus Treinos</h2>
                     <p class="text-gray-400">Gerencie sua ficha e tempo de execução</p>
                 </div>
                 
                 <!-- CRONÔMETRO GLOBAL -->
-                <div class="flex items-center bg-gray-800 rounded-xl p-3 border border-gray-700 shadow-lg w-full md:w-auto justify-between md:justify-start">
-                    <div class="flex flex-col mr-6">
-                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Tempo Total</span>
-                        <div id="global-timer" class="font-mono text-3xl font-bold text-white transition-colors">00:00:00</div>
+                <div class="global-timer">
+                    <div class="timer-info">
+                        <span class="timer-label">Tempo Total</span>
+                        <div id="global-timer" class="timer-display">00:00:00</div>
                     </div>
                     
-                    <div class="flex items-center gap-2">
-                        <!-- Botão Play/Pause -->
-                        <button onclick="app.workouts.toggleGlobalTimer()" id="btn-global-play" class="h-12 w-12 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center transition shadow-lg shadow-green-900/30">
+                    <div class="timer-controls">
+                        <button onclick="app.workouts.toggleGlobalTimer()" id="btn-global-play" class="timer-btn play-btn">
                             <i data-lucide="play" class="w-6 h-6 fill-current"></i>
                         </button>
                         
-                        <!-- Botão Stop/Finish -->
-                        <button onclick="app.workouts.finishGlobalTimer()" id="btn-global-stop" class="h-12 w-12 rounded-full bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white flex items-center justify-center transition group" title="Finalizar Treino">
+                        <button onclick="app.workouts.finishGlobalTimer()" id="btn-global-stop" class="timer-btn stop-btn" title="Finalizar Treino">
                             <i data-lucide="square" class="w-5 h-5 fill-current"></i>
                         </button>
 
-                         <!-- Botão Mini Player (PiP) -->
-                         <button onclick="app.workouts.togglePiP()" class="h-12 w-12 rounded-full bg-gray-700 hover:bg-blue-600 text-gray-400 hover:text-white flex items-center justify-center transition group ml-2" title="Modo Mini Player (Fundo)">
+                         <button onclick="app.workouts.togglePiP()" class="timer-btn pip-btn" title="Modo Mini Player (Fundo)">
                             <i data-lucide="picture-in-picture-2" class="w-5 h-5 fill-current"></i>
                         </button>
                     </div>
@@ -142,55 +91,92 @@
             </header>
 
             <!-- Abas de Seleção de Treino (A, B, C) -->
-            <div class="flex space-x-4 mb-6 border-b border-gray-700 pb-1 overflow-x-auto">
-                <button onclick="app.workouts.renderList('A', this)" class="workout-tab whitespace-nowrap px-6 py-2 border-b-2 border-orange-500 text-orange-500 font-bold transition">Treino A (Peito)</button>
-                <button onclick="app.workouts.renderList('B', this)" class="workout-tab whitespace-nowrap px-6 py-2 text-gray-400 hover:text-white transition">Treino B (Costas)</button>
-                <button onclick="app.workouts.renderList('C', this)" class="workout-tab whitespace-nowrap px-6 py-2 text-gray-400 hover:text-white transition">Treino C (Pernas)</button>
+            <div class="workout-tabs">
+                <button onclick="app.workouts.renderList('A', this)" class="workout-tab active">Treino A (Peito)</button>
+                <button onclick="app.workouts.renderList('B', this)" class="workout-tab">Treino B (Costas)</button>
+                <button onclick="app.workouts.renderList('C', this)" class="workout-tab">Treino C (Pernas)</button>
+            </div>
+
+            <!-- Botões de Organização -->
+            <div class="organization-controls">
+                <button onclick="app.workouts.openManualOrganization()" class="org-btn manual-btn">
+                    <i data-lucide="edit-3" class="w-4 h-4 mr-2"></i> Organizar Manualmente
+                </button>
+                <button onclick="app.workouts.openAutoOrganization()" class="org-btn auto-btn">
+                    <i data-lucide="zap" class="w-4 h-4 mr-2"></i> Organização Automática
+                </button>
             </div>
 
             <!-- Lista de Exercícios (Preenchida via JS) -->
-            <div class="space-y-4 pb-12" id="exercise-list-container">
+            <div class="exercise-list" id="exercise-list-container">
                 <!-- O JavaScript vai injetar os exercícios aqui -->
             </div>
         </div>
 
         <!-- ================= SECÇÃO: AGENDA ================= -->
-        <div id="view-agenda" class="view-section p-8">
-            <header class="flex justify-between items-center mb-8">
+        <div id="view-agenda" class="view-section">
+            <header class="section-header">
                 <h2 class="text-3xl font-bold">Agenda de Frequência</h2>
-                <div class="flex items-center space-x-2 bg-gray-800 rounded-lg p-1">
-                    <button onclick="app.agenda.changeMonth(-1)" class="p-2 hover:bg-gray-700 rounded text-gray-400 hover:text-white"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                    <span id="current-month-display" class="px-4 font-bold text-white min-w-[150px] text-center">Carregando...</span>
-                    <button onclick="app.agenda.changeMonth(1)" class="p-2 hover:bg-gray-700 rounded text-gray-400 hover:text-white"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                <div class="month-controls">
+                    <button onclick="app.agenda.changeMonth(-1)" class="month-btn">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <span id="current-month-display" class="month-display">Carregando...</span>
+                    <button onclick="app.agenda.changeMonth(1)" class="month-btn">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="agenda-grid">
                 <!-- Estatísticas -->
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 text-center">
-                        <div class="inline-block p-4 rounded-full bg-green-500/10 text-green-500 mb-4">
+                <div class="agenda-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon trophy">
                             <i data-lucide="trophy" class="w-8 h-8"></i>
                         </div>
-                        <h3 class="text-3xl font-bold text-white">18</h3>
-                        <p class="text-gray-400">Treinos este mês</p>
+                        <h3 class="stat-value" id="completed-workouts">0</h3>
+                        <p class="stat-label">Treinos concluídos</p>
                     </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon scheduled">
+                            <i data-lucide="calendar" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="stat-value" id="scheduled-workouts">0</h3>
+                        <p class="stat-label">Treinos programados</p>
+                    </div>
+                    
                     <!-- Legenda -->
-                    <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+                    <div class="legend-card">
                         <h4 class="font-bold mb-4">Legenda</h4>
-                        <div class="space-y-2 text-sm text-gray-300">
-                            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-orange-500/20 border border-orange-500 mr-3"></div>Hoje</div>
-                            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-fuchsia-600 mr-3"></div>Selecionado</div>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <div class="legend-color today"></div>
+                                <span>Hoje</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color selected"></div>
+                                <span>Selecionado</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color workout-scheduled"></div>
+                                <span>Treino Programado</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color workout-completed"></div>
+                                <span>Treino Concluído</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Calendário Interativo Real -->
-                <div class="lg:col-span-3 bg-gray-800 rounded-2xl border border-gray-700 p-6">
-                    <div class="grid grid-cols-7 mb-4 border-b border-gray-700 pb-4 text-center text-gray-500 text-sm font-semibold">
+                <div class="calendar-container">
+                    <div class="calendar-header">
                         <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
                     </div>
-                    <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                    <div id="calendar-grid" class="calendar-grid">
                         <!-- Os dias serão gerados aqui pelo Javascript -->
                     </div>
                 </div>
@@ -198,101 +184,102 @@
         </div>
 
         <!-- ================= SECÇÃO: DIETA ================= -->
-        <div id="view-dieta" class="view-section p-8">
-            <h2 class="text-3xl font-bold mb-6">Dieta & Macros</h2>
+        <div id="view-dieta" class="view-section">
+            <h2 class="section-title">Dieta & Macros</h2>
             
             <!-- Barras de Macros Dinâmicas -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="macros-grid">
                 <!-- Proteína -->
-                <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 relative overflow-hidden">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-gray-400">Proteínas</span>
-                        <span class="text-xl font-bold text-blue-400"><span id="val-prot">0</span>g <span class="text-xs text-gray-500">/ 180g</span></span>
+                <div class="macro-card">
+                    <div class="macro-header">
+                        <span class="macro-label">Proteínas</span>
+                        <span class="macro-value"><span id="val-prot">0</span>g <span class="macro-goal">/ 180g</span></span>
                     </div>
-                    <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                        <div id="bar-prot" class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="macro-bar">
+                        <div id="bar-prot" class="macro-progress protein"></div>
                     </div>
                 </div>
 
                 <!-- Carboidratos -->
-                <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 relative overflow-hidden">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-gray-400">Carboidratos</span>
-                        <span class="text-xl font-bold text-orange-400"><span id="val-carb">0</span>g <span class="text-xs text-gray-500">/ 250g</span></span>
+                <div class="macro-card">
+                    <div class="macro-header">
+                        <span class="macro-label">Carboidratos</span>
+                        <span class="macro-value"><span id="val-carb">0</span>g <span class="macro-goal">/ 250g</span></span>
                     </div>
-                    <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                        <div id="bar-carb" class="bg-orange-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="macro-bar">
+                        <div id="bar-carb" class="macro-progress carb"></div>
                     </div>
                 </div>
 
                 <!-- Gorduras -->
-                <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 relative overflow-hidden">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-gray-400">Gorduras</span>
-                        <span class="text-xl font-bold text-yellow-400"><span id="val-fat">0</span>g <span class="text-xs text-gray-500">/ 70g</span></span>
+                <div class="macro-card">
+                    <div class="macro-header">
+                        <span class="macro-label">Gorduras</span>
+                        <span class="macro-value"><span id="val-fat">0</span>g <span class="macro-goal">/ 70g</span></span>
                     </div>
-                    <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                        <div id="bar-fat" class="bg-yellow-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="macro-bar">
+                        <div id="bar-fat" class="macro-progress fat"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="diet-content">
                 <!-- Lista de Refeições -->
-                <div class="lg:col-span-2 space-y-4">
-                    <h3 class="font-bold text-lg mb-2">Refeições de Hoje (Clique para marcar)</h3>
+                <div class="meals-section">
+                    <h3 class="meals-title">Refeições de Hoje (Clique para marcar)</h3>
                     
                     <!-- Café -->
-                    <div class="meal-item bg-gray-800 p-4 rounded-xl flex items-center border border-gray-700 hover:border-orange-500 transition cursor-pointer" data-prot="30" data-carb="45" data-fat="10" onclick="app.diet.toggleMeal(this)">
-                        <div class="w-12 h-12 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center mr-4">
+                    <div class="meal-item" data-prot="30" data-carb="45" data-fat="10" onclick="app.diet.toggleMeal(this)">
+                        <div class="meal-icon coffee">
                             <i data-lucide="coffee" class="w-5 h-5"></i>
                         </div>
-                        <div class="flex-1">
-                            <h4 class="font-bold">Café da Manhã</h4>
-                            <p class="text-xs text-gray-400">3 Ovos, 2 Pães, 1 Banana</p>
+                        <div class="meal-info">
+                            <h4 class="meal-name">Café da Manhã</h4>
+                            <p class="meal-description">3 Ovos, 2 Pães, 1 Banana</p>
                         </div>
-                        <div class="text-right mr-4">
-                            <span class="block font-bold">450</span>
-                            <span class="text-xs text-gray-500">Kcal</span>
+                        <div class="meal-calories">
+                            <span class="calories-value">450</span>
+                            <span class="calories-label">Kcal</span>
                         </div>
-                        <div class="check-icon text-gray-600">
+                        <div class="check-icon">
                             <i data-lucide="circle" class="w-6 h-6"></i>
                         </div>
                     </div>
 
                     <!-- Almoço -->
-                    <div class="meal-item bg-gray-800 p-4 rounded-xl flex items-center border border-gray-700 hover:border-orange-500 transition cursor-pointer" data-prot="50" data-carb="60" data-fat="15" onclick="app.diet.toggleMeal(this)">
-                        <div class="w-12 h-12 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center mr-4">
+                    <div class="meal-item" data-prot="50" data-carb="60" data-fat="15" onclick="app.diet.toggleMeal(this)">
+                        <div class="meal-icon lunch">
                             <i data-lucide="sun" class="w-5 h-5"></i>
                         </div>
-                        <div class="flex-1">
-                            <h4 class="font-bold">Almoço</h4>
-                            <p class="text-xs text-gray-400">Arroz, Feijão, Frango, Salada</p>
+                        <div class="meal-info">
+                            <h4 class="meal-name">Almoço</h4>
+                            <p class="meal-description">Arroz, Feijão, Frango, Salada</p>
                         </div>
-                        <div class="text-right mr-4">
-                            <span class="block font-bold">750</span>
-                            <span class="text-xs text-gray-500">Kcal</span>
+                        <div class="meal-calories">
+                            <span class="calories-value">750</span>
+                            <span class="calories-label">Kcal</span>
                         </div>
-                        <div class="check-icon text-gray-600">
+                        <div class="check-icon">
                             <i data-lucide="circle" class="w-6 h-6"></i>
                         </div>
                     </div>
                 </div>
 
                 <!-- Hidratação -->
-                <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-center text-white shadow-lg">
-                    <h3 class="font-bold text-lg mb-4">Hidratação</h3>
-                    <div class="relative w-32 h-32 mx-auto mb-6 flex items-center justify-center bg-blue-900/50 rounded-full border-4 border-blue-400 overflow-hidden">
-                         <!-- Onda de água animada -->
-                        <div id="water-level" class="absolute bottom-0 left-0 w-full bg-blue-400/50 transition-all duration-500" style="height: 50%"></div>
-                        <div class="relative z-10">
-                            <span class="text-2xl font-bold" id="water-val">1.5L</span>
-                            <span class="block text-xs text-blue-200">/ 3.0L</span>
+                <div class="hydration-section">
+                    <h3 class="hydration-title">Hidratação</h3>
+                    <div class="hydration-display">
+                        <div id="water-level" class="water-level"></div>
+                        <div class="hydration-info">
+                            <span class="hydration-value" id="water-val">1.5L</span>
+                            <span class="hydration-goal">/ 3.0L</span>
                         </div>
                     </div>
-                    <div class="flex justify-center space-x-2">
-                        <button onclick="app.diet.updateWater(-250)" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition"><i data-lucide="minus" class="w-4 h-4"></i></button>
-                        <button onclick="app.diet.updateWater(250)" class="bg-white text-blue-900 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition flex items-center">
+                    <div class="hydration-controls">
+                        <button onclick="app.diet.updateWater(-250)" class="hydration-btn minus">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="app.diet.updateWater(250)" class="hydration-btn add">
                             <i data-lucide="glass-water" class="w-4 h-4 mr-2"></i> +250ml
                         </button>
                     </div>
@@ -301,539 +288,63 @@
         </div>
 
         <!-- ================= SECÇÃO: PERFIL ================= -->
-        <div id="view-perfil" class="view-section p-8">
-            <h2 class="text-3xl font-bold mb-6">Configurações</h2>
-            <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 max-w-2xl">
-                <div class="flex items-center mb-8">
-                    <div class="w-20 h-20 rounded-full bg-orange-600 flex items-center justify-center text-2xl font-bold border-4 border-gray-700 mr-6">
-                        CS
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold">Carlos Silva</h3>
-                        <p class="text-gray-400">Membro desde Jan 2024</p>
+        <div id="view-perfil" class="view-section">
+            <h2 class="section-title">Configurações</h2>
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar">CS</div>
+                    <div class="profile-info">
+                        <h3 class="profile-name">Carlos Silva</h3>
+                        <p class="profile-since">Membro desde Jan 2024</p>
                     </div>
                 </div>
-                <form class="space-y-4" onsubmit="app.profile.save(event)">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-1">Nome</label>
-                            <input type="text" value="Carlos Silva" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white">
+                <form class="profile-form" onsubmit="app.profile.save(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Nome</label>
+                            <input type="text" value="Carlos Silva" class="form-input">
                         </div>
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-1">Email</label>
-                            <input type="email" value="carlos@email.com" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white">
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" value="carlos@email.com" class="form-input">
                         </div>
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-1">Peso (kg)</label>
-                            <input type="number" value="78.5" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white">
+                        <div class="form-group">
+                            <label class="form-label">Peso (kg)</label>
+                            <input type="number" value="78.5" class="form-input">
                         </div>
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-1">Altura (m)</label>
-                            <input type="number" value="1.75" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white">
+                        <div class="form-group">
+                            <label class="form-label">Altura (m)</label>
+                            <input type="number" value="1.75" class="form-input">
                         </div>
                     </div>
-                    <div class="flex justify-end pt-4">
-                        <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded transition">Salvar Alterações</button>
+                    <div class="form-actions">
+                        <button type="submit" class="save-btn">Salvar Alterações</button>
                     </div>
                 </form>
             </div>
         </div>
 
+        <!-- Modal de Organização de Treinos -->
+        <div id="workout-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Organizar Treino</h3>
+                    <button onclick="app.workouts.closeModal()" class="modal-close">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <!-- Conteúdo do modal será injetado aqui -->
+                </div>
+                <div class="modal-footer">
+                    <button onclick="app.workouts.closeModal()" class="modal-btn cancel">Cancelar</button>
+                    <button onclick="app.workouts.saveWorkout()" class="modal-btn save">Salvar Treino</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <!-- LÓGICA JAVASCRIPT UNIFICADA -->
-    <script>
-        // Inicializa ícones do Lucide
-        lucide.createIcons();
-
-        const app = {
-            // ESTADO DA APLICAÇÃO (Dados globais)
-            state: {
-                currentWorkoutType: 'A', // Estado do treino atual
-                waterCurrent: 1500, // em ml
-                waterGoal: 3000,
-                macros: {
-                    prot: { current: 0, goal: 180 },
-                    carb: { current: 0, goal: 250 },
-                    fat:  { current: 0, goal: 70 }
-                },
-                // Variáveis do Cronômetro Global
-                globalTimer: {
-                    seconds: 0,
-                    interval: null,
-                    isRunning: false,
-                    isPiPActive: false
-                },
-                // Variáveis da Agenda
-                calendar: {
-                    currentDate: new Date()
-                }
-            },
-
-            // DADOS DOS TREINOS
-            data: {
-                workouts: {
-                    'A': [
-                        { name: 'Supino Reto', equip: 'Barra', sets: 4, reps: '8-12', weight: 30, done: false },
-                        { name: 'Supino Inclinado', equip: 'Halter', sets: 3, reps: '10-12', weight: 22, done: false },
-                        { name: 'Tríceps Corda', equip: 'Polia', sets: 4, reps: '15', weight: 25, done: false }
-                    ],
-                    'B': [
-                        { name: 'Puxada Alta', equip: 'Máquina', sets: 4, reps: '10', weight: 50, done: false },
-                        { name: 'Remada Curvada', equip: 'Barra', sets: 4, reps: '8-10', weight: 40, done: false },
-                        { name: 'Rosca Direta', equip: 'Barra W', sets: 3, reps: '12', weight: 15, done: false }
-                    ],
-                    'C': [
-                        { name: 'Agachamento Livre', equip: 'Barra', sets: 5, reps: '8', weight: 80, done: false },
-                        { name: 'Leg Press 45', equip: 'Máquina', sets: 4, reps: '12', weight: 200, done: false },
-                        { name: 'Elevação Lateral', equip: 'Halter', sets: 4, reps: '15', weight: 10, done: false }
-                    ]
-                }
-            },
-
-            // NAVEGAÇÃO
-            nav: {
-                switchTab: (tabId) => {
-                    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-                    document.querySelectorAll('.nav-item').forEach(el => {
-                        el.classList.remove('bg-orange-600', 'text-white');
-                        el.classList.add('text-gray-400');
-                    });
-                    
-                    document.getElementById('view-' + tabId).classList.add('active');
-                    const btn = document.getElementById('btn-' + tabId);
-                    btn.classList.add('bg-orange-600', 'text-white');
-                    btn.classList.remove('text-gray-400');
-                }
-            },
-
-            // LÓGICA DE TREINOS
-            workouts: {
-                renderList: (type, btnElement) => {
-                    app.state.currentWorkoutType = type; // Atualiza estado global
-
-                    if(btnElement) {
-                        document.querySelectorAll('.workout-tab').forEach(t => {
-                            t.classList.remove('border-b-2', 'border-orange-500', 'text-orange-500');
-                            t.classList.add('text-gray-400');
-                        });
-                        btnElement.classList.remove('text-gray-400');
-                        btnElement.classList.add('border-b-2', 'border-orange-500', 'text-orange-500');
-                    }
-
-                    const listContainer = document.getElementById('exercise-list-container');
-                    listContainer.innerHTML = ''; 
-
-                    const exercises = app.data.workouts[type];
-
-                    exercises.forEach((ex, index) => {
-                        const html = `
-                            <div class="exercise-card bg-gray-800 rounded-xl p-4 flex flex-col md:flex-row items-center border border-gray-700 transition gap-4">
-                                <div class="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-gray-500">
-                                    <i data-lucide="dumbbell" class="w-8 h-8"></i>
-                                </div>
-                                <div class="flex-1 w-full text-center md:text-left">
-                                    <h4 class="font-bold text-lg">${ex.name}</h4>
-                                    <p class="text-sm text-gray-400">${ex.equip}</p>
-                                    <div class="flex justify-center md:justify-start gap-4 mt-2 text-sm font-mono text-gray-300">
-                                        <span class="bg-gray-900 px-2 py-1 rounded">Sets: ${ex.sets}</span>
-                                        <span class="bg-gray-900 px-2 py-1 rounded">Reps: ${ex.reps}</span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-3 w-full md:w-auto justify-center">
-                                    <div class="flex flex-col items-center">
-                                        <label class="text-[10px] text-gray-500 uppercase">Carga (kg)</label>
-                                        <input type="number" value="${ex.weight}" class="w-16 bg-gray-900 border border-gray-600 rounded text-center text-orange-400 font-bold focus:border-orange-500 outline-none p-1" onchange="app.utils.showToast('Carga atualizada')">
-                                    </div>
-                                    <button onclick="app.workouts.startTimer(this)" class="timer-btn p-3 rounded-lg border border-gray-600 text-gray-400 hover:text-white transition" title="Cronômetro 60s">
-                                        <i data-lucide="timer" class="w-6 h-6"></i>
-                                    </button>
-                                    <button onclick="app.workouts.toggleCheck(this)" class="check-btn p-3 rounded-lg border border-gray-600 text-gray-400 hover:text-green-500 hover:border-green-500 transition" title="Concluir">
-                                        <i data-lucide="check" class="w-6 h-6"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                        listContainer.innerHTML += html;
-                    });
-                    lucide.createIcons();
-                },
-
-                toggleCheck: (btn) => {
-                    const card = btn.closest('.exercise-card');
-                    if (card.classList.contains('border-green-500')) {
-                        card.classList.remove('border-green-500', 'bg-gray-800/80');
-                        card.classList.add('border-gray-700');
-                        btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
-                        btn.classList.add('text-gray-400', 'border-gray-600');
-                    } else {
-                        card.classList.remove('border-gray-700');
-                        card.classList.add('border-green-500', 'bg-gray-800/80');
-                        btn.classList.remove('text-gray-400', 'border-gray-600');
-                        btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
-                        app.utils.showToast("Exercício concluído!");
-                    }
-                },
-
-                startTimer: (btn) => {
-                    if(btn.classList.contains('active')) return;
-                    let timeLeft = 60;
-                    const originalContent = btn.innerHTML;
-                    btn.classList.add('active');
-                    btn.innerHTML = `<span class="font-bold text-sm">${timeLeft}s</span>`;
-                    const interval = setInterval(() => {
-                        timeLeft--;
-                        btn.innerHTML = `<span class="font-bold text-sm">${timeLeft}s</span>`;
-                        if (timeLeft <= 0) {
-                            clearInterval(interval);
-                            btn.classList.remove('active');
-                            btn.innerHTML = originalContent;
-                            lucide.createIcons();
-                            app.utils.showToast("Descanso finalizado!");
-                        }
-                    }, 1000);
-                },
-
-                // --- CRONÔMETRO GLOBAL ---
-                toggleGlobalTimer: () => {
-                    const btn = document.getElementById('btn-global-play');
-                    const timerDisplay = document.getElementById('global-timer');
-                    const state = app.state.globalTimer;
-
-                    if (state.isRunning) {
-                        // PAUSAR
-                        clearInterval(state.interval);
-                        state.isRunning = false;
-                        
-                        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
-                        btn.innerHTML = '<i data-lucide="play" class="w-6 h-6 fill-current"></i>'; 
-                        timerDisplay.classList.remove('global-timer-active');
-                        
-                        app.utils.showToast("Treino Pausado");
-                    } else {
-                        // INICIAR
-                        state.isRunning = true;
-                        
-                        btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
-                        btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                        btn.innerHTML = '<i data-lucide="pause" class="w-6 h-6 fill-current"></i>'; 
-                        timerDisplay.classList.add('global-timer-active');
-                        
-                        app.utils.showToast("Treino Iniciado!");
-
-                        state.interval = setInterval(() => {
-                            state.seconds++;
-                            const hrs = Math.floor(state.seconds / 3600);
-                            const mins = Math.floor((state.seconds % 3600) / 60);
-                            const secs = state.seconds % 60;
-                            
-                            const formatted = 
-                                (hrs > 0 ? (hrs < 10 ? "0" + hrs : hrs) + ":" : "") + 
-                                (mins < 10 ? "0" + mins : mins) + ":" + 
-                                (secs < 10 ? "0" + secs : secs);
-                            
-                            timerDisplay.innerText = formatted;
-
-                        }, 1000);
-                    }
-                    lucide.createIcons();
-                },
-
-                finishGlobalTimer: () => {
-                    const state = app.state.globalTimer;
-                    if(state.seconds === 0) return;
-
-                    clearInterval(state.interval);
-                    state.isRunning = false;
-                    
-                    const finalTime = document.getElementById('global-timer').innerText;
-                    state.seconds = 0;
-                    
-                    document.getElementById('global-timer').innerText = "00:00:00";
-                    document.getElementById('global-timer').classList.remove('global-timer-active');
-                    
-                    const btn = document.getElementById('btn-global-play');
-                    btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
-                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                    btn.innerHTML = '<i data-lucide="play" class="w-6 h-6 fill-current"></i>';
-                    
-                    lucide.createIcons();
-                    app.utils.showToast(`Treino finalizado! Tempo: ${finalTime}`);
-                },
-
-                // --- Picture-in-Picture (PiP) "Mini Site" ---
-                renderToCanvas: () => {
-                    const canvas = document.getElementById('pip-canvas');
-                    const ctx = canvas.getContext('2d');
-                    const state = app.state.globalTimer;
-                    const workoutType = app.state.currentWorkoutType;
-                    
-                    // 1. Fundo Geral
-                    ctx.fillStyle = '#111827'; 
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // 2. Cabeçalho (Laranja)
-                    ctx.fillStyle = '#ea580c';
-                    ctx.fillRect(0, 0, canvas.width, 50);
-                    
-                    // Logo
-                    ctx.font = 'bold 24px Inter, sans-serif';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.textAlign = 'left';
-                    ctx.fillText('TechFit', 20, 35);
-
-                    // Status Badge
-                    ctx.font = '14px Inter, sans-serif';
-                    ctx.fillStyle = state.isRunning ? '#dcfce7' : '#fee2e2';
-                    ctx.fillRect(300, 15, 80, 24);
-                    ctx.fillStyle = state.isRunning ? '#166534' : '#991b1b';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(state.isRunning ? 'ON' : 'PAUSE', 340, 32);
-
-                    // 3. Info Principal
-                    ctx.fillStyle = '#9ca3af';
-                    ctx.font = '16px Inter, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`Treino Atual: Ficha ${workoutType}`, canvas.width / 2, 100);
-
-                    const timerText = document.getElementById('global-timer').innerText;
-                    ctx.font = 'bold 60px monospace';
-                    ctx.fillStyle = state.isRunning ? '#4ade80' : '#ffffff'; 
-                    ctx.shadowColor = state.isRunning ? "rgba(74, 222, 128, 0.5)" : "transparent";
-                    ctx.shadowBlur = 15;
-                    ctx.fillText(timerText, canvas.width / 2, 180);
-                    ctx.shadowBlur = 0;
-
-                    // 4. Barra de Progresso
-                    ctx.fillStyle = '#374151';
-                    ctx.fillRect(50, 240, 300, 10);
-                    
-                    ctx.fillStyle = '#f97316';
-                    let progress = (state.seconds % 60) / 60 * 300; 
-                    if(!state.isRunning && state.seconds > 0) progress = 300; 
-                    if(state.seconds === 0) progress = 0;
-                    
-                    ctx.fillRect(50, 240, progress, 10);
-                    
-                    ctx.font = '12px Inter, sans-serif';
-                    ctx.fillStyle = '#6b7280';
-                    ctx.fillText('Progresso da Série', canvas.width / 2, 270);
-                },
-
-                togglePiP: async () => {
-                    const video = document.getElementById('pip-video');
-                    const canvas = document.getElementById('pip-canvas');
-                    
-                    // Função de Loop Corrigida
-                    const startLoop = () => {
-                        function loop() {
-                            app.workouts.renderToCanvas();
-                            // Continua se o PiP estiver ativo OU se o vídeo não estiver pausado
-                            if (document.pictureInPictureElement || !video.paused) {
-                                requestAnimationFrame(loop);
-                            }
-                        }
-                        loop();
-                    };
-
-                    if (document.pictureInPictureElement) {
-                        await document.exitPictureInPicture();
-                    } else {
-                        try {
-                            // Tenta inicializar o stream do Canvas
-                            if (!video.srcObject) {
-                                // Nota: captureStream() pode falhar em alguns navegadores se o canvas estiver "sujo" ou vazio
-                                // Desenhamos uma vez antes para garantir
-                                app.workouts.renderToCanvas();
-                                const stream = canvas.captureStream(30); // 30 FPS
-                                video.srcObject = stream;
-                            }
-                            
-                            // Importante: await play() antes de requestPictureInPicture()
-                            await video.play();
-                            await video.requestPictureInPicture();
-                            
-                            // Inicia o loop visual
-                            startLoop();
-                            
-                        } catch (err) {
-                            console.error("Erro PiP:", err);
-                            let msg = "Erro ao ativar Mini Player.";
-                            if(err.name === 'NotAllowedError') msg = "Permissão para PiP negada.";
-                            if(err.name === 'InvalidStateError') msg = "Vídeo ainda não carregado.";
-                            app.utils.showToast(msg);
-                        }
-                    }
-                }
-            },
-
-            // LÓGICA DA AGENDA (COM CALENDÁRIO REAL)
-            agenda: {
-                months: [
-                    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-                ],
-
-                selectDay: (el) => {
-                    document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-                    el.classList.add('selected');
-                },
-
-                changeMonth: (delta) => {
-                    const cal = app.state.calendar;
-                    // Atualiza mês
-                    cal.currentDate.setMonth(cal.currentDate.getMonth() + delta);
-                    app.agenda.renderCalendar();
-                },
-
-                renderCalendar: () => {
-                    const cal = app.state.calendar;
-                    const year = cal.currentDate.getFullYear();
-                    const month = cal.currentDate.getMonth();
-                    const today = new Date(); // Data real de hoje
-
-                    // Atualiza Título
-                    const monthName = app.agenda.months[month];
-                    document.getElementById('current-month-display').innerText = `${monthName} ${year}`;
-
-                    // Lógica de dias
-                    const firstDayIndex = new Date(year, month, 1).getDay(); // Dia da semana do dia 1 (0=Dom)
-                    const lastDay = new Date(year, month + 1, 0).getDate(); // Total dias no mês
-
-                    const grid = document.getElementById('calendar-grid');
-                    grid.innerHTML = '';
-
-                    // Dias vazios antes do dia 1
-                    for (let i = 0; i < firstDayIndex; i++) {
-                        const emptyDiv = document.createElement('div');
-                        emptyDiv.className = 'calendar-day bg-gray-900/30 rounded p-2 opacity-30';
-                        grid.appendChild(emptyDiv);
-                    }
-
-                    // Dias reais do mês
-                    for (let i = 1; i <= lastDay; i++) {
-                        const dayDiv = document.createElement('div');
-                        // Estilo base
-                        let className = 'calendar-day bg-gray-900 rounded p-2 flex flex-col items-start justify-between hover:bg-gray-800 transition';
-                        
-                        // Verifica se é "Hoje"
-                        const isToday = (i === today.getDate() && month === today.getMonth() && year === today.getFullYear());
-                        if (isToday) {
-                            className += ' today';
-                        }
-
-                        dayDiv.className = className;
-                        dayDiv.onclick = function() { app.agenda.selectDay(this); };
-
-                        // HTML interno do dia
-                        let htmlContent = `<span class="font-bold ${isToday ? 'text-white' : 'text-gray-400'}">${i}</span>`;
-                        
-                        // Simulação de dados (Exemplo: Dias pares tem treino)
-                        if (!isToday && i % 2 === 0 && i < today.getDate()) {
-                             htmlContent += `<div class="mt-auto text-xs bg-green-500/20 text-green-400 px-1 rounded w-full text-center">Treino A</div>`;
-                             dayDiv.classList.add('border-l-4', 'border-green-500');
-                        } else if (isToday) {
-                             htmlContent += `<div class="mt-auto text-xs bg-orange-500/20 text-orange-400 px-1 rounded w-full flex items-center justify-center"><i data-lucide="clock" class="w-3 h-3 mr-1"></i> Hoje</div>`;
-                        }
-
-                        dayDiv.innerHTML = htmlContent;
-                        grid.appendChild(dayDiv);
-                    }
-                    lucide.createIcons();
-                }
-            },
-
-            // LÓGICA DA DIETA
-            diet: {
-                updateWater: (amount) => {
-                    let newAmount = app.state.waterCurrent + amount;
-                    if(newAmount < 0) newAmount = 0;
-                    app.state.waterCurrent = newAmount;
-                    
-                    const percent = Math.min((newAmount / app.state.waterGoal) * 100, 100);
-                    document.getElementById('water-val').innerText = (newAmount / 1000).toFixed(1) + 'L';
-                    document.getElementById('water-level').style.height = percent + '%';
-                },
-
-                toggleMeal: (el) => {
-                    const iconContainer = el.querySelector('.check-icon');
-                    const isChecked = iconContainer.classList.contains('text-green-500');
-                    
-                    const p = parseInt(el.getAttribute('data-prot'));
-                    const c = parseInt(el.getAttribute('data-carb'));
-                    const f = parseInt(el.getAttribute('data-fat'));
-
-                    if (!isChecked) {
-                        // Marcar
-                        iconContainer.classList.remove('text-gray-600');
-                        iconContainer.classList.add('text-green-500');
-                        iconContainer.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
-                        app.state.macros.prot.current += p;
-                        app.state.macros.carb.current += c;
-                        app.state.macros.fat.current += f;
-                    } else {
-                        // Desmarcar
-                        iconContainer.classList.add('text-gray-600');
-                        iconContainer.classList.remove('text-green-500');
-                        iconContainer.innerHTML = '<i data-lucide="circle" class="w-6 h-6"></i>';
-                        app.state.macros.prot.current -= p;
-                        app.state.macros.carb.current -= c;
-                        app.state.macros.fat.current -= f;
-                    }
-                    lucide.createIcons();
-                    app.diet.updateMacroBars();
-                },
-
-                updateMacroBars: () => {
-                    const m = app.state.macros;
-                    
-                    const pPct = Math.min((m.prot.current / m.prot.goal) * 100, 100);
-                    document.getElementById('val-prot').innerText = m.prot.current;
-                    document.getElementById('bar-prot').style.width = pPct + '%';
-
-                    const cPct = Math.min((m.carb.current / m.carb.goal) * 100, 100);
-                    document.getElementById('val-carb').innerText = m.carb.current;
-                    document.getElementById('bar-carb').style.width = cPct + '%';
-
-                    const fPct = Math.min((m.fat.current / m.fat.goal) * 100, 100);
-                    document.getElementById('val-fat').innerText = m.fat.current;
-                    document.getElementById('bar-fat').style.width = fPct + '%';
-                }
-            },
-
-            // LÓGICA DO PERFIL
-            profile: {
-                save: (e) => {
-                    e.preventDefault();
-                    // Simula salvamento
-                    const btn = e.target.querySelector('button');
-                    const originalText = btn.innerText;
-                    btn.innerText = "Salvando...";
-                    
-                    setTimeout(() => {
-                        btn.innerText = originalText;
-                        app.utils.showToast("Perfil atualizado com sucesso!");
-                    }, 800);
-                }
-            },
-
-            // UTILITÁRIOS
-            utils: {
-                showToast: (msg) => {
-                    const toast = document.getElementById('toast-container');
-                    document.getElementById('toast-message').innerText = msg;
-                    toast.classList.add('show');
-                    setTimeout(() => toast.classList.remove('show'), 3000);
-                }
-            }
-        };
-
-        // INICIALIZAÇÃO
-        app.workouts.renderList('A');
-        app.diet.updateMacroBars(); // Inicia com zeros
-        app.agenda.renderCalendar(); // Gera o calendário real
-
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
