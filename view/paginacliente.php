@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TechFit - Painel Completo</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="src/paginacliente.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
@@ -344,7 +344,6 @@
         </div>
 
     </main>
-
-    <script src="script.js"></script>
+<script src="src/paginacliente.js"></script>
 </body>
 </html>
