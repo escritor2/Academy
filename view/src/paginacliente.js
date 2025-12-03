@@ -32,7 +32,8 @@ const app = {
 
     // DADOS DOS TREINOS
     data: {
-        workouts: {
+        // Agora carregamos os treinos vindos do PHP — variável `treinosVindosDoPHP` criada no template PHP
+        workouts: (typeof treinosVindosDoPHP !== 'undefined') ? treinosVindosDoPHP : {
             'A': [
                 { name: 'Supino Reto', equip: 'Barra', sets: 4, reps: '8-12', weight: 30, done: false },
                 { name: 'Supino Inclinado', equip: 'Halter', sets: 3, reps: '10-12', weight: 22, done: false },

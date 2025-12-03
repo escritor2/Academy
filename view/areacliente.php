@@ -56,7 +56,6 @@
             overflow-x: hidden;
         }
 
-        /* Inputs Customizados */
         .tech-input {
             background-color: #151b2b;
             border: 1px solid #374151;
@@ -69,15 +68,10 @@
             outline: none;
         }
         
-        /* Reset Agressivo para remover ícones nativos de senha do navegador */
+        /* Remove ícones nativos de senha */
         input[type="password"]::-ms-reveal,
-        input[type="password"]::-ms-clear {
-            display: none !important;
-        }
-        input[type="password"]::-webkit-password-toggle-visibility {
-            display: none !important;
-            -webkit-appearance: none !important;
-        }
+        input[type="password"]::-ms-clear { display: none !important; }
+        input[type="password"]::-webkit-password-toggle-visibility { display: none !important; -webkit-appearance: none !important; }
 
         /* Calendário Branco */
         ::-webkit-calendar-picker-indicator {
@@ -86,28 +80,21 @@
             opacity: 0.7;
             transition: opacity 0.2s;
         }
-        ::-webkit-calendar-picker-indicator:hover {
-            opacity: 1;
-        }
+        ::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
-        /* Select Plan Card */
+        /* Estilos do Cartão de Plano */
         .plan-radio:checked + .plan-card {
             border-color: #ea580c;
             background-color: rgba(234, 88, 12, 0.1);
             box-shadow: 0 0 20px rgba(234, 88, 12, 0.2);
         }
-        .plan-radio:checked + .plan-card .check-icon {
-            opacity: 1;
-            transform: scale(1);
-        }
+        .plan-radio:checked + .plan-card .check-icon { opacity: 1; transform: scale(1); }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0B0F19; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
 
-        /* Loader */
         .loader {
             border: 3px solid rgba(255,255,255,0.1);
             border-left-color: #ffffff;
@@ -123,29 +110,19 @@
             position: relative;
             width: 24px;
             height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
         .eye-svg {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efeito elástico */
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
         }
-
-        /* Estado: Ativo (Visível) */
-        .eye-active {
-            opacity: 1;
-            transform: rotate(0deg) scale(1);
-        }
-
-        /* Estado: Inativo (Escondido) */
-        .eye-inactive {
-            opacity: 0;
-            transform: rotate(180deg) scale(0.5);
-        }
-
+        .eye-show.active { opacity: 1; transform: rotate(0deg) scale(1); }
+        .eye-show.inactive { opacity: 0; transform: rotate(90deg) scale(0.5); }
+        .eye-hide.active { opacity: 1; transform: rotate(0deg) scale(1); }
+        .eye-hide.inactive { opacity: 0; transform: rotate(-90deg) scale(0.5); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
@@ -155,14 +132,12 @@
             <img src="https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" alt="Gym Background" class="w-full h-full object-cover opacity-40">
             <div class="absolute inset-0 bg-gradient-to-t from-tech-900 via-tech-900/60 to-transparent"></div>
         </div>
-
         <div class="relative z-10">
             <div class="flex items-center gap-2 mb-8">
                 <i data-lucide="dumbbell" class="h-8 w-8 text-tech-primary"></i>
                 <span class="font-black text-2xl tracking-tighter text-white">TECH<span class="text-tech-primary">FIT</span></span>
             </div>
         </div>
-
         <div class="relative z-10 space-y-6">
             <h1 class="text-4xl lg:text-5xl font-bold leading-tight">
                 Sua jornada para o <span class="text-tech-primary">futuro</span> começa aqui.
@@ -170,7 +145,6 @@
             <p class="text-tech-muted text-lg">
                 Junte-se a mais de 1.500 membros que transformaram seus corpos e mentes com nossa tecnologia.
             </p>
-            
             <div class="flex gap-4 pt-4">
                 <div class="bg-white/5 backdrop-blur-md p-4 rounded-xl border border-white/10">
                     <i data-lucide="zap" class="w-6 h-6 text-tech-primary mb-2"></i>
@@ -189,7 +163,6 @@
                 </div>
             </div>
         </div>
-
         <div class="relative z-10 text-sm text-tech-muted mt-8">
             &copy; 2023 TechFit Gym Inc.
         </div>
@@ -199,6 +172,13 @@
         <div class="absolute top-0 right-0 w-96 h-96 bg-tech-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div class="max-w-2xl mx-auto p-6 md:p-12 lg:p-16 animate-fade-in">
+            
+            <div class="mb-6">
+                <a href="index.php" class="inline-flex items-center gap-2 text-tech-muted hover:text-tech-primary transition-colors group">
+                    <i data-lucide="arrow-left" class="w-5 h-5 transition-transform group-hover:-translate-x-1"></i>
+                    <span>Voltar ao início</span>
+                </a>
+            </div>
             <div class="md:hidden flex items-center gap-2 mb-8 justify-center">
                 <i data-lucide="dumbbell" class="h-8 w-8 text-tech-primary"></i>
                 <span class="font-black text-2xl tracking-tighter text-white">TECH<span class="text-tech-primary">FIT</span></span>
@@ -210,7 +190,6 @@
             </div>
 
             <form id="enrollmentForm" class="space-y-8">
-                
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2">
                         <i data-lucide="user" class="w-5 h-5"></i>
@@ -261,26 +240,22 @@
                         <div class="relative">
                             <input type="password" id="password" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
                             
-                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-1 z-10 cursor-pointer hover:bg-white/5 rounded-full transition-colors">
+                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-2 rounded-full hover:bg-white/5 transition-colors z-20 cursor-pointer">
                                 <div class="eye-container">
-                                    
-                                    <svg id="iconShow" class="eye-svg eye-active" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg id="iconShow" class="eye-svg eye-show active" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
                                         <circle cx="12" cy="12" r="3"></circle>
                                     </svg>
-                                    
-                                    <svg id="iconHide" class="eye-svg eye-inactive" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg id="iconHide" class="eye-svg eye-hide inactive" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
                                         <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
                                         <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09"></path>
                                         <line x1="2" x2="22" y1="2" y2="22"></line>
                                     </svg>
-
                                 </div>
                             </button>
                         </div>
                     </div>
-
                 </div>
 
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.2s;">
@@ -288,31 +263,22 @@
                         <i data-lucide="target" class="w-5 h-5"></i>
                         <h3 class="font-bold uppercase tracking-wider text-sm">Objetivo Principal</h3>
                     </div>
-                    
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <label class="cursor-pointer">
                             <input type="radio" name="goal" value="hipertrofia" class="peer sr-only" checked>
-                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500">
-                                <span class="text-sm font-medium">Hipertrofia</span>
-                            </div>
+                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500"><span class="text-sm font-medium">Hipertrofia</span></div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="goal" value="emagrecimento" class="peer sr-only">
-                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500">
-                                <span class="text-sm font-medium">Emagrecer</span>
-                            </div>
+                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500"><span class="text-sm font-medium">Emagrecer</span></div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="goal" value="resistencia" class="peer sr-only">
-                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500">
-                                <span class="text-sm font-medium">Resistência</span>
-                            </div>
+                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500"><span class="text-sm font-medium">Resistência</span></div>
                         </label>
                         <label class="cursor-pointer">
                             <input type="radio" name="goal" value="saude" class="peer sr-only">
-                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500">
-                                <span class="text-sm font-medium">Saúde</span>
-                            </div>
+                            <div class="p-3 rounded-lg border border-tech-700 bg-tech-800 text-center peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all hover:border-gray-500"><span class="text-sm font-medium">Saúde</span></div>
                         </label>
                     </div>
                 </div>
@@ -322,58 +288,30 @@
                         <i data-lucide="credit-card" class="w-5 h-5"></i>
                         <h3 class="font-bold uppercase tracking-wider text-sm">Escolha seu Plano</h3>
                     </div>
-
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="Start" class="plan-radio sr-only">
                             <div class="plan-card p-4 rounded-xl border border-tech-700 bg-tech-800 h-full transition-all group-hover:border-gray-500">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-bold text-lg">Start</h4>
-                                    <div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white">
-                                        <i data-lucide="check" class="w-3 h-3"></i>
-                                    </div>
-                                </div>
+                                <div class="flex justify-between items-start mb-2"><h4 class="font-bold text-lg">Start</h4><div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white"><i data-lucide="check" class="w-3 h-3"></i></div></div>
                                 <div class="text-2xl font-bold mb-2">R$ 89<span class="text-sm font-normal text-tech-muted">/mês</span></div>
-                                <ul class="text-xs text-tech-muted space-y-1">
-                                    <li>• Acesso Musculação</li>
-                                    <li>• Sem fidelidade</li>
-                                </ul>
+                                <ul class="text-xs text-tech-muted space-y-1"><li>• Acesso Musculação</li><li>• Sem fidelidade</li></ul>
                             </div>
                         </label>
-
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="Pro" class="plan-radio sr-only" checked>
                             <div class="plan-card p-4 rounded-xl border border-tech-primary bg-tech-800 h-full transition-all relative overflow-hidden">
                                 <div class="absolute top-0 right-0 bg-tech-primary text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">POPULAR</div>
-                                <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-bold text-lg text-white">Pro</h4>
-                                    <div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white">
-                                        <i data-lucide="check" class="w-3 h-3"></i>
-                                    </div>
-                                </div>
+                                <div class="flex justify-between items-start mb-2"><h4 class="font-bold text-lg text-white">Pro</h4><div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white"><i data-lucide="check" class="w-3 h-3"></i></div></div>
                                 <div class="text-2xl font-bold mb-2 text-tech-primary">R$ 149<span class="text-sm font-normal text-tech-muted">/mês</span></div>
-                                <ul class="text-xs text-gray-300 space-y-1">
-                                    <li>• Tudo do Start</li>
-                                    <li>• IA Trainer</li>
-                                    <li>• Aulas Coletivas</li>
-                                </ul>
+                                <ul class="text-xs text-gray-300 space-y-1"><li>• Tudo do Start</li><li>• IA Trainer</li><li>• Aulas Coletivas</li></ul>
                             </div>
                         </label>
-
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="VIP" class="plan-radio sr-only">
                             <div class="plan-card p-4 rounded-xl border border-tech-700 bg-tech-800 h-full transition-all group-hover:border-gray-500">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-bold text-lg">VIP</h4>
-                                    <div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white">
-                                        <i data-lucide="check" class="w-3 h-3"></i>
-                                    </div>
-                                </div>
+                                <div class="flex justify-between items-start mb-2"><h4 class="font-bold text-lg">VIP</h4><div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white"><i data-lucide="check" class="w-3 h-3"></i></div></div>
                                 <div class="text-2xl font-bold mb-2">R$ 399<span class="text-sm font-normal text-tech-muted">/mês</span></div>
-                                <ul class="text-xs text-tech-muted space-y-1">
-                                    <li>• Tudo do Pro</li>
-                                    <li>• Personal + Nutri</li>
-                                </ul>
+                                <ul class="text-xs text-tech-muted space-y-1"><li>• Tudo do Pro</li><li>• Personal + Nutri</li></ul>
                             </div>
                         </label>
                     </div>
@@ -388,9 +326,7 @@
                         Ao clicar em finalizar, você concorda com nossos <a href="#" class="text-tech-primary hover:underline">Termos de Uso</a>.
                     </p>
                 </div>
-
             </form>
-            
             <div class="mt-8 text-center border-t border-tech-800 pt-8">
                 <p class="text-tech-muted">Já tem uma conta? <a href="#" class="text-white font-bold hover:text-tech-primary transition-colors">Fazer Login</a></p>
             </div>
@@ -399,157 +335,118 @@
 
     <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300">
         <div class="bg-tech-800 border-l-4 border-green-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px]">
-            <div class="bg-green-500/20 p-2 rounded-full">
-                <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
-            </div>
-            <div>
-                <h4 class="font-bold text-sm">Matrícula Realizada!</h4>
-                <p class="text-xs text-gray-400">Bem-vindo à TechFit.</p>
-            </div>
+            <div class="bg-green-500/20 p-2 rounded-full"><i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i></div>
+            <div><h4 class="font-bold text-sm">Matrícula Realizada!</h4><p class="text-xs text-gray-400">Bem-vindo à TechFit.</p></div>
         </div>
     </div>
-    
     <div id="errorToast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300">
         <div class="bg-tech-800 border-l-4 border-red-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px]">
-            <div class="bg-red-500/20 p-2 rounded-full">
-                <i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>
-            </div>
-            <div>
-                <h4 class="font-bold text-sm">Erro</h4>
-                <p class="text-xs text-gray-400" id="errorMessage">Algo deu errado.</p>
-            </div>
+            <div class="bg-red-500/20 p-2 rounded-full"><i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i></div>
+            <div><h4 class="font-bold text-sm">Erro</h4><p class="text-xs text-gray-400" id="errorMessage">Algo deu errado.</p></div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            const toggleBtn = document.getElementById('togglePasswordBtn');
+            const passInput = document.getElementById('password');
+            const iconShow = document.getElementById('iconShow');
+            const iconHide = document.getElementById('iconHide');
+
+            if (toggleBtn && passInput) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const isPassword = passInput.getAttribute('type') === 'password';
+                    passInput.setAttribute('type', isPassword ? 'text' : 'password');
+                    if (isPassword) {
+                        iconShow.classList.remove('active'); iconShow.classList.add('inactive');
+                        iconHide.classList.remove('inactive'); iconHide.classList.add('active');
+                    } else {
+                        iconShow.classList.remove('inactive'); iconShow.classList.add('active');
+                        iconHide.classList.remove('active'); iconHide.classList.add('inactive');
+                    }
+                });
+            }
+        });
+    </script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
 
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                     await signInAnonymously(auth);
-                }
-                console.log("Autenticado no Firebase");
-            } catch (error) {
-                console.error("Erro na autenticação:", error);
+            async function initAuth() {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) { console.error(error); }
             }
-        }
-        initAuth();
+            initAuth();
 
-        // Inicializar ícones Lucide
-        lucide.createIcons();
+            const form = document.getElementById('enrollmentForm');
+            const submitBtn = document.getElementById('submitBtn');
 
-        // --- LÓGICA DE FUNCIONALIDADE E ANIMAÇÃO ---
-        const togglePasswordBtn = document.getElementById('togglePasswordBtn');
-        const passwordInput = document.getElementById('password');
-        const iconShow = document.getElementById('iconShow'); // Olho
-        const iconHide = document.getElementById('iconHide'); // Olho Cortado
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const originalBtnContent = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<div class="loader"></div> Processando...';
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
 
-        togglePasswordBtn.addEventListener('click', () => {
-            const isPassword = passwordInput.getAttribute('type') === 'password';
-            
-            // 1. Alternar tipo do input
-            passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+                try {
+                    const formData = {
+                        name: document.getElementById('name').value,
+                        email: document.getElementById('email').value,
+                        birthdate: document.getElementById('birthdate').value,
+                        phone: document.getElementById('phone').value,
+                        cpf: document.getElementById('cpf').value, 
+                        gender: document.getElementById('gender').value,
+                        goal: document.querySelector('input[name="goal"]:checked').value,
+                        plan: document.querySelector('input[name="plan"]:checked').value,
+                        password: '***',
+                        createdAt: serverTimestamp(),
+                        status: 'ativo'
+                    };
 
-            // 2. Alternar Animação
-            if (isPassword) {
-                // Se estava password, agora virou texto.
-                // Esconder o olho normal (Show) -> Animar saída
-                iconShow.classList.remove('eye-active');
-                iconShow.classList.add('eye-inactive');
-                
-                // Mostrar o olho cortado (Hide) -> Animar entrada
-                iconHide.classList.remove('eye-inactive');
-                iconHide.classList.add('eye-active');
-            } else {
-                // Se estava texto, agora virou password.
-                // Mostrar o olho normal -> Animar entrada
-                iconShow.classList.remove('eye-inactive');
-                iconShow.classList.add('eye-active');
-                
-                // Esconder o olho cortado -> Animar saída
-                iconHide.classList.remove('eye-active');
-                iconHide.classList.add('eye-inactive');
-            }
-        });
+                    const user = auth.currentUser;
+                    if (!user) throw new Error("Usuário não autenticado.");
 
-        // Manipulação do Formulário
-        const form = document.getElementById('enrollmentForm');
-        const submitBtn = document.getElementById('submitBtn');
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), formData);
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+                    const toast = document.getElementById('toast');
+                    toast.classList.remove('translate-x-full');
+                    setTimeout(() => toast.classList.add('translate-x-full'), 4000);
+                    form.reset();
+                    const passInput = document.getElementById('password');
+                    const toggleBtn = document.getElementById('togglePasswordBtn');
+                    if(passInput.type === 'text') toggleBtn.click();
 
-            const originalBtnContent = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<div class="loader"></div> Processando...';
-            submitBtn.disabled = true;
-            submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
-
-            try {
-                const formData = {
-                    name: document.getElementById('name').value,
-                    email: document.getElementById('email').value,
-                    birthdate: document.getElementById('birthdate').value,
-                    phone: document.getElementById('phone').value,
-                    cpf: document.getElementById('cpf').value,
-                    gender: document.getElementById('gender').value,
-                    goal: document.querySelector('input[name="goal"]:checked').value,
-                    plan: document.querySelector('input[name="plan"]:checked').value,
-                    password: '***',
-                    createdAt: serverTimestamp(),
-                    status: 'ativo'
-                };
-
-                const user = auth.currentUser;
-                if (!user) {
-                    throw new Error("Usuário não autenticado. Tente recarregar a página.");
-                }
-
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), formData);
-
-                showToast('toast');
-                form.reset();
-                
-                // Resetar botão do olho para estado inicial se necessário
-                if(passwordInput.getAttribute('type') === 'text') {
-                    togglePasswordBtn.click();
-                }
-
-                setTimeout(() => {
+                } catch (error) {
+                    console.error("Erro ao salvar:", error);
+                    document.getElementById('errorMessage').innerText = "Erro ao processar.";
+                    const errorToast = document.getElementById('errorToast');
+                    errorToast.classList.remove('translate-x-full');
+                    setTimeout(() => errorToast.classList.add('translate-x-full'), 4000);
+                } finally {
                     submitBtn.innerHTML = originalBtnContent;
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                }, 2000);
-
-            } catch (error) {
-                console.error("Erro ao salvar:", error);
-                document.getElementById('errorMessage').innerText = "Erro ao salvar matrícula. Tente novamente.";
-                showToast('errorToast');
-                
-                submitBtn.innerHTML = originalBtnContent;
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-            }
-        });
-
-        function showToast(id) {
-            const toast = document.getElementById(id);
-            toast.classList.remove('translate-x-full');
-            setTimeout(() => {
-                toast.classList.add('translate-x-full');
-            }, 4000);
-        }
+                }
+            });
+        } catch (e) { console.warn("Firebase não configurado."); }
     </script>
 </body>
 </html>

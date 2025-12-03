@@ -31,22 +31,12 @@
                     },
                     animation: {
                         'fade-in': 'fadeIn 0.4s ease-out forwards',
-                        'slide-in-right': 'slideInRight 0.3s ease-out forwards',
-                        'slide-out-right': 'slideOutRight 0.3s ease-in forwards',
                         'pulse-glow': 'pulseGlow 2s infinite',
                     },
                     keyframes: {
                         fadeIn: {
                             '0%': { opacity: '0', transform: 'scale(0.98)' },
                             '100%': { opacity: '1', transform: 'scale(1)' },
-                        },
-                        slideInRight: {
-                            '0%': { transform: 'translateX(100%)' },
-                            '100%': { transform: 'translateX(0)' },
-                        },
-                        slideOutRight: {
-                            '0%': { transform: 'translateX(0)' },
-                            '100%': { transform: 'translateX(100%)' },
                         },
                         pulseGlow: {
                             '0%, 100%': { boxShadow: '0 0 5px rgba(234, 88, 12, 0.2)' },
@@ -187,7 +177,20 @@
     </style>
 </head>
 <body class="h-screen flex overflow-hidden">
+<?php 
+    // Inicia a sessão para garantir que você pode usar $_SESSION mais tarde
+    // Embora não seja estritamente necessário para este bloco de URL, é boa prática.
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
 
+    if (isset($_GET['cadastro'])): 
+        $type = $_GET['cadastro'];
+        $message = ($type == 'sucesso') 
+            ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
+            : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
+        $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
+    ?>
     <!-- SIDEBAR -->
     <aside id="sidebar" class="w-64 bg-tech-800 border-r border-tech-700 flex flex-col justify-between z-30 hidden md:flex">
         <div>
@@ -259,9 +262,9 @@
             <!-- Lado Direito: Carrinho & Ações -->
             <div class="flex items-center gap-4">
                 <!-- Botão Carrinho -->
-                <button onclick="toggleCart()" class="relative p-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                    <i data-lucide="shopping-bag" class="w-6 h-6"></i>
-                    <span id="cart-badge" class="absolute top-1 right-1 w-4 h-4 bg-tech-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center hidden">0</span>
+                <button onclick="toggleCart()" class="relative p-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors group">
+                    <i data-lucide="shopping-bag" class="w-6 h-6 group-hover:text-tech-primary transition-colors"></i>
+                    <span id="cart-badge" class="absolute top-1 right-1 w-4 h-4 bg-tech-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center hidden shadow-sm">0</span>
                 </button>
 
                 <button onclick="openQRModal()" class="md:hidden p-2 bg-tech-primary text-white rounded-lg shadow-lg shadow-orange-500/20">
@@ -333,7 +336,7 @@
                     </div>
                 </div>
 
-                <!-- CARROSSEL DE AULAS (ADICIONADO DE VOLTA) -->
+                <!-- CARROSSEL DE AULAS -->
                 <div>
                     <div class="flex justify-between items-end mb-4">
                         <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="calendar-days" class="w-5 h-5 text-tech-primary"></i> Aulas de Hoje</h3>
@@ -447,6 +450,7 @@
 
             <!-- ================= VIEW: FREQUENCY ================= -->
             <div id="view-frequency" class="hidden space-y-8 animate-slide-up">
+                <!-- Conteúdo da frequência (Mantido) -->
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h2 class="text-2xl font-bold">Registro de Frequência</h2>
@@ -498,17 +502,13 @@
                     <div class="lg:col-span-2">
                         <div class="glass-card p-6 rounded-2xl min-h-[400px]">
                             <h3 class="font-bold mb-6 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4 text-tech-primary"></i> Histórico Recente</h3>
-                            
-                            <!-- Timeline Container -->
-                            <div class="history-timeline space-y-6" id="access-history">
-                                <!-- Itens serão injetados aqui via JS -->
-                            </div>
+                            <div class="history-timeline space-y-6" id="access-history"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ================= VIEW: WORKOUTS & DIET (Placeholders) ================= -->
+            <!-- ================= VIEW: WORKOUTS & DIET ================= -->
             <div id="view-workouts" class="hidden animate-slide-up">
                 <h2 class="text-2xl font-bold mb-6">Meus Treinos</h2>
                 <div class="glass-card p-6 rounded-2xl text-center py-12">
@@ -532,7 +532,7 @@
         </div>
     </main>
 
-    <!-- ================= SIDEBAR CART (CARRINHO) ================= -->
+    <!-- ================= SIDEBAR CART (CARRINHO ATUALIZADO) ================= -->
     <div id="cart-sidebar" class="fixed inset-y-0 right-0 w-80 bg-tech-900 border-l border-tech-700 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
         <div class="p-6 border-b border-tech-700 flex justify-between items-center">
             <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="shopping-bag" class="text-tech-primary"></i> Carrinho</h3>
@@ -540,11 +540,7 @@
         </div>
         
         <div class="flex-1 overflow-y-auto p-6 space-y-4" id="cart-items-container">
-            <!-- Itens do carrinho aqui -->
-            <div class="text-center text-tech-muted py-10" id="empty-cart-msg">
-                <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-3 opacity-20"></i>
-                <p>Seu carrinho está vazio.</p>
-            </div>
+            <!-- Itens serão injetados via JS -->
         </div>
 
         <div class="p-6 border-t border-tech-700 bg-tech-800">
@@ -639,7 +635,6 @@
         }
 
         function addToCart(name, price, image) {
-            // Verifica se já existe
             const existing = cart.find(item => item.name === name);
             if (existing) {
                 existing.quantity++;
@@ -649,10 +644,11 @@
             saveCart();
             showToast('Adicionado!', `${name} foi para o carrinho.`, 'success');
             
-            // Animação visual no botão do carrinho
             const cartBtn = document.querySelector('button[onclick="toggleCart()"] i');
-            cartBtn.classList.add('text-tech-primary', 'scale-125');
-            setTimeout(() => cartBtn.classList.remove('text-tech-primary', 'scale-125'), 200);
+            if(cartBtn) {
+                cartBtn.classList.add('text-tech-primary', 'scale-125');
+                setTimeout(() => cartBtn.classList.remove('text-tech-primary', 'scale-125'), 200);
+            }
         }
 
         function removeFromCart(index) {
@@ -674,20 +670,23 @@
 
         function renderCart() {
             const container = document.getElementById('cart-items-container');
-            const emptyMsg = document.getElementById('empty-cart-msg');
             const totalEl = document.getElementById('cart-total');
             
-            container.innerHTML = '';
+            let htmlContent = '';
             let total = 0;
 
             if (cart.length === 0) {
-                emptyMsg.classList.remove('hidden');
+                htmlContent = `
+                    <div class="text-center text-tech-muted py-10" id="empty-cart-msg">
+                        <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-3 opacity-20"></i>
+                        <p>Seu carrinho está vazio.</p>
+                    </div>
+                `;
             } else {
-                emptyMsg.classList.add('hidden');
                 cart.forEach((item, index) => {
                     total += item.price * item.quantity;
-                    const html = `
-                        <div class="flex gap-3 bg-white/5 p-3 rounded-lg border border-tech-700 animate-fade-in">
+                    htmlContent += `
+                        <div class="flex gap-3 bg-white/5 p-3 rounded-lg border border-tech-700 animate-fade-in relative group">
                             <div class="w-16 h-16 bg-white rounded p-1 flex items-center justify-center shrink-0">
                                 <img src="${item.image}" class="h-full object-contain">
                             </div>
@@ -698,14 +697,17 @@
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-tech-primary font-bold text-sm">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
-                                    <button onclick="removeFromCart(${index})" class="text-red-400 hover:text-red-300 text-xs"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    <button onclick="removeFromCart(${index})" class="text-red-400 hover:text-red-300 text-xs p-1 rounded hover:bg-white/10 transition-colors" title="Remover Item">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     `;
-                    container.insertAdjacentHTML('beforeend', html);
                 });
             }
+            
+            container.innerHTML = htmlContent;
             totalEl.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
             lucide.createIcons();
         }
@@ -715,13 +717,11 @@
             const backdrop = document.getElementById('cart-backdrop');
             
             if (sidebar.classList.contains('translate-x-full')) {
-                // Abrir
                 sidebar.classList.remove('translate-x-full');
                 backdrop.classList.remove('hidden');
                 setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
                 renderCart();
             } else {
-                // Fechar
                 sidebar.classList.add('translate-x-full');
                 backdrop.classList.add('opacity-0');
                 setTimeout(() => backdrop.classList.add('hidden'), 300);
