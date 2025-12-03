@@ -5,20 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TechFit - Área do Aluno - Matrícula</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Configuração da Paleta TechFit -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         tech: {
-                            900: '#0B0F19', // Fundo profundo
-                            800: '#151b2b', // Fundo de cards/inputs
+                            900: '#0B0F19', 
+                            800: '#151b2b', 
                             700: '#374151', 
-                            primary: '#ea580c', // Laranja marca
+                            primary: '#ea580c', 
                             primaryHover: '#c2410c',
                             text: '#f3f4f6', 
                             muted: '#9ca3af' 
@@ -46,10 +44,8 @@
         }
     </script>
 
-    <!-- Ícones Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Fonte -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
     <style>
@@ -57,7 +53,7 @@
             font-family: 'Inter', sans-serif;
             background-color: #0B0F19;
             color: #f3f4f6;
-            overflow-x: hidden; /* Evita scroll horizontal indesejado */
+            overflow-x: hidden;
         }
 
         /* Inputs Customizados */
@@ -73,6 +69,23 @@
             outline: none;
         }
         
+        /* --- CORREÇÃO 1: Remover o olho nativo do navegador (Edge/IE) --- */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none;
+        }
+
+        /* Calendário Branco */
+        ::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        ::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
         /* Select Plan Card */
         .plan-radio:checked + .plan-card {
             border-color: #ea580c;
@@ -84,7 +97,7 @@
             transform: scale(1);
         }
 
-        /* Scrollbar fina */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0B0F19; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
@@ -100,11 +113,23 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Animação do Olho */
+        .eye-transition {
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+        .eye-visible {
+            opacity: 1;
+            transform: rotate(0deg) scale(1);
+        }
+        .eye-hidden {
+            opacity: 0;
+            transform: rotate(180deg) scale(0);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
 
-    <!-- Lado Esquerdo (Visual/Inspiracional) -->
     <div class="hidden md:flex md:w-1/2 lg:w-2/5 bg-tech-800 relative overflow-hidden flex-col justify-between p-12">
         <div class="absolute inset-0 z-0">
             <img src="https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" alt="Gym Background" class="w-full h-full object-cover opacity-40">
@@ -150,13 +175,10 @@
         </div>
     </div>
 
-    <!-- Lado Direito (Formulário) -->
     <div class="w-full md:w-1/2 lg:w-3/5 bg-tech-900 overflow-y-auto h-screen relative">
-        <!-- Efeito Spotlight sutil -->
         <div class="absolute top-0 right-0 w-96 h-96 bg-tech-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div class="max-w-2xl mx-auto p-6 md:p-12 lg:p-16 animate-fade-in">
-            <!-- Header Mobile -->
             <div class="md:hidden flex items-center gap-2 mb-8 justify-center">
                 <i data-lucide="dumbbell" class="h-8 w-8 text-tech-primary"></i>
                 <span class="font-black text-2xl tracking-tighter text-white">TECH<span class="text-tech-primary">FIT</span></span>
@@ -169,7 +191,6 @@
 
             <form id="enrollmentForm" class="space-y-8">
                 
-                <!-- Seção 1: Dados Pessoais -->
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2">
                         <i data-lucide="user" class="w-5 h-5"></i>
@@ -198,7 +219,6 @@
                         </div>
                     </div>
 
-                    <!-- Campos Novos: CPF e Gênero -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">CPF</label>
@@ -218,11 +238,26 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-400 mb-1">Senha de Acesso</label>
-                        <input type="password" id="password" required class="w-full p-3 rounded-lg tech-input" placeholder="Crie uma senha segura">
+                        <div class="relative z-10">
+                            <input type="password" id="password" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
+                            
+                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-1 group z-20">
+                                <div class="relative w-6 h-6">
+                                    
+                                    <div id="eyeOpen" class="absolute inset-0 eye-transition eye-visible">
+                                        <i data-lucide="eye" class="w-6 h-6 text-white group-hover:text-tech-primary transition-colors"></i>
+                                    </div>
+                                    
+                                    <div id="eyeClosed" class="absolute inset-0 eye-transition eye-hidden">
+                                        <i data-lucide="eye-off" class="w-6 h-6 text-white group-hover:text-tech-primary transition-colors"></i>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
+
                 </div>
 
-                <!-- Seção 2: Objetivo -->
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.2s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2 pt-4 border-t border-tech-800">
                         <i data-lucide="target" class="w-5 h-5"></i>
@@ -257,7 +292,6 @@
                     </div>
                 </div>
 
-                <!-- Seção 3: Plano -->
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.3s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2 pt-4 border-t border-tech-800">
                         <i data-lucide="credit-card" class="w-5 h-5"></i>
@@ -265,7 +299,6 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Start -->
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="Start" class="plan-radio sr-only">
                             <div class="plan-card p-4 rounded-xl border border-tech-700 bg-tech-800 h-full transition-all group-hover:border-gray-500">
@@ -283,7 +316,6 @@
                             </div>
                         </label>
 
-                        <!-- Pro -->
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="Pro" class="plan-radio sr-only" checked>
                             <div class="plan-card p-4 rounded-xl border border-tech-primary bg-tech-800 h-full transition-all relative overflow-hidden">
@@ -303,7 +335,6 @@
                             </div>
                         </label>
 
-                        <!-- VIP -->
                         <label class="relative cursor-pointer group">
                             <input type="radio" name="plan" value="VIP" class="plan-radio sr-only">
                             <div class="plan-card p-4 rounded-xl border border-tech-700 bg-tech-800 h-full transition-all group-hover:border-gray-500">
@@ -323,7 +354,6 @@
                     </div>
                 </div>
 
-                <!-- Botão de Ação -->
                 <div class="pt-6 animate-slide-up" style="animation-delay: 0.4s;">
                     <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-900/30 transform transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2">
                         <span>Finalizar Matrícula</span>
@@ -342,7 +372,6 @@
         </div>
     </div>
 
-    <!-- Toast de Notificação -->
     <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300">
         <div class="bg-tech-800 border-l-4 border-green-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px]">
             <div class="bg-green-500/20 p-2 rounded-full">
@@ -355,7 +384,6 @@
         </div>
     </div>
     
-    <!-- Error Toast -->
     <div id="errorToast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300">
         <div class="bg-tech-800 border-l-4 border-red-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px]">
             <div class="bg-red-500/20 p-2 rounded-full">
@@ -368,13 +396,11 @@
         </div>
     </div>
 
-    <!-- Firebase Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Configuração Firebase e AppID (Injetados pelo ambiente)
         const firebaseConfig = JSON.parse(__firebase_config);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -382,7 +408,6 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // Autenticação Anônima Inicial
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -397,8 +422,38 @@
         }
         initAuth();
 
-        // Inicializar ícones
+        // Inicializar ícones Lucide
         lucide.createIcons();
+
+        // Lógica do Toggle de Senha
+        const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+        const passwordInput = document.getElementById('password');
+        const eyeOpen = document.getElementById('eyeOpen');
+        const eyeClosed = document.getElementById('eyeClosed');
+
+        togglePasswordBtn.addEventListener('click', () => {
+            const isPassword = passwordInput.getAttribute('type') === 'password';
+            
+            // Troca o tipo do input
+            passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+
+            // Troca as classes de animação (Morph effect)
+            if (isPassword) {
+                // Mostrar senha (vira texto)
+                eyeOpen.classList.remove('eye-visible');
+                eyeOpen.classList.add('eye-hidden');
+                
+                eyeClosed.classList.remove('eye-hidden');
+                eyeClosed.classList.add('eye-visible');
+            } else {
+                // Ocultar senha (vira bolinha)
+                eyeOpen.classList.remove('eye-hidden');
+                eyeOpen.classList.add('eye-visible');
+                
+                eyeClosed.classList.remove('eye-visible');
+                eyeClosed.classList.add('eye-hidden');
+            }
+        });
 
         // Manipulação do Formulário
         const form = document.getElementById('enrollmentForm');
@@ -407,43 +462,41 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Feedback visual de carregamento
             const originalBtnContent = submitBtn.innerHTML;
             submitBtn.innerHTML = '<div class="loader"></div> Processando...';
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
 
             try {
-                // Coletar dados
                 const formData = {
                     name: document.getElementById('name').value,
                     email: document.getElementById('email').value,
                     birthdate: document.getElementById('birthdate').value,
                     phone: document.getElementById('phone').value,
-                    cpf: document.getElementById('cpf').value, // Novo campo CPF
-                    gender: document.getElementById('gender').value, // Novo campo Gênero
+                    cpf: document.getElementById('cpf').value,
+                    gender: document.getElementById('gender').value,
                     goal: document.querySelector('input[name="goal"]:checked').value,
                     plan: document.querySelector('input[name="plan"]:checked').value,
-                    password: '***', // Nunca salvar senha real em texto puro num exemplo didático
+                    password: '***',
                     createdAt: serverTimestamp(),
                     status: 'ativo'
                 };
 
-                // Verificar usuário
                 const user = auth.currentUser;
                 if (!user) {
                     throw new Error("Usuário não autenticado. Tente recarregar a página.");
                 }
 
-                // Salvar no Firestore (Coleção pública de matrículas para exemplo)
-                // Em um app real, isso iria para uma coleção de usuários protegida ou gatilho de Cloud Function
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), formData);
 
-                // Sucesso
                 showToast('toast');
                 form.reset();
                 
-                // Resetar botão após 2s
+                // Resetar botão do olho para estado inicial
+                if(passwordInput.getAttribute('type') === 'text') {
+                    togglePasswordBtn.click();
+                }
+
                 setTimeout(() => {
                     submitBtn.innerHTML = originalBtnContent;
                     submitBtn.disabled = false;
