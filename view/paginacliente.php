@@ -15,7 +15,7 @@
                 extend: {
                     colors: {
                         tech: {
-                            900: '#0B0F19', // Fundo Principal (Deep Dark)
+                            900: '#0B0F19', // Fundo Principal
                             800: '#151b2b', // Cards/Sidebar
                             700: '#2d3748', // Bordas
                             primary: '#ea580c', // Laranja TechFit
@@ -31,7 +31,8 @@
                     },
                     animation: {
                         'fade-in': 'fadeIn 0.4s ease-out forwards',
-                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                        'slide-in-right': 'slideInRight 0.3s ease-out forwards',
+                        'slide-out-right': 'slideOutRight 0.3s ease-in forwards',
                         'pulse-glow': 'pulseGlow 2s infinite',
                     },
                     keyframes: {
@@ -39,9 +40,13 @@
                             '0%': { opacity: '0', transform: 'scale(0.98)' },
                             '100%': { opacity: '1', transform: 'scale(1)' },
                         },
-                        slideUp: {
-                            '0%': { opacity: '0', transform: 'translateY(20px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        slideInRight: {
+                            '0%': { transform: 'translateX(100%)' },
+                            '100%': { transform: 'translateX(0)' },
+                        },
+                        slideOutRight: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(100%)' },
                         },
                         pulseGlow: {
                             '0%, 100%': { boxShadow: '0 0 5px rgba(234, 88, 12, 0.2)' },
@@ -88,7 +93,7 @@
             color: #ea580c;
         }
 
-        /* Grid de Frequência (Heatmap) */
+        /* Grid de Frequência */
         .frequency-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -113,8 +118,6 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
         .freq-day.future { opacity: 0.2; pointer-events: none; }
-        
-        /* Destaque para o dia atual */
         .freq-day.today {
             border: 2px solid white;
             box-shadow: 0 0 15px rgba(255,255,255,0.5);
@@ -122,7 +125,7 @@
             z-index: 10;
         }
 
-        /* Timeline History Style */
+        /* Timeline History */
         .history-timeline {
             position: relative;
             padding-left: 20px;
@@ -146,7 +149,6 @@
             overflow: hidden;
             border: none;
         }
-        /* Mobile specific sidebar handling handled by standard tailwind classes */
 
         /* Animação de Digitação */
         .typing-container { display: inline-block; vertical-align: bottom; }
@@ -168,7 +170,7 @@
             90%, 100% { width: 0; }
         }
 
-        /* Modal Backdrop */
+        /* Modal/Cart Backdrop */
         .modal-backdrop {
             background: rgba(11, 15, 25, 0.85);
             backdrop-filter: blur(8px);
@@ -254,8 +256,14 @@
                 </div>
             </div>
 
-            <!-- Lado Direito: Ações & Perfil -->
+            <!-- Lado Direito: Carrinho & Ações -->
             <div class="flex items-center gap-4">
+                <!-- Botão Carrinho -->
+                <button onclick="toggleCart()" class="relative p-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                    <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+                    <span id="cart-badge" class="absolute top-1 right-1 w-4 h-4 bg-tech-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center hidden">0</span>
+                </button>
+
                 <button onclick="openQRModal()" class="md:hidden p-2 bg-tech-primary text-white rounded-lg shadow-lg shadow-orange-500/20">
                     <i data-lucide="qr-code" class="w-5 h-5"></i>
                 </button>
@@ -297,7 +305,7 @@
                         </div>
                     </div>
 
-                    <!-- Card Desafio da Semana -->
+                    <!-- Card Desafio -->
                     <div class="glass-card rounded-xl p-6 border-l-4 border-blue-500 flex flex-col justify-between hover:bg-white/5 transition-colors">
                         <div class="flex justify-between items-start mb-4">
                             <div class="p-3 bg-blue-500/10 rounded-lg text-blue-500"><i data-lucide="trophy" class="w-6 h-6"></i></div>
@@ -309,11 +317,10 @@
                             <div class="w-full bg-tech-700 h-1.5 rounded-full mt-3 overflow-hidden">
                                 <div class="bg-blue-500 h-full rounded-full" style="width: 65%"></div>
                             </div>
-                            <p class="text-[10px] text-right mt-1 text-blue-400">13/20 km</p>
                         </div>
                     </div>
 
-                    <!-- Card Dica Nutri -->
+                    <!-- Card Dica -->
                     <div class="glass-card rounded-xl p-6 border-l-4 border-green-500 flex flex-col justify-between hover:bg-white/5 transition-colors">
                         <div class="flex justify-between items-start mb-4">
                             <div class="p-3 bg-green-500/10 rounded-lg text-green-500"><i data-lucide="apple" class="w-6 h-6"></i></div>
@@ -326,7 +333,7 @@
                     </div>
                 </div>
 
-                <!-- Carrossel de Aulas -->
+                <!-- CARROSSEL DE AULAS (ADICIONADO DE VOLTA) -->
                 <div>
                     <div class="flex justify-between items-end mb-4">
                         <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="calendar-days" class="w-5 h-5 text-tech-primary"></i> Aulas de Hoje</h3>
@@ -380,12 +387,12 @@
                             <div class="w-20 h-20 bg-white rounded-lg flex items-center justify-center p-2 shrink-0">
                                 <img src="https://images.unsplash.com/photo-1593095948071-474c5cc2989d?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60" class="h-full object-contain group-hover:scale-110 transition-transform">
                             </div>
-                            <div class="flex flex-col justify-center">
+                            <div class="flex flex-col justify-center w-full">
                                 <h4 class="font-bold text-sm leading-tight mb-1">Whey Tech Isolate</h4>
                                 <p class="text-xs text-tech-muted mb-2">Chocolate • 900g</p>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-between">
                                     <p class="text-tech-primary font-bold text-sm">R$ 189,90</p>
-                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart()"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart('Whey Tech Isolate', 189.90, 'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60')"><i data-lucide="plus" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -395,12 +402,12 @@
                             <div class="w-20 h-20 bg-white rounded-lg flex items-center justify-center p-2 shrink-0">
                                 <img src="https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60" class="h-full object-contain group-hover:scale-110 transition-transform">
                             </div>
-                            <div class="flex flex-col justify-center">
+                            <div class="flex flex-col justify-center w-full">
                                 <h4 class="font-bold text-sm leading-tight mb-1">Creatina Power</h4>
                                 <p class="text-xs text-tech-muted mb-2">Pura • 300g</p>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-between">
                                     <p class="text-tech-primary font-bold text-sm">R$ 89,90</p>
-                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart()"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart('Creatina Power', 89.90, 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60')"><i data-lucide="plus" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -410,12 +417,12 @@
                             <div class="w-20 h-20 bg-white rounded-lg flex items-center justify-center p-2 shrink-0">
                                 <img src="https://images.unsplash.com/photo-1591196720526-7f415354e601?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60" class="h-full object-contain group-hover:scale-110 transition-transform">
                             </div>
-                            <div class="flex flex-col justify-center">
+                            <div class="flex flex-col justify-center w-full">
                                 <h4 class="font-bold text-sm leading-tight mb-1">Tech Shaker</h4>
                                 <p class="text-xs text-tech-muted mb-2">700ml • Preto</p>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-between">
                                     <p class="text-tech-primary font-bold text-sm">R$ 45,00</p>
-                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart()"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart('Tech Shaker', 45.00, 'https://images.unsplash.com/photo-1591196720526-7f415354e601?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60')"><i data-lucide="plus" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -425,12 +432,12 @@
                             <div class="w-20 h-20 bg-white rounded-lg flex items-center justify-center p-2 shrink-0">
                                 <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60" class="h-full object-contain group-hover:scale-110 transition-transform">
                             </div>
-                            <div class="flex flex-col justify-center">
+                            <div class="flex flex-col justify-center w-full">
                                 <h4 class="font-bold text-sm leading-tight mb-1">Runner X</h4>
                                 <p class="text-xs text-tech-muted mb-2">Pro Edition</p>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-between">
                                     <p class="text-tech-primary font-bold text-sm">R$ 499,90</p>
-                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart()"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                    <button class="p-1.5 rounded bg-tech-700 hover:bg-tech-primary text-white transition-colors" onclick="addToCart('Runner X', 499.90, 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=60')"><i data-lucide="plus" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -501,7 +508,7 @@
                 </div>
             </div>
 
-            <!-- ================= VIEW: WORKOUTS (Placeholder) ================= -->
+            <!-- ================= VIEW: WORKOUTS & DIET (Placeholders) ================= -->
             <div id="view-workouts" class="hidden animate-slide-up">
                 <h2 class="text-2xl font-bold mb-6">Meus Treinos</h2>
                 <div class="glass-card p-6 rounded-2xl text-center py-12">
@@ -512,7 +519,6 @@
                 </div>
             </div>
 
-             <!-- ================= VIEW: DIET (Placeholder) ================= -->
              <div id="view-diet" class="hidden animate-slide-up">
                 <h2 class="text-2xl font-bold mb-6">Nutrição</h2>
                 <div class="glass-card p-6 rounded-2xl text-center py-12">
@@ -526,35 +532,56 @@
         </div>
     </main>
 
+    <!-- ================= SIDEBAR CART (CARRINHO) ================= -->
+    <div id="cart-sidebar" class="fixed inset-y-0 right-0 w-80 bg-tech-900 border-l border-tech-700 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+        <div class="p-6 border-b border-tech-700 flex justify-between items-center">
+            <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="shopping-bag" class="text-tech-primary"></i> Carrinho</h3>
+            <button onclick="toggleCart()" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-6 space-y-4" id="cart-items-container">
+            <!-- Itens do carrinho aqui -->
+            <div class="text-center text-tech-muted py-10" id="empty-cart-msg">
+                <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-3 opacity-20"></i>
+                <p>Seu carrinho está vazio.</p>
+            </div>
+        </div>
+
+        <div class="p-6 border-t border-tech-700 bg-tech-800">
+            <div class="flex justify-between mb-4 text-sm">
+                <span class="text-gray-400">Subtotal</span>
+                <span class="font-bold text-white" id="cart-total">R$ 0,00</span>
+            </div>
+            <button onclick="checkout()" class="w-full py-3 bg-tech-primary hover:bg-tech-primaryHover text-white font-bold rounded-lg transition-colors flex justify-center gap-2">
+                <i data-lucide="credit-card" class="w-5 h-5"></i> Finalizar Compra
+            </button>
+        </div>
+    </div>
+    
+    <!-- Backdrop do Carrinho -->
+    <div id="cart-backdrop" onclick="toggleCart()" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+
     <!-- ================= MODAL QR CODE ================= -->
     <div id="qr-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-backdrop transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="glass-card p-8 rounded-2xl w-full max-w-sm text-center transform scale-95 transition-transform duration-300 border-t-4 border-tech-primary relative shadow-2xl" id="qr-modal-content">
-            
-            <button onclick="closeQRModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
+            <button onclick="closeQRModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
 
             <!-- CONTEÚDO PADRÃO (ACESSÍVEL) -->
             <div id="qr-active-content">
                 <h3 class="text-2xl font-bold text-white mb-1">Acesso TechFit</h3>
                 <p class="text-tech-muted text-sm mb-6" id="qr-status-text">Aproxime este código da catraca para entrar.</p>
-
                 <div class="bg-white p-4 rounded-xl inline-block mb-6 relative group">
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=CarlosSilva-TechFit-12345" alt="QR Code" class="w-48 h-48 opacity-90">
                     <div class="absolute top-0 left-0 w-full h-1 bg-tech-primary opacity-50 animate-[scan_2s_ease-in-out_infinite]"></div>
                 </div>
-
                 <div id="action-status" class="mb-6 p-2 rounded bg-tech-800 text-xs text-tech-primary border border-tech-primary/20">
                     <span class="animate-pulse">●</span> Aguardando leitura...
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                     <button onclick="processAccess()" id="btn-confirm-access" class="py-3 bg-tech-primary hover:bg-tech-primaryHover text-white font-bold rounded-lg text-sm flex items-center justify-center gap-2 transition-colors">
                         <i data-lucide="log-in"></i> Confirmar
                     </button>
-                    <button onclick="closeQRModal()" class="py-3 bg-tech-800 hover:bg-tech-700 text-white font-bold rounded-lg text-sm transition-colors">
-                        Cancelar
-                    </button>
+                    <button onclick="closeQRModal()" class="py-3 bg-tech-800 hover:bg-tech-700 text-white font-bold rounded-lg text-sm transition-colors">Cancelar</button>
                 </div>
             </div>
 
@@ -565,15 +592,10 @@
                         <i data-lucide="check-circle" class="w-10 h-10 text-green-500"></i>
                     </div>
                     <h3 class="text-2xl font-bold text-white mb-2">Treino Concluído!</h3>
-                    <p class="text-tech-muted text-sm mb-8 px-4">
-                        Você já registrou seu treino de hoje. Descanse e volte amanhã com tudo!
-                    </p>
-                    <button onclick="closeQRModal()" class="w-full py-3 bg-tech-800 hover:bg-tech-700 text-white font-bold rounded-lg text-sm transition-colors">
-                        Fechar
-                    </button>
+                    <p class="text-tech-muted text-sm mb-8 px-4">Você já registrou seu treino de hoje. Descanse e volte amanhã com tudo!</p>
+                    <button onclick="closeQRModal()" class="w-full py-3 bg-tech-800 hover:bg-tech-700 text-white font-bold rounded-lg text-sm transition-colors">Fechar</button>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -600,13 +622,125 @@
     <script>
         lucide.createIcons();
 
-        // --- SIDEBAR TOGGLE ---
+        // --- SISTEMA DE CARRINHO DE COMPRAS ---
+        const CART_STORAGE_KEY = 'techfit_cart_v1';
+        let cart = [];
+
+        function loadCart() {
+            const saved = localStorage.getItem(CART_STORAGE_KEY);
+            if (saved) cart = JSON.parse(saved);
+            updateCartBadge();
+        }
+
+        function saveCart() {
+            localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+            updateCartBadge();
+            renderCart();
+        }
+
+        function addToCart(name, price, image) {
+            // Verifica se já existe
+            const existing = cart.find(item => item.name === name);
+            if (existing) {
+                existing.quantity++;
+            } else {
+                cart.push({ name, price, image, quantity: 1 });
+            }
+            saveCart();
+            showToast('Adicionado!', `${name} foi para o carrinho.`, 'success');
+            
+            // Animação visual no botão do carrinho
+            const cartBtn = document.querySelector('button[onclick="toggleCart()"] i');
+            cartBtn.classList.add('text-tech-primary', 'scale-125');
+            setTimeout(() => cartBtn.classList.remove('text-tech-primary', 'scale-125'), 200);
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            saveCart();
+        }
+
+        function updateCartBadge() {
+            const badge = document.getElementById('cart-badge');
+            const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+            
+            if (totalItems > 0) {
+                badge.innerText = totalItems;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items-container');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+            const totalEl = document.getElementById('cart-total');
+            
+            container.innerHTML = '';
+            let total = 0;
+
+            if (cart.length === 0) {
+                emptyMsg.classList.remove('hidden');
+            } else {
+                emptyMsg.classList.add('hidden');
+                cart.forEach((item, index) => {
+                    total += item.price * item.quantity;
+                    const html = `
+                        <div class="flex gap-3 bg-white/5 p-3 rounded-lg border border-tech-700 animate-fade-in">
+                            <div class="w-16 h-16 bg-white rounded p-1 flex items-center justify-center shrink-0">
+                                <img src="${item.image}" class="h-full object-contain">
+                            </div>
+                            <div class="flex-1 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-bold text-sm text-white line-clamp-1">${item.name}</h4>
+                                    <p class="text-xs text-tech-muted">Qtd: ${item.quantity}</p>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-tech-primary font-bold text-sm">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
+                                    <button onclick="removeFromCart(${index})" class="text-red-400 hover:text-red-300 text-xs"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', html);
+                });
+            }
+            totalEl.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            lucide.createIcons();
+        }
+
+        function toggleCart() {
+            const sidebar = document.getElementById('cart-sidebar');
+            const backdrop = document.getElementById('cart-backdrop');
+            
+            if (sidebar.classList.contains('translate-x-full')) {
+                // Abrir
+                sidebar.classList.remove('translate-x-full');
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+                renderCart();
+            } else {
+                // Fechar
+                sidebar.classList.add('translate-x-full');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        function checkout() {
+            if(cart.length === 0) return;
+            showToast('Compra Realizada!', 'Seus produtos foram reservados.', 'success');
+            cart = [];
+            saveCart();
+            toggleCart();
+        }
+
+        // --- SISTEMA DE SIDEBAR (TOGGLE) ---
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
             
-            // Ajustar se necessário (flex/hidden logic em mobile é controlada pelo tailwind hidden md:flex)
-            // No desktop, vamos usar a classe 'collapsed' que define width 0 no CSS
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('w-64');
             } else {
@@ -614,40 +748,28 @@
             }
         }
 
-        // --- ADD TO CART SIMPLES ---
-        function addToCart() {
-            showToast('Adicionado!', 'Produto foi para o carrinho.', 'success');
-        }
-
-        // --- GERENCIAMENTO DE ESTADO COM PERSISTÊNCIA ---
+        // --- GERENCIAMENTO DE ESTADO (FREQUÊNCIA) ---
         const STORAGE_KEY = 'techfit_state_v1';
 
-        // Função para carregar o estado inicial
         function loadState() {
             const saved = localStorage.getItem(STORAGE_KEY);
-            const todayStr = new Date().toDateString(); // Ex: "Wed Dec 03 2025"
+            const todayStr = new Date().toDateString();
 
             if (saved) {
                 const parsed = JSON.parse(saved);
-                
-                // Se a data salva no último treino completo não for hoje, reseta o bloqueio diário
                 if (parsed.lastActiveDate !== todayStr) {
                     return {
                         isCheckedIn: false,
                         lastCheckInTime: null,
-                        dailyCompleted: false, // Libera o acesso para o novo dia
+                        dailyCompleted: false,
                         lastActiveDate: todayStr
                     };
                 }
-                
-                // Restaura o objeto Date se existir (JSON salva como string)
                 if (parsed.lastCheckInTime) {
                     parsed.lastCheckInTime = new Date(parsed.lastCheckInTime);
                 }
                 return parsed;
             }
-
-            // Estado Padrão (Primeiro Acesso)
             return {
                 isCheckedIn: false,
                 lastCheckInTime: null,
@@ -656,18 +778,12 @@
             };
         }
 
-        // Função para salvar o estado atual
         function saveState() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userState));
         }
 
-        // Inicializa o estado
         let userState = loadState();
-
-        // Estado para a navegação do calendário
         let currentViewDate = new Date();
-
-        // Dados de Histórico (Mock inicial + Lógica para persistência futura se desejado)
         let historyData = [
             { date: '02 Set', weekday: 'Sexta', checkIn: '18:15', checkOut: '19:30', duration: '1h 15m', status: 'completed' },
             { date: '01 Set', weekday: 'Quinta', checkIn: '19:00', checkOut: '20:00', duration: '1h 00m', status: 'completed' },
@@ -695,7 +811,7 @@
             }
         }
 
-        // --- LÓGICA DE NAVEGAÇÃO DE MÊS ---
+        // --- LÓGICA DE CALENDÁRIO ---
         function changeMonth(delta) {
             currentViewDate.setMonth(currentViewDate.getMonth() + delta);
             updateMonthDisplay();
@@ -710,7 +826,6 @@
             lucide.createIcons();
         }
 
-        // --- HEATMAP DINÂMICO ---
         function renderHeatmap() {
             const grid = document.getElementById('heatmap-grid');
             grid.innerHTML = '';
@@ -728,11 +843,8 @@
                 day.classList.add('freq-day');
                 day.innerText = i;
                 
-                if (isCurrentMonth && i === today.getDate()) {
-                    day.classList.add('today');
-                }
+                if (isCurrentMonth && i === today.getDate()) day.classList.add('today');
 
-                // Exemplo visual: marca presença se já completou hoje
                 if (isCurrentMonth && i === today.getDate() && userState.dailyCompleted) {
                     day.classList.add('present');
                     presentCount++;
@@ -744,13 +856,12 @@
                 } else if (!isCurrentMonth && today < new Date(year, month, i)) {
                     day.classList.add('future');
                 }
-                
                 grid.appendChild(day);
             }
             document.getElementById('month-count').innerText = presentCount;
         }
 
-        // --- LÓGICA DE ACESSO QR (Com Bloqueio Diário) ---
+        // --- LÓGICA DE ACESSO QR ---
         function openQRModal() {
             const modal = document.getElementById('qr-modal');
             const modalContent = modal.querySelector('#qr-modal-content');
@@ -762,13 +873,10 @@
             const statusText = document.getElementById('qr-status-text');
             const actionStatus = document.getElementById('action-status');
 
-            // 1. Verifica se o treino do dia já foi concluído
             if (userState.dailyCompleted) {
                 contentActive.classList.add('hidden');
                 contentBlocked.classList.remove('hidden');
-            } 
-            // 2. Se não, mostra interface normal de entrada/saída
-            else {
+            } else {
                 contentBlocked.classList.add('hidden');
                 contentActive.classList.remove('hidden');
 
@@ -786,9 +894,7 @@
                     actionStatus.innerHTML = '<span class="text-tech-primary">●</span> Entrando...';
                 }
             }
-            
             lucide.createIcons();
-
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -803,9 +909,7 @@
             modal.classList.add('opacity-0', 'pointer-events-none');
             modalContent.classList.remove('scale-100');
             modalContent.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
         function processAccess() {
@@ -813,10 +917,9 @@
             const timeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             
             if (!userState.isCheckedIn) {
-                // --- REGISTRAR ENTRADA ---
                 userState.isCheckedIn = true;
                 userState.lastCheckInTime = now;
-                userState.lastActiveDate = now.toDateString(); // Atualiza data ativa
+                userState.lastActiveDate = now.toDateString();
                 
                 historyData.unshift({
                     date: 'Hoje',
@@ -827,21 +930,16 @@
                     status: 'active'
                 });
                 
-                saveState(); // Salva estado no LocalStorage
+                saveState();
                 showToast('Bem-vindo!', 'Entrada registrada com sucesso.', 'success');
                 updateHomeButtonState(true);
-
             } else {
-                // --- REGISTRAR SAÍDA ---
                 userState.isCheckedIn = false;
-                userState.dailyCompleted = true; // BLOQUEIA NOVOS ACESSOS HOJE
+                userState.dailyCompleted = true;
                 
                 if (historyData.length > 0 && historyData[0].status === 'active') {
                     historyData[0].checkOut = timeString;
-                    
-                    // Calcula duração (se tiver date object válido)
                     if (userState.lastCheckInTime) {
-                        // Recria objeto date caso tenha vindo do storage como string
                         const checkInDate = new Date(userState.lastCheckInTime);
                         const diffMs = now - checkInDate;
                         const diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000);
@@ -853,7 +951,7 @@
                     historyData[0].status = 'completed';
                 }
                 
-                saveState(); // Salva estado (incluindo o bloqueio)
+                saveState();
                 showToast('Até logo!', 'Treino finalizado com sucesso.', 'success');
                 updateHomeButtonState(false);
             }
@@ -861,21 +959,18 @@
             closeQRModal();
         }
 
-        // Atualiza a UI do botão Home baseado no estado atual
         function updateHomeButtonState(isInside) {
             const btnHome = document.getElementById('home-access-btn');
             const titleHome = document.getElementById('home-access-title');
             const descHome = document.getElementById('home-access-desc');
             const sidebarBtn = document.getElementById('btn-quick-access');
 
-            // Se já completou o treino hoje e NÃO está dentro (caso de reload após completar)
             if (userState.dailyCompleted && !isInside) {
                 if(btnHome) {
                     btnHome.innerHTML = '<i data-lucide="check-circle"></i> Treino Concluído';
                     btnHome.classList.replace('text-red-600', 'text-green-600'); 
                     btnHome.classList.replace('text-tech-900', 'text-green-600');
                 }
-                
                 if(sidebarBtn) {
                     sidebarBtn.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i> Treino Concluído';
                     sidebarBtn.classList.remove('bg-red-600', 'hover:bg-red-500', 'bg-tech-primary', 'hover:bg-tech-primaryHover');
@@ -891,7 +986,6 @@
                     titleHome.innerHTML = '<i data-lucide="clock" class="text-tech-primary"></i> Treino em Andamento';
                     descHome.innerText = "Não esqueça de registrar sua saída.";
                 }
-                
                 if(sidebarBtn) {
                     sidebarBtn.innerHTML = '<i data-lucide="log-out" class="w-5 h-5"></i> Sair da Academia';
                     sidebarBtn.classList.replace('bg-tech-primary', 'bg-red-600');
@@ -904,13 +998,10 @@
                     titleHome.innerHTML = '<i data-lucide="zap" class="text-tech-primary"></i> Acesso Rápido';
                     descHome.innerText = "Utilize seu QR Code digital para liberar a catraca.";
                 }
-                
                 if(sidebarBtn) {
                     sidebarBtn.innerHTML = '<i data-lucide="qr-code" class="w-5 h-5"></i> Acessar Academia';
                     sidebarBtn.classList.replace('bg-red-600', 'bg-tech-primary');
                     sidebarBtn.classList.replace('hover:bg-red-500', 'hover:bg-tech-primaryHover');
-                    sidebarBtn.classList.remove('bg-green-600', 'hover:bg-green-500'); // Remove estilo de concluído se houver
-                    sidebarBtn.classList.add('bg-tech-primary', 'hover:bg-tech-primaryHover');
                 }
             }
             lucide.createIcons();
@@ -976,8 +1067,8 @@
             setTimeout(() => toast.classList.add('translate-x-full'), 4000);
         }
 
-        // Init
-        // Atualiza a UI baseada no estado carregado do LocalStorage
+        // Init App
+        loadCart();
         updateHomeButtonState(userState.isCheckedIn);
         renderHistory();
         updateMonthDisplay(); 

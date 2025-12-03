@@ -69,10 +69,14 @@
             outline: none;
         }
         
-        /* --- CORREÇÃO 1: Remover o olho nativo do navegador (Edge/IE) --- */
+        /* Reset Agressivo para remover ícones nativos de senha do navegador */
         input[type="password"]::-ms-reveal,
         input[type="password"]::-ms-clear {
-            display: none;
+            display: none !important;
+        }
+        input[type="password"]::-webkit-password-toggle-visibility {
+            display: none !important;
+            -webkit-appearance: none !important;
         }
 
         /* Calendário Branco */
@@ -114,18 +118,34 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Animação do Olho */
-        .eye-transition {
-            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        /* --- ANIMAÇÃO DO OLHO --- */
+        .eye-container {
+            position: relative;
+            width: 24px;
+            height: 24px;
         }
-        .eye-visible {
+        
+        .eye-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efeito elástico */
+        }
+
+        /* Estado: Ativo (Visível) */
+        .eye-active {
             opacity: 1;
             transform: rotate(0deg) scale(1);
         }
-        .eye-hidden {
+
+        /* Estado: Inativo (Escondido) */
+        .eye-inactive {
             opacity: 0;
-            transform: rotate(180deg) scale(0);
+            transform: rotate(180deg) scale(0.5);
         }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
@@ -238,19 +258,24 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-400 mb-1">Senha de Acesso</label>
-                        <div class="relative z-10">
+                        <div class="relative">
                             <input type="password" id="password" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
                             
-                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-1 group z-20">
-                                <div class="relative w-6 h-6">
+                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-1 z-10 cursor-pointer hover:bg-white/5 rounded-full transition-colors">
+                                <div class="eye-container">
                                     
-                                    <div id="eyeOpen" class="absolute inset-0 eye-transition eye-visible">
-                                        <i data-lucide="eye" class="w-6 h-6 text-white group-hover:text-tech-primary transition-colors"></i>
-                                    </div>
+                                    <svg id="iconShow" class="eye-svg eye-active" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
                                     
-                                    <div id="eyeClosed" class="absolute inset-0 eye-transition eye-hidden">
-                                        <i data-lucide="eye-off" class="w-6 h-6 text-white group-hover:text-tech-primary transition-colors"></i>
-                                    </div>
+                                    <svg id="iconHide" class="eye-svg eye-inactive" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09"></path>
+                                        <line x1="2" x2="22" y1="2" y2="22"></line>
+                                    </svg>
+
                                 </div>
                             </button>
                         </div>
@@ -425,33 +450,37 @@
         // Inicializar ícones Lucide
         lucide.createIcons();
 
-        // Lógica do Toggle de Senha
+        // --- LÓGICA DE FUNCIONALIDADE E ANIMAÇÃO ---
         const togglePasswordBtn = document.getElementById('togglePasswordBtn');
         const passwordInput = document.getElementById('password');
-        const eyeOpen = document.getElementById('eyeOpen');
-        const eyeClosed = document.getElementById('eyeClosed');
+        const iconShow = document.getElementById('iconShow'); // Olho
+        const iconHide = document.getElementById('iconHide'); // Olho Cortado
 
         togglePasswordBtn.addEventListener('click', () => {
             const isPassword = passwordInput.getAttribute('type') === 'password';
             
-            // Troca o tipo do input
+            // 1. Alternar tipo do input
             passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
 
-            // Troca as classes de animação (Morph effect)
+            // 2. Alternar Animação
             if (isPassword) {
-                // Mostrar senha (vira texto)
-                eyeOpen.classList.remove('eye-visible');
-                eyeOpen.classList.add('eye-hidden');
+                // Se estava password, agora virou texto.
+                // Esconder o olho normal (Show) -> Animar saída
+                iconShow.classList.remove('eye-active');
+                iconShow.classList.add('eye-inactive');
                 
-                eyeClosed.classList.remove('eye-hidden');
-                eyeClosed.classList.add('eye-visible');
+                // Mostrar o olho cortado (Hide) -> Animar entrada
+                iconHide.classList.remove('eye-inactive');
+                iconHide.classList.add('eye-active');
             } else {
-                // Ocultar senha (vira bolinha)
-                eyeOpen.classList.remove('eye-hidden');
-                eyeOpen.classList.add('eye-visible');
+                // Se estava texto, agora virou password.
+                // Mostrar o olho normal -> Animar entrada
+                iconShow.classList.remove('eye-inactive');
+                iconShow.classList.add('eye-active');
                 
-                eyeClosed.classList.remove('eye-visible');
-                eyeClosed.classList.add('eye-hidden');
+                // Esconder o olho cortado -> Animar saída
+                iconHide.classList.remove('eye-active');
+                iconHide.classList.add('eye-inactive');
             }
         });
 
@@ -492,7 +521,7 @@
                 showToast('toast');
                 form.reset();
                 
-                // Resetar botão do olho para estado inicial
+                // Resetar botão do olho para estado inicial se necessário
                 if(passwordInput.getAttribute('type') === 'text') {
                     togglePasswordBtn.click();
                 }
