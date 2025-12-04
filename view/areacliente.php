@@ -1,3 +1,21 @@
+<?php
+// Inicie a sessão antes de qualquer saída para evitar "headers already sent"
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Preparar mensagens de cadastro vindas via GET (ex: ?cadastro=sucesso)
+$cadastroMessage = null;
+$cadastroColor = '';
+if (isset($_GET['cadastro'])) {
+    $type = $_GET['cadastro'];
+    $cadastroMessage = ($type == 'sucesso')
+        ? 'Cadastro realizado com sucesso! Faça login abaixo.'
+        : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
+    $cadastroColor = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
+}
+
+?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -127,22 +145,10 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
-    <?php 
-    // Inicia a sessão para exibir mensagens de cadastro enviadas pelo controller
-    if (session_status() == PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (isset($_GET['cadastro'])):
-        $type = $_GET['cadastro'];
-        $message = ($type == 'sucesso') 
-            ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
-            : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
-        $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
-    ?>
-    <div class="fixed top-0 left-1/2 -translate-x-1/2 mt-4 p-4 rounded-lg <?= $color ?> text-white text-sm z-50 shadow-lg animate-fade-in">
-        <?= htmlspecialchars($message) ?>
-    </div>
+    <?php if (!empty($cadastroMessage)): ?>
+        <div class="fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg <?= $cadastroColor ?> text-white text-sm z-50 shadow-md">
+            <?= htmlspecialchars($cadastroMessage) ?>
+        </div>
     <?php endif; ?>
 
     <div class="hidden md:flex md:w-1/2 lg:w-2/5 bg-tech-800 relative overflow-hidden flex-col justify-between p-12">
@@ -207,7 +213,7 @@
                 <p class="text-tech-muted">Preencha seus dados para criar sua conta de aluno.</p>
             </div>
 
-            <form id="enrollmentForm" method="POST" action="controllers/CadastroController.php" class="space-y-8">
+            <form id="enrollmentForm" method="POST" action="Controller/CadastroController.php" class="space-y-8">
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2">
                         <i data-lucide="user" class="w-5 h-5"></i>
@@ -217,33 +223,33 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Nome Completo</label>
-                            <input type="text" id="name" required class="w-full p-3 rounded-lg tech-input" placeholder="Seu nome">
+                            <input type="text" id="name" name="nome" required class="w-full p-3 rounded-lg tech-input" placeholder="Seu nome">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Data de Nascimento</label>
-                            <input type="date" id="birthdate" required class="w-full p-3 rounded-lg tech-input">
+                            <input type="date" id="birthdate" name="data_nascimento" required class="w-full p-3 rounded-lg tech-input">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
-                            <input type="email" id="email" required class="w-full p-3 rounded-lg tech-input" placeholder="seu@email.com">
+                            <input type="email" id="email" name="email" required class="w-full p-3 rounded-lg tech-input" placeholder="seu@email.com">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Telefone / WhatsApp</label>
-                            <input type="tel" id="phone" required class="w-full p-3 rounded-lg tech-input" placeholder="(00) 00000-0000">
+                            <input type="tel" id="phone" name="telefone" required class="w-full p-3 rounded-lg tech-input" placeholder="(00) 00000-0000">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">CPF</label>
-                            <input type="text" id="cpf" required class="w-full p-3 rounded-lg tech-input" placeholder="000.000.000-00">
+                            <input type="text" id="cpf" name="cpf" required class="w-full p-3 rounded-lg tech-input" placeholder="000.000.000-00">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Gênero</label>
-                            <select id="gender" required class="w-full p-3 rounded-lg tech-input appearance-none">
+                            <select id="gender" name="genero" required class="w-full p-3 rounded-lg tech-input appearance-none">
                                 <option value="" disabled selected>Selecione</option>
                                 <option value="masculino">Masculino</option>
                                 <option value="feminino">Feminino</option>
@@ -256,7 +262,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-400 mb-1">Senha de Acesso</label>
                         <div class="relative">
-                            <input type="password" id="password" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
+                            <input type="password" id="password" name="senha" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
                             
                             <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-2 rounded-full hover:bg-white/5 transition-colors z-20 cursor-pointer">
                                 <div class="eye-container">
@@ -316,9 +322,8 @@
                             </div>
                         </label>
                         <label class="relative cursor-pointer group">
-                            <input type="radio" name="plan" value="Pro" class="plan-radio sr-only" checked>
-                            <div class="plan-card p-4 rounded-xl border border-tech-primary bg-tech-800 h-full transition-all relative overflow-hidden">
-                                <div class="absolute top-0 right-0 bg-tech-primary text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">POPULAR</div>
+                            <input type="radio" name="plan" value="Pro" class="plan-radio sr-only">
+                            <div class="plan-card p-4 rounded-xl border border-tech-700 bg-tech-800 h-full transition-all group-hover:border-gray-500">
                                 <div class="flex justify-between items-start mb-2"><h4 class="font-bold text-lg text-white">Pro</h4><div class="check-icon opacity-0 transform scale-50 transition-all duration-300 bg-tech-primary rounded-full p-1 text-white"><i data-lucide="check" class="w-3 h-3"></i></div></div>
                                 <div class="text-2xl font-bold mb-2 text-tech-primary">R$ 149<span class="text-sm font-normal text-tech-muted">/mês</span></div>
                                 <ul class="text-xs text-gray-300 space-y-1"><li>• Tudo do Start</li><li>• IA Trainer</li><li>• Aulas Coletivas</li></ul>
@@ -346,7 +351,56 @@
                 </div>
             </form>
             <div class="mt-8 text-center border-t border-tech-800 pt-8">
-                <p class="text-tech-muted">Já tem uma conta? <a href="#" class="text-white font-bold hover:text-tech-primary transition-colors">Fazer Login</a></p>
+                <p class="text-tech-muted">Já tem uma conta? <a href="#" onclick="toggleLoginModal(event)" class="text-white font-bold hover:text-tech-primary transition-colors">Fazer Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Login -->
+    <div id="loginModal" class="fixed inset-0 z-50 hidden" aria-labelledby="login-modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm" onclick="toggleLoginModal()"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="relative w-full max-w-md bg-tech-900 border border-tech-700 rounded-2xl shadow-2xl">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-tech-700 bg-tech-800/50 rounded-t-2xl">
+                    <h3 id="login-modal-title" class="text-lg font-bold text-white">Entrar</h3>
+                    <button type="button" class="text-tech-muted hover:text-white" onclick="toggleLoginModal()">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="px-6 py-6">
+                    <form action="Controller/LoginController.php" method="POST" class="space-y-4">
+                        <div>
+                            <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+                            </div>
+                        </div>
+
+                        <div>
+                            <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 text-sm text-tech-muted text-center">
+                        <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -387,12 +441,40 @@
                     }
                 });
             }
-        });
-    </script>
 
-    <!-- Firebase enrollment script removed.
-         Submissão do formulário agora é tratada pelo Controller PHP em `controllers/CadastroController.php`.
-         Se precisar reaplicar lógica cliente, restaurar o bloco original ou adaptar para envio AJAX ao endpoint PHP.
-    -->
+            // Permitir desmarcar radio buttons de plano
+            const planRadios = document.querySelectorAll('input[name="plan"]');
+            let lastChecked = null;
+
+            planRadios.forEach(radio => {
+                radio.addEventListener('click', function(e) {
+                    if (this.checked && lastChecked === this.value) {
+                        // Se clicou no mesmo que estava selecionado, desmarcar
+                        this.checked = false;
+                        lastChecked = null;
+                    } else {
+                        // Caso contrário, marcar normalmente
+                        lastChecked = this.value;
+                    }
+                });
+            });
+        });
+
+        // Toggle Login Modal
+        function toggleLoginModal(e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            const modal = document.getElementById('loginModal');
+            if (!modal) return;
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+    </script>
 </body>
 </html>

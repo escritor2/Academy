@@ -1,9 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="icons/favicon.png">
     <title>TechFit - A Evolução do Seu Treino</title>
+
     
     <!-- Importando Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -117,6 +120,15 @@
             left: 100%;
         }
 
+        /* Navbar Recolhível */
+        #navbar {
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+        #navbar.navbar-hidden {
+            transform: translateY(-100%);
+        }
+
         /* Card Hover Effect Premium */
         .card-premium {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -198,6 +210,11 @@
                             Planos
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-tech-primary transition-all group-hover:w-full"></span>
                         </a>
+                        <!-- Botão Login (abre modal) -->
+                        <button onclick="toggleLoginModal()" class="text-sm font-medium text-white hover:text-tech-primary transition-colors">
+                            Login
+                        </button>
+
                         <a href="areacliente.php" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-6 py-2 rounded-full font-bold transition-all btn-glow ml-4">
                             Área do Aluno
                         </a>
@@ -220,9 +237,69 @@
                 <a href="#classes" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Aulas</a>
                 <a href="#products" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Loja</a>
                 <a href="#plans" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Planos</a>
+                <!-- Botão Login (mobile) -->
+                <button onclick="toggleLoginModal()" class="block w-full text-left px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Login</button>
             </div>
         </div>
     </nav>
+
+    <!-- Modal de Login (inserido) -->
+    <div id="loginModal" class="fixed inset-0 z-50 hidden" aria-labelledby="login-modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm" onclick="toggleLoginModal()"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="relative w-full max-w-md bg-tech-900 border border-tech-700 rounded-2xl shadow-2xl">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-tech-700 bg-tech-800/50 rounded-t-2xl">
+                    <h3 id="login-modal-title" class="text-lg font-bold text-white">Entrar</h3>
+                    <button type="button" class="text-tech-muted hover:text-white" onclick="toggleLoginModal()">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="px-6 py-6">
+                    <?php 
+                        $loginError = isset($_GET['login']) && $_GET['login'] == 'erro' ? ($_GET['msg'] ?? 'Email ou senha incorretos') : '';
+                    ?>
+                    <form action="Controller/LoginController.php" method="POST" class="space-y-4">
+                        <?php if($loginError): ?>
+                            <div class="text-red-500 text-sm bg-red-500/10 border border-red-500/30 p-3 rounded-md">
+                                <?= htmlspecialchars($loginError) ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div>
+                            <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+                            </div>
+                        </div>
+
+                        <div>
+                            <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 text-sm text-tech-muted text-center">
+                        <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Hero Section com Efeitos -->
     <section id="home" class="relative h-screen flex items-center justify-center hero-bg overflow-hidden">
@@ -253,7 +330,7 @@
             </p>
             
             <div class="flex flex-col sm:flex-row gap-4 justify-center reveal reveal-delay-300">
-                <a href="#plans" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-10 py-4 rounded-lg font-bold text-lg transition-all btn-glow transform hover:-translate-y-1">
+                <a href="areacliente.php" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-10 py-4 rounded-lg font-bold text-lg transition-all btn-glow transform hover:-translate-y-1">
                     Começar Agora
                 </a>
                 <a href="#classes" class="group bg-white/5 border border-white/20 hover:border-white hover:bg-white/10 text-white px-10 py-4 rounded-lg font-bold text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
@@ -599,6 +676,19 @@
             }, 3000);
         }
 
+        // Toggle Login Modal
+        function toggleLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (!modal) return;
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+
         // Scroll Animations e Typing Effect
         const observerOptions = {
             root: null,
@@ -619,16 +709,45 @@
             observer.observe(el);
         });
 
-        // Navbar Transição ao Rolar
+        // Navbar Transição ao Rolar e Recolhimento (apenas perto do rodapé)
+        let lastScrollY = 0;
+        let isNavbarHidden = false;
+        
         window.addEventListener('scroll', () => {
             const navbar = document.getElementById('navbar');
-            if (window.scrollY > 20) {
+            const currentScrollY = window.scrollY;
+            const documentHeight = document.documentElement.scrollHeight;
+            const viewportHeight = window.innerHeight;
+            const distanceFromBottom = documentHeight - (currentScrollY + viewportHeight);
+            
+            // Fundo do navbar
+            if (currentScrollY > 20) {
                 navbar.classList.add('bg-tech-900/90', 'backdrop-blur-md', 'shadow-xl', 'border-b', 'border-tech-700/50');
                 navbar.classList.remove('bg-transparent');
             } else {
                 navbar.classList.remove('bg-tech-900/90', 'backdrop-blur-md', 'shadow-xl', 'border-b', 'border-tech-700/50');
                 navbar.classList.add('bg-transparent');
             }
+            
+            // Recolher navbar apenas quando estiver próximo ao rodapé (menos de 300px)
+            if (distanceFromBottom < 300) {
+                // Perto do rodapé - permitir recolhimento
+                if (currentScrollY > lastScrollY && !isNavbarHidden) {
+                    navbar.classList.add('navbar-hidden');
+                    isNavbarHidden = true;
+                } else if (currentScrollY < lastScrollY && isNavbarHidden) {
+                    navbar.classList.remove('navbar-hidden');
+                    isNavbarHidden = false;
+                }
+            } else {
+                // Longe do rodapé - manter navbar sempre visível
+                if (isNavbarHidden) {
+                    navbar.classList.remove('navbar-hidden');
+                    isNavbarHidden = false;
+                }
+            }
+            
+            lastScrollY = currentScrollY;
         });
     </script>
 </body>

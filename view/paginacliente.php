@@ -1,3 +1,16 @@
+<?php
+// paginacliente.php
+
+// Chama o controller que está na pasta controllers
+require_once 'controllers/AlunoController.php';
+
+// Instancia o controller
+$controller = new AlunoController();
+
+// O método index() do controller vai fazer a lógica e carregar os dados
+// Mas notei que seu AlunoController não retorna os dados, ele só configura.
+// Vamos fazer um ajuste rápido para integrar:
+?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -191,6 +204,11 @@
             : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
         $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
     ?>
+    <div class="fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg <?= $color ?> text-white text-sm z-50 shadow-md">
+        <?= htmlspecialchars($message) ?>
+    </div>
+    <?php endif; ?>
+
     <!-- SIDEBAR -->
     <aside id="sidebar" class="w-64 bg-tech-800 border-r border-tech-700 flex flex-col justify-between z-30 hidden md:flex">
         <div>
@@ -1073,5 +1091,37 @@
         renderHistory();
         updateMonthDisplay(); 
     </script>
+    <!-- Dados de treinos vindos do PHP (disponibiliza `treinosVindosDoPHP` para o JS) -->
+    <?php
+        // Permite que um controller PHP defina $treinos antes de incluir este template.
+        if (!isset($treinos) || !is_array($treinos)) {
+            $treinos = [
+                'A' => [
+                    ['name' => 'Supino Reto', 'equip' => 'Barra', 'sets' => 4, 'reps' => '8-12', 'weight' => 30, 'done' => false],
+                    ['name' => 'Supino Inclinado', 'equip' => 'Halter', 'sets' => 3, 'reps' => '10-12', 'weight' => 22, 'done' => false],
+                    ['name' => 'Tríceps Corda', 'equip' => 'Polia', 'sets' => 4, 'reps' => '15', 'weight' => 25, 'done' => false]
+                ],
+                'B' => [
+                    ['name' => 'Puxada Alta', 'equip' => 'Máquina', 'sets' => 4, 'reps' => '10', 'weight' => 50, 'done' => false],
+                    ['name' => 'Remada Curvada', 'equip' => 'Barra', 'sets' => 4, 'reps' => '8-10', 'weight' => 40, 'done' => false],
+                    ['name' => 'Rosca Direta', 'equip' => 'Barra W', 'sets' => 3, 'reps' => '12', 'weight' => 15, 'done' => false]
+                ],
+                'C' => [
+                    ['name' => 'Agachamento Livre', 'equip' => 'Barra', 'sets' => 5, 'reps' => '8', 'weight' => 80, 'done' => false],
+                    ['name' => 'Leg Press 45', 'equip' => 'Máquina', 'sets' => 4, 'reps' => '12', 'weight' => 200, 'done' => false],
+                    ['name' => 'Elevação Lateral', 'equip' => 'Halter', 'sets' => 4, 'reps' => '15', 'weight' => 10, 'done' => false]
+                ]
+            ];
+        }
+    ?>
+
+    <script>
+        // Exporta para JS de forma segura
+        const treinosVindosDoPHP = <?php echo json_encode($treinos, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP); ?>;
+    </script>
+
+    <!-- Carrega o script principal da página (implementação em view/src/paginacliente.js) -->
+    <script src="src/paginacliente.js"></script>
+
 </body>
 </html>
