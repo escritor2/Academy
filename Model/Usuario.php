@@ -1,24 +1,53 @@
-<?php 
+<?php
+class Usuario {
+    private $conn;
+    private $table = "usuarios";
 
+    public $id;
+    public $nome;
+    public $email;
+    public $senha;
+    public $perfil;
+
+    public function __construct($db) {
+        $this->conn = $db;
+    }
+
+    // Método para ler usuários (usado no Painel Admin)
+    public function lerPorPerfil($perfil) {
+        $query = "SELECT id, nome, email, status FROM " . $this->table . " WHERE perfil = :perfil";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":perfil", $perfil);
+        $stmt->execute();
+        return $stmt;
+    }
+
+    // --- NOVO MÉTODO DE CADASTRO CORRIGIDO ---
     public function criarUsuario($nome, $email, $senha, $perfil = 'aluno') {
-        // NOTE: Em produção, a senha deve ser criptografada com password_hash()
         $query = "INSERT INTO " . $this->table . " SET nome=:nome, email=:email, senha=:senha, perfil=:perfil";
 
         $stmt = $this->conn->prepare($query);
 
-        // Limpeza de dados para segurança
+        // 1. Limpeza básica (Segurança)
         $nome = htmlspecialchars(strip_tags($nome));
         $email = htmlspecialchars(strip_tags($email));
         
-        // Bind dos valores
+        // 2. Criptografia da Senha (CRUCIAL!)
+        // O password_hash cria um hash seguro automaticamente
+        $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
+
+        // 3. Bind dos valores
         $stmt->bindParam(":nome", $nome);
         $stmt->bindParam(":email", $email);
-        $stmt->bindParam(":senha", $senha); // USE password_hash() AQUI EM PRODUÇÃO
+        $stmt->bindParam(":senha", $senha_hash); // Salvamos o hash, não a senha pura
         $stmt->bindParam(":perfil", $perfil);
 
+        // 4. Executa
         if($stmt->execute()) {
             return true;
         }
+
+        // Se der erro (ex: email duplicado), retorna false
         return false;
     }
 }

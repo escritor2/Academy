@@ -127,6 +127,23 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
+    <?php 
+    // Inicia a sessão para exibir mensagens de cadastro enviadas pelo controller
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (isset($_GET['cadastro'])):
+        $type = $_GET['cadastro'];
+        $message = ($type == 'sucesso') 
+            ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
+            : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
+        $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
+    ?>
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 mt-4 p-4 rounded-lg <?= $color ?> text-white text-sm z-50 shadow-lg animate-fade-in">
+        <?= htmlspecialchars($message) ?>
+    </div>
+    <?php endif; ?>
 
     <div class="hidden md:flex md:w-1/2 lg:w-2/5 bg-tech-800 relative overflow-hidden flex-col justify-between p-12">
         <div class="absolute inset-0 z-0">
@@ -190,7 +207,7 @@
                 <p class="text-tech-muted">Preencha seus dados para criar sua conta de aluno.</p>
             </div>
 
-            <form id="enrollmentForm" class="space-y-8">
+            <form id="enrollmentForm" method="POST" action="controllers/CadastroController.php" class="space-y-8">
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2">
                         <i data-lucide="user" class="w-5 h-5"></i>
@@ -373,81 +390,9 @@
         });
     </script>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        try {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const auth = getAuth(app);
-
-            async function initAuth() {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) { console.error(error); }
-            }
-            initAuth();
-
-            const form = document.getElementById('enrollmentForm');
-            const submitBtn = document.getElementById('submitBtn');
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const originalBtnContent = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<div class="loader"></div> Processando...';
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
-
-                try {
-                    const formData = {
-                        name: document.getElementById('name').value,
-                        email: document.getElementById('email').value,
-                        birthdate: document.getElementById('birthdate').value,
-                        phone: document.getElementById('phone').value,
-                        cpf: document.getElementById('cpf').value, 
-                        gender: document.getElementById('gender').value,
-                        goal: document.querySelector('input[name="goal"]:checked').value,
-                        plan: document.querySelector('input[name="plan"]:checked').value,
-                        password: '***',
-                        createdAt: serverTimestamp(),
-                        status: 'ativo'
-                    };
-
-                    const user = auth.currentUser;
-                    if (!user) throw new Error("Usuário não autenticado.");
-
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), formData);
-
-                    const toast = document.getElementById('toast');
-                    toast.classList.remove('translate-x-full');
-                    setTimeout(() => toast.classList.add('translate-x-full'), 4000);
-                    form.reset();
-                    const passInput = document.getElementById('password');
-                    const toggleBtn = document.getElementById('togglePasswordBtn');
-                    if(passInput.type === 'text') toggleBtn.click();
-
-                } catch (error) {
-                    console.error("Erro ao salvar:", error);
-                    document.getElementById('errorMessage').innerText = "Erro ao processar.";
-                    const errorToast = document.getElementById('errorToast');
-                    errorToast.classList.remove('translate-x-full');
-                    setTimeout(() => errorToast.classList.add('translate-x-full'), 4000);
-                } finally {
-                    submitBtn.innerHTML = originalBtnContent;
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                }
-            });
-        } catch (e) { console.warn("Firebase não configurado."); }
-    </script>
+    <!-- Firebase enrollment script removed.
+         Submissão do formulário agora é tratada pelo Controller PHP em `controllers/CadastroController.php`.
+         Se precisar reaplicar lógica cliente, restaurar o bloco original ou adaptar para envio AJAX ao endpoint PHP.
+    -->
 </body>
 </html>
