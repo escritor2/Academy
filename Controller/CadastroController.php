@@ -22,19 +22,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // 1. Tenta Criar o Usuário
     if ($usuario->criarUsuario($nome, $email, $senha, 'aluno')) {
-        
-        // 2. SUCESSO! Agora faz o login automático
-        $dados = $usuario->login($email, $senha);
-
-        if ($dados) {
-            $_SESSION['user_id'] = $dados['id'];
-            $_SESSION['user_nome'] = $dados['nome'];
-            $_SESSION['user_perfil'] = 'aluno';
-
-            // 3. REDIRECIONA PARA O TEMPLATE DO ALUNO
-            header("Location: ../view/paginacliente.php");
-            exit;
-        }
+        // Cadastro realizado com sucesso, volta para tela de cadastro/login
+        header("Location: ../view/areacliente.php?cadastro=sucesso");
+        exit;
     } else {
         // Se der erro (ex: email repetido)
         header("Location: ../view/areacliente.php?cadastro=erro&msg=Email ja existe");
