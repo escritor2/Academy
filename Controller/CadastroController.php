@@ -1,6 +1,9 @@
 <?php
-require_once '../config/Database.php';
-require_once '../Model/Usuario.php'; // Pasta Model com M maiúsculo
+session_start();
+
+// Caminhos absolutos para evitar erros
+require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../Model/Usuario.php'; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nome = $_POST['nome'] ?? '';
@@ -8,7 +11,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $senha = $_POST['senha'] ?? '';
 
     if (empty($nome) || empty($email) || empty($senha)) {
-        header("Location: ../areacliente.php?cadastro=erro&msg=Preencha todos os campos");
+        // Se faltar dados, volta para o cadastro com erro
+        header("Location: ../view/areacliente.php?cadastro=erro&msg=Preencha tudo");
         exit;
     }
 
@@ -16,12 +20,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $db = $database->getConnection();
     $usuario = new Usuario($db);
 
-    // O método criarUsuario já faz o hash da senha, pode mandar a senha pura
+    // 1. Tenta Criar o Usuário
     if ($usuario->criarUsuario($nome, $email, $senha, 'aluno')) {
-        header("Location: ../areacliente.php?cadastro=sucesso");
-        exit;
+        
+        // 2. SUCESSO! Agora faz o login automático
+        $dados = $usuario->login($email, $senha);
+
+        if ($dados) {
+            $_SESSION['user_id'] = $dados['id'];
+            $_SESSION['user_nome'] = $dados['nome'];
+            $_SESSION['user_perfil'] = 'aluno';
+
+            // 3. REDIRECIONA PARA O TEMPLATE DO ALUNO
+            header("Location: ../view/paginacliente.php");
+            exit;
+        }
     } else {
-        header("Location: ../areacliente.php?cadastro=erro&msg=Email ja cadastrado");
+        // Se der erro (ex: email repetido)
+        header("Location: ../view/areacliente.php?cadastro=erro&msg=Email ja existe");
         exit;
     }
 }
