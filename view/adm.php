@@ -56,7 +56,6 @@ $treino_exercicios = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TechFit - Painel Administrativo</title>
-    <link rel="icon" href="icons/halter.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     

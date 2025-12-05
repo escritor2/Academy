@@ -1,13 +1,8 @@
 <?php
 // paginacliente.php
 
-// Iniciar sessão ANTES de qualquer saída
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Chama o controller que está na pasta controllers
-require_once '../Controller/AlunoController.php';
+require_once 'controllers/AlunoController.php';
 
 // Instancia o controller
 $controller = new AlunoController();
@@ -21,7 +16,6 @@ $controller = new AlunoController();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="icons/halter.png">
     <title>TechFit - Painel do Aluno Premium</title>
     
     <!-- Tailwind CSS -->
@@ -196,18 +190,24 @@ $controller = new AlunoController();
     </style>
 </head>
 <body class="h-screen flex overflow-hidden">
-    <?php 
-        if (isset($_GET['cadastro'])): 
-            $type = $_GET['cadastro'];
-            $message = ($type == 'sucesso') 
-                ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
-                : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
-            $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
-        ?>
-        <div class="fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg <?= $color ?> text-white text-sm z-50 shadow-md">
-            <?= htmlspecialchars($message) ?>
-        </div>
-        <?php endif; ?>
+<?php 
+    // Inicia a sessão para garantir que você pode usar $_SESSION mais tarde
+    // Embora não seja estritamente necessário para este bloco de URL, é boa prática.
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (isset($_GET['cadastro'])): 
+        $type = $_GET['cadastro'];
+        $message = ($type == 'sucesso') 
+            ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
+            : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
+        $color = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
+    ?>
+    <div class="fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg <?= $color ?> text-white text-sm z-50 shadow-md">
+        <?= htmlspecialchars($message) ?>
+    </div>
+    <?php endif; ?>
 
     <!-- SIDEBAR -->
     <aside id="sidebar" class="w-64 bg-tech-800 border-r border-tech-700 flex flex-col justify-between z-30 hidden md:flex">

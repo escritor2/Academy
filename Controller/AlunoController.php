@@ -3,7 +3,7 @@
 
 // Importamos as configurações e models necessários
 require_once '../config/Database.php';
-require_once '../Model/Treino.php';
+require_once '../models/Treino.php';
 
 class AlunoController {
 
