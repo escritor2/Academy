@@ -333,6 +333,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <div class="flex justify-end">
+        <a href="recuperar_senha.php" class="text-xs text-tech-primary hover:text-orange-400 transition-colors">Esqueceu a senha?</a>
+    </div>
+
     <div>
         <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
     </div>
@@ -818,5 +822,186 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
     </script>
+<script>
+// --- FUNÇÃO DO OLHO (GLOBAL) ---
+function togglePassword() {
+    const senhaInput = document.getElementById('senhaInput');
+    const eyeOpen = document.getElementById('eyeOpen');
+    const eyeClosed = document.getElementById('eyeClosed');
+
+    if (!senhaInput) return; // Segurança caso não ache o input
+
+    if (senhaInput.type === 'password') {
+        senhaInput.type = 'text';
+        eyeOpen.classList.add('hidden');
+        eyeClosed.classList.remove('hidden');
+    } else {
+        senhaInput.type = 'password';
+        eyeOpen.classList.remove('hidden');
+        eyeClosed.classList.add('hidden');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. TOAST (Notificações)
+    function exibirToast(mensagem, tipo = 'erro') {
+        const toast = document.createElement('div');
+        let cores = tipo === 'sucesso' 
+            ? 'bg-tech-800 border-l-4 border-green-500 text-white' 
+            : 'bg-tech-800 border-l-4 border-red-500 text-white';
+        let icone = tipo === 'sucesso' 
+            ? '<i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>' 
+            : '<i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>';
+
+        toast.className = `${cores} fixed top-5 right-5 z-50 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px] transform transition-all duration-500 translate-x-full`;
+        toast.innerHTML = `<div class="${tipo==='sucesso'?'bg-green-500/20':'bg-red-500/20'} p-2 rounded-full">${icone}</div><div><h4 class="font-bold text-sm">${tipo==='sucesso'?'Sucesso':'Atenção'}</h4><p class="text-xs text-gray-400">${mensagem}</p></div>`;
+        
+        document.body.appendChild(toast);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+        setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => toast.remove(), 500); }, 4000);
+    }
+
+    // 2. MÁSCARAS E VALIDAÇÃO "ON BLUR" (Quando sai do campo)
+    const cpfInput = document.querySelector('input[name="cpf"]');
+    const telInput = document.querySelector('input[name="telefone"]');
+
+    function validarCampoCompleto(input, tamanhoMinimo) {
+        if (!input) return;
+        // Se saiu do campo e o tamanho está errado (mas não vazio)
+        if (input.value.length > 0 && input.value.length < tamanhoMinimo) {
+            input.classList.add('border-red-500', 'animate-pulse');
+            exibirToast(`Campo incompleto. Mínimo ${tamanhoMinimo} caracteres.`);
+        } else {
+            input.classList.remove('border-red-500', 'animate-pulse');
+        }
+    }
+
+    if (cpfInput) {
+        cpfInput.setAttribute('maxlength', '14'); 
+        cpfInput.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = v;
+        });
+        // Valida quando o usuário clica fora
+        cpfInput.addEventListener('blur', () => validarCampoCompleto(cpfInput, 14));
+    }
+
+    if (telInput) {
+        telInput.setAttribute('maxlength', '15');
+        telInput.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+            v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+            e.target.value = v;
+        });
+        // Valida quando o usuário clica fora
+        telInput.addEventListener('blur', () => validarCampoCompleto(telInput, 14)); // (11) 9999-9999 é 14 chars
+    }
+
+    // 3. DATAS
+    const dataInput = document.querySelector('input[name="data_nascimento"]');
+    if (dataInput) {
+        const hoje = new Date();
+        const maxDate = new Date(hoje.getFullYear() - 18, hoje.getMonth(), hoje.getDate()).toISOString().split('T')[0];
+        dataInput.setAttribute("max", maxDate);
+        dataInput.setAttribute("min", "1900-01-01");
+        
+        dataInput.addEventListener('change', function() {
+            const d = new Date(this.value);
+            if(d.getFullYear() < 1900 || d > new Date()) { 
+                this.value = ""; 
+                exibirToast("Data inválida."); 
+            }
+        });
+    }
+
+    // 4. SENHA E ENVIO
+    const formCadastro = document.querySelector('form[action=""]'); 
+    const senhaInput = document.getElementById('senhaInput');
+    const msgSenha = document.getElementById('msgSenha');
+    const emailInput = document.querySelector('input[name="email"]');
+
+    if (formCadastro && senhaInput && msgSenha) {
+        
+        senhaInput.addEventListener('input', function() {
+            const senha = this.value;
+            const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senha);
+            
+            if (senha.length === 0) {
+                msgSenha.classList.add('hidden');
+                senhaInput.classList.remove('border-red-500', 'border-green-500');
+                return;
+            }
+
+            msgSenha.classList.remove('hidden');
+            if (!forte) {
+                msgSenha.textContent = "Fraca: Use 8 letras, números e símbolo (@#).";
+                msgSenha.className = 'text-xs mt-1 text-red-400';
+                senhaInput.classList.add('border-red-500');
+                senhaInput.classList.remove('border-green-500');
+            } else {
+                msgSenha.textContent = "Senha Forte! ✅";
+                msgSenha.className = 'text-xs mt-1 text-green-500 font-bold';
+                senhaInput.classList.remove('border-red-500');
+                senhaInput.classList.add('border-green-500');
+            }
+        });
+
+        formCadastro.addEventListener('submit', function(e) {
+            const isLogin = document.querySelector('input[name="form_type"][value="login"]');
+            if (isLogin) return; 
+
+            // -- VALIDAÇÃO FINAL (O Muro) --
+            
+            // 1. CPF (14 chars exatos)
+            if (cpfInput && cpfInput.value.length !== 14) {
+                e.preventDefault();
+                exibirToast("CPF incompleto. Preencha corretamente.");
+                cpfInput.focus();
+                cpfInput.classList.add('border-red-500', 'animate-pulse');
+                return;
+            }
+
+            // 2. Telefone (Min 14 chars)
+            if (telInput && telInput.value.length < 14) {
+                e.preventDefault();
+                exibirToast("Telefone incompleto.");
+                telInput.focus();
+                telInput.classList.add('border-red-500', 'animate-pulse');
+                return;
+            }
+
+            // 3. Senha
+            const senhaValida = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senhaInput.value);
+            if (!senhaValida) {
+                e.preventDefault();
+                exibirToast("Senha inválida! Siga as regras.");
+                senhaInput.focus();
+                return;
+            }
+
+            // 4. Email
+            if (emailInput && (!emailInput.value.includes('@') || !emailInput.value.includes('.'))) {
+                e.preventDefault();
+                exibirToast("E-mail inválido.");
+                emailInput.focus();
+                return;
+            }
+        });
+    }
+
+    // Remove alertas PHP antigos
+    setTimeout(() => {
+        document.querySelectorAll('.bg-red-500\\/20, .bg-green-500\\/20').forEach(el => el.remove());
+    }, 5000);
+});
+</script>
 </body>
 </html>

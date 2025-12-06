@@ -1,33 +1,25 @@
 <?php
 session_start();
 
-// --- IMPORTAÇÕES OBRIGATÓRIAS ---
-// O erro dava porque faltava chamar o Controller aqui em cima
+// --- IMPORTAÇÕES ---
 require_once __DIR__ . '/../Model/AlunoDAO.php';
 require_once __DIR__ . '/../Model/AdminDAO.php';
 require_once __DIR__ . '/../Controller/AlunoController.php'; 
 
-// Variáveis para mensagens visuais
 $cadastroMessage = null;
 $cadastroColor = '';
 
-// Se enviou algum formulário (Login ou Cadastro)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // =============================================================
-    // CASO 1: É LOGIN? (Verifica o input hidden 'form_type')
-    // =============================================================
+    // --- LÓGICA DE LOGIN ---
     if (isset($_POST['form_type']) && $_POST['form_type'] === 'login') {
-        
         $email = $_POST['email'] ?? '';
         $senha = $_POST['senha'] ?? '';
         
-        // 1. TENTA LOGAR COMO ALUNO
+        // 1. Aluno
         $alunoDao = new AlunoDAO();
         $aluno = $alunoDao->buscarPorEmail($email);
-
         if ($aluno && password_verify($senha, $aluno['senha'])) {
-            // É Aluno! Entra direto.
             $_SESSION['usuario_id'] = $aluno['id'];
             $_SESSION['usuario_nome'] = $aluno['nome'];
             $_SESSION['usuario_plano'] = $aluno['plano'];
@@ -35,43 +27,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // 2. NÃO É ALUNO? TENTA LOGAR COMO ADMIN
+        // 2. Admin
         $adminDao = new AdminDAO();
         $admin = $adminDao->buscarPorEmail($email);
-
         if ($admin && password_verify($senha, $admin['senha'])) {
-            // É Admin! Manda para o "Bunker" de segurança
             $_SESSION['admin_pre_login_id'] = $admin['id'];
             $_SESSION['admin_pre_nome'] = $admin['nome'];
             header('Location: admin_verificacao.php'); 
             exit;
         }
 
-        // 3. NÃO ACHOU NINGUÉM
         header("Location: areacliente.php?login_erro=1&msg=" . urlencode("Credenciais incorretas"));
         exit;
     }
 
-    // =============================================================
-    // CASO 2: É CADASTRO? (Se não é login, é cadastro)
-    // =============================================================
+    // --- LÓGICA DE CADASTRO (COM VALIDAÇÃO FORTE) ---
     else {
         try {
-            // Aqui estava o erro: O Controller precisa estar importado lá em cima!
             $controller = new AlunoController();
             
-            // Recebe dados do HTML
-            $nome = $_POST['nome'];
+            // Recebe e LIMPA os dados
+            // trim() remove espaços do começo/fim, mas mantem "Nome Sobrenome"
+            $nome = trim($_POST['nome']); 
+            $cpf = $_POST['cpf'];
+            $telefone = $_POST['telefone'];
+            $senha = $_POST['senha'];
+            
+            // --- VALIDAÇÃO DE SEGURANÇA (PHP - O Muro Final) ---
+            
+            // 1. CPF Incompleto? (Tem que ter 14 chars: 111.222.333-44)
+            if (strlen($cpf) < 14) {
+                throw new Exception("CPF incompleto. Digite os 11 números.");
+            }
+
+            // 2. Telefone Incompleto? (Mínimo 14: (11) 9999-9999)
+            if (strlen($telefone) < 14) {
+                throw new Exception("Telefone inválido. Digite DDD + Número.");
+            }
+
+            // 3. Senha Fraca? (Mínimo 8)
+            if (strlen($senha) < 8) {
+                throw new Exception("A senha deve ter pelo menos 8 caracteres.");
+            }
+
+            // 4. Nome Vazio?
+            if (empty($nome)) {
+                throw new Exception("O nome não pode ser vazio.");
+            }
+
+            // Se passou tudo, pega o resto e salva
             $data_nascimento = $_POST['data_nascimento'];
             $email = $_POST['email'];
-            $telefone = $_POST['telefone'];
-            $cpf = $_POST['cpf'];
             $genero = $_POST['genero'];
-            $senha = $_POST['senha'];
             $objetivo = $_POST['goal'] ?? 'Não informado'; 
             $plano = $_POST['plan'] ?? 'Start';
 
-            // Salva no banco
             $controller->cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano);
 
             header("Location: areacliente.php?cadastro=sucesso");
@@ -85,12 +95,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Lógica de exibição de mensagens de sucesso/erro do cadastro
+// Mensagens visuais
 if (isset($_GET['cadastro'])) {
     $type = $_GET['cadastro'];
     $cadastroMessage = ($type == 'sucesso') 
         ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
-        : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
+        : ($_GET['msg'] ?? 'Erro desconhecido.');
     $cadastroColor = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
 }
 ?>
@@ -337,25 +347,21 @@ if (isset($_GET['cadastro'])) {
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-1">Senha de Acesso</label>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Senha</label>
+                        
                         <div class="relative">
-                            <input type="password" id="password" name="senha" required class="w-full p-3 pr-12 rounded-lg tech-input" placeholder="Crie uma senha segura">
+                            <input type="password" name="senha" id="senhaInput" required 
+                                class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-4 pr-12 py-3 text-white focus:outline-none focus:border-tech-primary focus:ring-1 focus:ring-tech-primary transition-all placeholder-gray-600"
+                                placeholder="********">
                             
-                            <button type="button" id="togglePasswordBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none p-2 rounded-full hover:bg-white/5 transition-colors z-20 cursor-pointer">
-                                <div class="eye-container">
-                                    <svg id="iconShow" class="eye-svg eye-show active" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
-                                    </svg>
-                                    <svg id="iconHide" class="eye-svg eye-hide inactive" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
-                                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
-                                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09"></path>
-                                        <line x1="2" x2="22" y1="2" y2="22"></line>
-                                    </svg>
-                                </div>
+                            <button type="button" onclick="togglePassword()" 
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none cursor-pointer p-1 z-10">
+                                <i id="eyeOpen" data-lucide="eye" class="w-5 h-5"></i>
+                                <i id="eyeClosed" data-lucide="eye-off" class="w-5 h-5 hidden"></i>
                             </button>
                         </div>
+
+                        <p id="msgSenha" class="text-xs mt-1 hidden"></p>
                     </div>
                 </div>
 
@@ -471,14 +477,16 @@ if (isset($_GET['cadastro'])) {
         </div>
     </div>
 
+    <div class="flex justify-end">
+        <a href="recuperar_senha.php" class="text-xs text-tech-primary hover:text-orange-400 transition-colors">Esqueceu a senha?</a>
+    </div>
+
     <div>
         <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
     </div>
 </form>
 
-                    <div class="mt-4 text-sm text-tech-muted text-center">
-                        <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
-                    </div>
+                    <!-- 'Cadastre-se' link removed from modal per request -->
                 </div>
             </div>
         </div>
@@ -501,25 +509,7 @@ if (isset($_GET['cadastro'])) {
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
 
-            const toggleBtn = document.getElementById('togglePasswordBtn');
-            const passInput = document.getElementById('password');
-            const iconShow = document.getElementById('iconShow');
-            const iconHide = document.getElementById('iconHide');
-
-            if (toggleBtn && passInput) {
-                toggleBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const isPassword = passInput.getAttribute('type') === 'password';
-                    passInput.setAttribute('type', isPassword ? 'text' : 'password');
-                    if (isPassword) {
-                        iconShow.classList.remove('active'); iconShow.classList.add('inactive');
-                        iconHide.classList.remove('inactive'); iconHide.classList.add('active');
-                    } else {
-                        iconShow.classList.remove('inactive'); iconShow.classList.add('active');
-                        iconHide.classList.remove('active'); iconHide.classList.add('inactive');
-                    }
-                });
-            }
+            // (eye toggle removed - using new togglePassword() function + lucide icons)
 
             // Permitir desmarcar radio buttons de plano
             const planRadios = document.querySelectorAll('input[name="plan"]');
@@ -579,5 +569,222 @@ if (isset($_GET['cadastro'])) {
             }
         });
     </script>
+<script>
+// --- FUNÇÃO DO OLHO (GLOBAL) ---
+function togglePassword() {
+    const senhaInput = document.getElementById('senhaInput');
+    const eyeOpen = document.getElementById('eyeOpen');
+    const eyeClosed = document.getElementById('eyeClosed');
+    if (!senhaInput) return;
+
+    if (senhaInput.type === 'password') {
+        senhaInput.type = 'text';
+        eyeOpen.classList.add('hidden');
+        eyeClosed.classList.remove('hidden');
+    } else {
+        senhaInput.type = 'password';
+        eyeOpen.classList.remove('hidden');
+        eyeClosed.classList.add('hidden');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ============================================================
+    // 1. SISTEMA DE LIMPEZA (O FAXINEIRO)
+    // ============================================================
+    function agendarDesaparecimento(elemento, tempo = 4000) {
+        if (!elemento) return;
+        
+        setTimeout(() => {
+            // Adiciona classe de transição para sumir suavemente
+            elemento.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            elemento.style.opacity = '0';
+            elemento.style.transform = 'translateX(100%)'; // Joga pra direita
+            
+            // Remove do HTML depois da animação
+            setTimeout(() => {
+                if(elemento.parentNode) elemento.parentNode.removeChild(elemento);
+            }, 500);
+        }, tempo);
+    }
+
+    // A. Limpar TOASTS criados via JS (Função Helper)
+    function exibirToast(mensagem, tipo = 'erro') {
+        const toast = document.createElement('div');
+        let cores = tipo === 'sucesso' 
+            ? 'bg-tech-800 border-l-4 border-green-500 text-white' 
+            : 'bg-tech-800 border-l-4 border-red-500 text-white';
+        
+        let icone = tipo === 'sucesso' 
+            ? '<i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>' 
+            : '<i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>';
+
+        toast.className = `${cores} fixed top-5 right-5 z-50 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px] transform transition-all duration-500 translate-x-full`;
+        toast.innerHTML = `
+            <div class="${tipo==='sucesso'?'bg-green-500/20':'bg-red-500/20'} p-2 rounded-full">${icone}</div>
+            <div>
+                <h4 class="font-bold text-sm">${tipo==='sucesso'?'Sucesso':'Atenção'}</h4>
+                <p class="text-xs text-gray-400">${mensagem}</p>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+        // Entrada
+        requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+        
+        // Agenda a Saída usando o Faxineiro
+        agendarDesaparecimento(toast);
+    }
+
+    // B. Limpar MENSAGENS DO PHP (Login/Cadastro) que já estão na tela
+    // Procura divs que contenham classes de cor de fundo (bg-red, bg-green)
+    const mensagensPHP = document.querySelectorAll('div[class*="bg-red-500"], div[class*="bg-green-500"]');
+    
+    mensagensPHP.forEach(msg => {
+        // Verifica se é uma mensagem de texto (para não apagar botões ou inputs)
+        if (msg.tagName === 'DIV' && !msg.querySelector('input')) {
+            agendarDesaparecimento(msg, 5000); // Dá 5 segundos para ler as mensagens do servidor
+        }
+    });
+
+    // Se houve mensagem de URL (?cadastro=sucesso), limpa a URL também
+    if (window.location.search.includes('cadastro=') || window.location.search.includes('login_erro=')) {
+        setTimeout(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 5000);
+    }
+
+    // ============================================================
+    // 2. VALIDAÇÕES E MÁSCARAS
+    // ============================================================
+    const cpfInput = document.querySelector('input[name="cpf"]');
+    const telInput = document.querySelector('input[name="telefone"]');
+
+    if (cpfInput) {
+        cpfInput.setAttribute('maxlength', '14'); 
+        cpfInput.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = v;
+        });
+        cpfInput.addEventListener('blur', function() {
+            if(this.value.length > 0 && this.value.length < 14) {
+                this.classList.add('border-red-500', 'animate-pulse');
+                exibirToast("CPF incompleto.");
+            } else {
+                this.classList.remove('border-red-500', 'animate-pulse');
+            }
+        });
+    }
+
+    if (telInput) {
+        telInput.setAttribute('maxlength', '15');
+        telInput.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+            v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+            e.target.value = v;
+        });
+        telInput.addEventListener('blur', function() {
+            if(this.value.length > 0 && this.value.length < 14) {
+                this.classList.add('border-red-500', 'animate-pulse');
+                exibirToast("Telefone incompleto.");
+            } else {
+                this.classList.remove('border-red-500', 'animate-pulse');
+            }
+        });
+    }
+
+    const dataInput = document.querySelector('input[name="data_nascimento"]');
+    if (dataInput) {
+        const hoje = new Date();
+        const maxDate = new Date(hoje.getFullYear() - 18, hoje.getMonth(), hoje.getDate()).toISOString().split('T')[0];
+        dataInput.setAttribute("max", maxDate);
+        dataInput.setAttribute("min", "1900-01-01");
+    }
+
+    // ============================================================
+    // 3. BLOQUEIO DE ENVIO (FORMULÁRIO)
+    // ============================================================
+    const formCadastro = document.querySelector('form[action=""]'); 
+    const senhaInput = document.getElementById('senhaInput');
+    const msgSenha = document.getElementById('msgSenha');
+    const emailInput = document.querySelector('input[name="email"]');
+
+    if (formCadastro) {
+        if (senhaInput && msgSenha) {
+            senhaInput.addEventListener('input', function() {
+                const senha = this.value;
+                const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senha);
+                
+                if (senha.length === 0) {
+                    msgSenha.classList.add('hidden');
+                    senhaInput.classList.remove('border-red-500', 'border-green-500');
+                    return;
+                }
+                msgSenha.classList.remove('hidden');
+                if (!forte) {
+                    msgSenha.textContent = "Fraca: Mínimo 8 chars, letras, números e símbolo.";
+                    msgSenha.className = 'text-xs mt-1 text-red-400';
+                    senhaInput.classList.add('border-red-500');
+                } else {
+                    msgSenha.textContent = "Senha Forte! ✅";
+                    msgSenha.className = 'text-xs mt-1 text-green-500 font-bold';
+                    senhaInput.classList.remove('border-red-500');
+                    senhaInput.classList.add('border-green-500');
+                }
+            });
+        }
+
+        formCadastro.addEventListener('submit', function(e) {
+            // Ignora se for login
+            if (document.querySelector('input[name="form_type"][value="login"]')) return;
+
+            let temErro = false;
+
+            // Validações Finais
+            if (cpfInput && cpfInput.value.length !== 14) {
+                exibirToast("O CPF deve ter 11 números.");
+                cpfInput.classList.add('border-red-500', 'animate-pulse');
+                temErro = true;
+            }
+
+            if (telInput && telInput.value.length < 14) {
+                exibirToast("Telefone inválido.");
+                telInput.classList.add('border-red-500', 'animate-pulse');
+                temErro = true;
+            }
+
+            if (senhaInput) {
+                const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senhaInput.value);
+                if (!forte) {
+                    exibirToast("Senha fraca! Reforce a segurança.");
+                    senhaInput.focus();
+                    temErro = true;
+                }
+            }
+
+            if (emailInput && (!emailInput.value.includes('@') || !emailInput.value.includes('.'))) {
+                exibirToast("E-mail inválido.");
+                emailInput.focus();
+                temErro = true;
+            }
+
+            if (temErro) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
+    }
+});
+</script>
 </body>
 </html>

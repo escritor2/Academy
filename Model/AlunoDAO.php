@@ -66,4 +66,34 @@ class AlunoDAO {
             return null;
         }
     }
+
+    // --- FUNÇÕES DE RECUPERAÇÃO DE SENHA ---
+
+    // 1. Verifica se E-mail + CPF + Data batem com o mesmo usuário
+    public function validarRecuperacao($email, $cpf, $data_nascimento) {
+        $stmt = $this->conn->prepare("
+            SELECT id, nome FROM alunos 
+            WHERE email = :email 
+            AND cpf = :cpf 
+            AND data_nascimento = :data
+        ");
+        $stmt->execute([
+            ':email' => $email,
+            ':cpf' => $cpf,
+            ':data' => $data_nascimento
+        ]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    // 2. Atualiza a senha pelo ID
+    public function atualizarSenha($id, $novaSenha) {
+        // Criptografa antes de salvar
+        $hash = password_hash($novaSenha, PASSWORD_DEFAULT);
+        
+        $stmt = $this->conn->prepare("UPDATE alunos SET senha = :senha WHERE id = :id");
+        $stmt->execute([
+            ':senha' => $hash,
+            ':id' => $id
+        ]);
+    }
 }
