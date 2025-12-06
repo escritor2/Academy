@@ -1,10 +1,59 @@
+<?php
+session_start();
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/AdminDAO.php'; // Adicione essa linha
 
+// Lógica de Login Unificada
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['form_type']) && $_POST['form_type'] === 'login') {
+        
+        $email = $_POST['email'] ?? '';
+        $senha = $_POST['senha'] ?? '';
+        
+        // 1. TENTA LOGAR COMO ALUNO
+        $alunoDao = new AlunoDAO();
+        $aluno = $alunoDao->buscarPorEmail($email);
+
+        if ($aluno && password_verify($senha, $aluno['senha'])) {
+            // É Aluno! Entra direto.
+            $_SESSION['usuario_id'] = $aluno['id'];
+            $_SESSION['usuario_nome'] = $aluno['nome'];
+            $_SESSION['usuario_plano'] = $aluno['plano'];
+            header('Location: paginacliente.php'); 
+            exit;
+        }
+
+        // 2. NÃO É ALUNO? TENTA LOGAR COMO ADMIN
+        $adminDao = new AdminDAO();
+        $admin = $adminDao->buscarPorEmail($email);
+
+        if ($admin && password_verify($senha, $admin['senha'])) {
+            // É Admin! MAS CALMA... Segurança em 2 etapas.
+            
+            // Salva um ID temporário na sessão (não libera o acesso total ainda)
+            $_SESSION['admin_pre_login_id'] = $admin['id'];
+            $_SESSION['admin_pre_nome'] = $admin['nome'];
+
+            // Manda para a Sala de Verificação
+            header('Location: admin_verificacao.php'); 
+            exit;
+        }
+
+        // 3. NÃO É NINGUÉM? ERRO.
+        // Pega a URL atual para voltar com erro
+        $paginaAtual = basename($_SERVER['PHP_SELF']); 
+        header("Location: $paginaAtual?login_erro=1&msg=" . urlencode("Credenciais incorretas"));
+        exit;
+    }}
+?>
+<!DOCTYPE html>
+<html lang="pt-br" class="scroll-smooth"></html>
 <!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="icons/favicon.png">
+    <link rel="icon" href="icons/halter.png">
     <title>TechFit - A Evolução do Seu Treino</title>
 
     
@@ -261,38 +310,33 @@
                     <?php 
                         $loginError = isset($_GET['login']) && $_GET['login'] == 'erro' ? ($_GET['msg'] ?? 'Email ou senha incorretos') : '';
                     ?>
-                    <form action="Controller/LoginController.php" method="POST" class="space-y-4">
-                        <?php if($loginError): ?>
-                            <div class="text-red-500 text-sm bg-red-500/10 border border-red-500/30 p-3 rounded-md">
-                                <?= htmlspecialchars($loginError) ?>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <div>
-                            <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
-                            <div class="mt-1 relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
-                                </div>
-                                <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
-                            </div>
-                        </div>
+            <form action="" method="POST" class="space-y-4">
+    <input type="hidden" name="form_type" value="login">
 
-                        <div>
-                            <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
-                            <div class="mt-1 relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
-                                </div>
-                                <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
-                            </div>
-                        </div>
+    <div>
+        <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
+        <div class="mt-1 relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
+            </div>
+            <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
+        </div>
+    </div>
 
-                        <div>
-                            <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
-                        </div>
-                    </form>
+    <div>
+        <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
+        <div class="mt-1 relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
+            </div>
+            <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+        </div>
+    </div>
 
+    <div>
+        <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
+    </div>
+</form>
                     <div class="mt-4 text-sm text-tech-muted text-center">
                         <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
                     </div>
@@ -748,6 +792,30 @@
             }
             
             lastScrollY = currentScrollY;
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('login_erro')) {
+                const loginModal = document.getElementById('loginModal');
+                if (loginModal) {
+                    loginModal.classList.remove('hidden');
+                }
+
+                const msg = urlParams.get('msg');
+                if (msg) {
+                    const formLogin = document.querySelector('#loginModal form');
+                    if (formLogin) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'bg-red-500/20 border border-red-500 text-red-200 p-3 rounded mb-4 text-sm text-center';
+                        errorDiv.textContent = msg;
+                        formLogin.insertBefore(errorDiv, formLogin.firstChild);
+                    }
+                }
+
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         });
     </script>
 </body>

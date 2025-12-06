@@ -1,29 +1,106 @@
 <?php
-// Inicie a sessão antes de qualquer saída para evitar "headers already sent"
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
 
-// Preparar mensagens de cadastro vindas via GET (ex: ?cadastro=sucesso)
+// --- IMPORTAÇÕES OBRIGATÓRIAS ---
+// O erro dava porque faltava chamar o Controller aqui em cima
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/AdminDAO.php';
+require_once __DIR__ . '/../Controller/AlunoController.php'; 
+
+// Variáveis para mensagens visuais
 $cadastroMessage = null;
 $cadastroColor = '';
+
+// Se enviou algum formulário (Login ou Cadastro)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // =============================================================
+    // CASO 1: É LOGIN? (Verifica o input hidden 'form_type')
+    // =============================================================
+    if (isset($_POST['form_type']) && $_POST['form_type'] === 'login') {
+        
+        $email = $_POST['email'] ?? '';
+        $senha = $_POST['senha'] ?? '';
+        
+        // 1. TENTA LOGAR COMO ALUNO
+        $alunoDao = new AlunoDAO();
+        $aluno = $alunoDao->buscarPorEmail($email);
+
+        if ($aluno && password_verify($senha, $aluno['senha'])) {
+            // É Aluno! Entra direto.
+            $_SESSION['usuario_id'] = $aluno['id'];
+            $_SESSION['usuario_nome'] = $aluno['nome'];
+            $_SESSION['usuario_plano'] = $aluno['plano'];
+            header('Location: paginacliente.php'); 
+            exit;
+        }
+
+        // 2. NÃO É ALUNO? TENTA LOGAR COMO ADMIN
+        $adminDao = new AdminDAO();
+        $admin = $adminDao->buscarPorEmail($email);
+
+        if ($admin && password_verify($senha, $admin['senha'])) {
+            // É Admin! Manda para o "Bunker" de segurança
+            $_SESSION['admin_pre_login_id'] = $admin['id'];
+            $_SESSION['admin_pre_nome'] = $admin['nome'];
+            header('Location: admin_verificacao.php'); 
+            exit;
+        }
+
+        // 3. NÃO ACHOU NINGUÉM
+        header("Location: areacliente.php?login_erro=1&msg=" . urlencode("Credenciais incorretas"));
+        exit;
+    }
+
+    // =============================================================
+    // CASO 2: É CADASTRO? (Se não é login, é cadastro)
+    // =============================================================
+    else {
+        try {
+            // Aqui estava o erro: O Controller precisa estar importado lá em cima!
+            $controller = new AlunoController();
+            
+            // Recebe dados do HTML
+            $nome = $_POST['nome'];
+            $data_nascimento = $_POST['data_nascimento'];
+            $email = $_POST['email'];
+            $telefone = $_POST['telefone'];
+            $cpf = $_POST['cpf'];
+            $genero = $_POST['genero'];
+            $senha = $_POST['senha'];
+            $objetivo = $_POST['goal'] ?? 'Não informado'; 
+            $plano = $_POST['plan'] ?? 'Start';
+
+            // Salva no banco
+            $controller->cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano);
+
+            header("Location: areacliente.php?cadastro=sucesso");
+            exit;
+
+        } catch (Exception $e) {
+            $msg = urlencode($e->getMessage());
+            header("Location: areacliente.php?cadastro=erro&msg=$msg");
+            exit;
+        }
+    }
+}
+
+// Lógica de exibição de mensagens de sucesso/erro do cadastro
 if (isset($_GET['cadastro'])) {
     $type = $_GET['cadastro'];
-    $cadastroMessage = ($type == 'sucesso')
-        ? 'Cadastro realizado com sucesso! Faça login abaixo.'
+    $cadastroMessage = ($type == 'sucesso') 
+        ? 'Cadastro realizado com sucesso! Faça login abaixo.' 
         : ($_GET['msg'] ?? 'Ocorreu um erro ao cadastrar.');
     $cadastroColor = ($type == 'sucesso') ? 'bg-green-500' : 'bg-red-500';
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechFit - Área do Aluno - Matrícula</title>
-    <link rel="icon" href="/Academy/view/icons/favicon.ico" type="image/x-icon">
-    
+    <link rel="icon" href="icons/halter.png">
+    <title>TechFit - Área do Aluno - Matrícula</title>    
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script>
@@ -213,7 +290,7 @@ if (isset($_GET['cadastro'])) {
                 <p class="text-tech-muted">Preencha seus dados para criar sua conta de aluno.</p>
             </div>
 
-            <form id="enrollmentForm" method="POST" action="Controller/CadastroController.php" class="space-y-8">
+            <form id="enrollmentForm" method="POST" action="" class="space-y-8">
                 <div class="space-y-4 animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="flex items-center gap-2 text-tech-primary mb-2">
                         <i data-lucide="user" class="w-5 h-5"></i>
@@ -371,31 +448,33 @@ if (isset($_GET['cadastro'])) {
                 </div>
 
                 <div class="px-6 py-6">
-                    <form action="Controller/LoginController.php" method="POST" class="space-y-4">
-                        <div>
-                            <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
-                            <div class="mt-1 relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
-                                </div>
-                                <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
-                            </div>
-                        </div>
+                    <form action="" method="POST" class="space-y-4">
+    <input type="hidden" name="form_type" value="login">
 
-                        <div>
-                            <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
-                            <div class="mt-1 relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
-                                </div>
-                                <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
-                            </div>
-                        </div>
+    <div>
+        <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
+        <div class="mt-1 relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
+            </div>
+            <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
+        </div>
+    </div>
 
-                        <div>
-                            <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
-                        </div>
-                    </form>
+    <div>
+        <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
+        <div class="mt-1 relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
+            </div>
+            <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+        </div>
+    </div>
+
+    <div>
+        <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
+    </div>
+</form>
 
                     <div class="mt-4 text-sm text-tech-muted text-center">
                         <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
@@ -475,6 +554,30 @@ if (isset($_GET['cadastro'])) {
                 document.body.style.overflow = '';
             }
         }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('login_erro')) {
+                const loginModal = document.getElementById('loginModal');
+                if (loginModal) {
+                    loginModal.classList.remove('hidden');
+                }
+
+                const msg = urlParams.get('msg');
+                if (msg) {
+                    const formLogin = document.querySelector('#loginModal form');
+                    if (formLogin) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'bg-red-500/20 border border-red-500 text-red-200 p-3 rounded mb-4 text-sm text-center';
+                        errorDiv.textContent = msg;
+                        formLogin.insertBefore(errorDiv, formLogin.firstChild);
+                    }
+                }
+
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
     </script>
 </body>
 </html>

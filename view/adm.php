@@ -1,53 +1,19 @@
 <?php
-// =================================================================================
-// MOCK DATA (Simulando Banco de Dados)
-// =================================================================================
+session_start();
 
-// Lista de Alunos
-$alunos = [
-    ['id' => 1, 'nome' => 'Carlos Silva', 'email' => 'carlos@email.com', 'plano' => 'Premium', 'status' => 'Ativo'],
-    ['id' => 2, 'nome' => 'Ana Souza', 'email' => 'ana@email.com', 'plano' => 'Básico', 'status' => 'Pendente'],
-    ['id' => 3, 'nome' => 'Roberto Firmino', 'email' => 'beto@email.com', 'plano' => 'Premium', 'status' => 'Inativo'],
-    ['id' => 4, 'nome' => 'Julia Roberts', 'email' => 'ju@email.com', 'plano' => 'Básico', 'status' => 'Ativo'],
-];
+// Verifica se o carimbo de verificação existe
+if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
+    // Se não tiver logado, manda pro login de admin
+    header('Location: admin_login.php');
+    exit;
+}
 
-// Lista de Professores
-$professores = [
-    ['id' => 101, 'nome' => 'Marcos Vinicius', 'email' => 'marcos@techfit.com', 'especialidade' => 'Musculação', 'status' => 'Ativo'],
-    ['id' => 102, 'nome' => 'Fernanda Lima', 'email' => 'fernanda@techfit.com', 'especialidade' => 'Funcional', 'status' => 'Férias'],
-    ['id' => 103, 'nome' => 'Pedro Álvares', 'email' => 'pedro@techfit.com', 'especialidade' => 'Natação', 'status' => 'Ativo'],
-];
-
-// [NOVO] Lista de Recepcionistas
-$recepcionistas = [
-    ['id' => 201, 'nome' => 'Amanda Oliveira', 'email' => 'amanda@techfit.com', 'turno' => 'Manhã', 'status' => 'Ativo'],
-    ['id' => 202, 'nome' => 'Bruno Castro', 'email' => 'bruno@techfit.com', 'turno' => 'Noite', 'status' => 'Ativo'],
-    ['id' => 203, 'nome' => 'Camila Santos', 'email' => 'camila@techfit.com', 'turno' => 'Tarde', 'status' => 'Licença'],
-];
-
-// Produtos / Estoque
-$produtos = [
-    ['nome' => 'Whey Protein (Pote)', 'cat' => 'Suplemento', 'qtd' => 12, 'preco' => 180.00],
-    ['nome' => 'Barra de Proteína', 'cat' => 'Snack', 'qtd' => 45, 'preco' => 12.00],
-    ['nome' => 'Garrafa TechFit', 'cat' => 'Acessório', 'qtd' => 4, 'preco' => 35.00],
-    ['nome' => 'Energético Lata', 'cat' => 'Bebida', 'qtd' => 20, 'preco' => 15.00],
-];
-
-// Exercícios para o Gerador
-$treino_exercicios = [
-    'A' => [
-        'Peito' => ['Supino Reto', 'Supino Inclinado', 'Crucifixo', 'Crossover'],
-        'Tríceps' => ['Tríceps Corda', 'Tríceps Testa', 'Tríceps Francês'],
-    ],
-    'B' => [
-        'Costas' => ['Puxada Alta', 'Remada Curvada', 'Serrote', 'Levantamento Terra'],
-        'Bíceps' => ['Rosca Direta', 'Rosca Alternada', 'Rosca Martelo'],
-    ],
-    'C' => [
-        'Pernas' => ['Agachamento Livre', 'Leg Press 45', 'Cadeira Extensora', 'Stiff'],
-        'Ombro' => ['Desenvolvimento Halteres', 'Elevação Lateral', 'Elevação Frontal'],
-    ],
-];
+// Botão de Sair (Adicione lógica se quiser logout no painel)
+if (isset($_GET['sair'])) {
+    session_destroy();
+    header('Location: admin_login.php');
+    exit;
+}
 ?>
 
 <!DOCTYPE html>

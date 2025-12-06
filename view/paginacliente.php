@@ -1,21 +1,28 @@
 <?php
-// paginacliente.php
+session_start();
 
-// Chama o controller que está na pasta controllers
-require_once 'controllers/AlunoController.php';
+// --- LÓGICA DE LOGOUT ---
+if (isset($_GET['sair'])) {
+    session_destroy(); // Destrói a sessão
+    header('Location: index.php'); // Manda para a home
+    exit;
+}
 
-// Instancia o controller
-$controller = new AlunoController();
-
-// O método index() do controller vai fazer a lógica e carregar os dados
-// Mas notei que seu AlunoController não retorna os dados, ele só configura.
-// Vamos fazer um ajuste rápido para integrar:
+// O "Segurança": Se não tiver ID na sessão, chuta para o index
+if (!isset($_SESSION['usuario_id'])) {
+    header('Location: index.php?login_erro=1&msg=Faça login para acessar');
+    exit;
+}
+// Pega os dados para usar no HTML
+$nomeAluno = $_SESSION['usuario_nome'];
+$planoAluno = $_SESSION['usuario_plano'];
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icons/halter.png">
     <title>TechFit - Painel do Aluno Premium</title>
     
     <!-- Tailwind CSS -->
@@ -248,12 +255,17 @@ $controller = new AlunoController();
             <button onclick="openQRModal()" class="w-full bg-tech-primary hover:bg-tech-primaryHover text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 mb-4 shadow-lg shadow-orange-900/20 transition-all hover:scale-105 animate-pulse-glow" id="btn-quick-access">
                 <i data-lucide="qr-code" class="w-5 h-5"></i> Acessar Academia
             </button>
-
+<div class="border-t border-tech-700 pt-4 mt-auto">
+    <a href="?sair=true" class="flex items-center gap-3 p-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all group">
+        <i data-lucide="log-out" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
+        <span class="font-medium">Sair da Conta</span>
+    </a>
+</div>
             <div class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer transition-colors">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-tech-700 to-tech-900 flex items-center justify-center font-bold text-white border border-tech-600">CS</div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-tech-700 to-tech-900 flex items-center justify-center font-bold text-white border border-tech-600"><?php echo htmlspecialchars(substr($nomeAluno,0,2)); ?></div>
                 <div class="text-left overflow-hidden">
-                    <p class="text-sm font-semibold text-white truncate">Carlos Silva</p>
-                    <p class="text-xs text-tech-primary">Plano Pro</p>
+                    <p class="text-sm font-semibold text-white truncate"><?php echo htmlspecialchars($nomeAluno); ?></p>
+                    <p class="text-xs text-tech-primary"><?php echo htmlspecialchars($planoAluno); ?></p>
                 </div>
             </div>
         </div>
@@ -289,7 +301,7 @@ $controller = new AlunoController();
                     <i data-lucide="qr-code" class="w-5 h-5"></i>
                 </button>
                 <div class="hidden md:flex items-center gap-3">
-                    <span class="text-sm text-tech-muted">Olá, <span class="text-white font-bold">Carlos</span></span>
+                    <span class="text-sm text-tech-muted">Olá, <span class="text-white font-bold"><?php echo htmlspecialchars($nomeAluno); ?></span></span>
                     <div class="w-8 h-8 rounded-full bg-tech-700 border border-tech-600"></div>
                 </div>
             </div>
@@ -585,7 +597,7 @@ $controller = new AlunoController();
                 <h3 class="text-2xl font-bold text-white mb-1">Acesso TechFit</h3>
                 <p class="text-tech-muted text-sm mb-6" id="qr-status-text">Aproxime este código da catraca para entrar.</p>
                 <div class="bg-white p-4 rounded-xl inline-block mb-6 relative group">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=CarlosSilva-TechFit-12345" alt="QR Code" class="w-48 h-48 opacity-90">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=<?php echo urlencode($nomeAluno . '-TechFit-12345'); ?>" alt="QR Code" class="w-48 h-48 opacity-90">
                     <div class="absolute top-0 left-0 w-full h-1 bg-tech-primary opacity-50 animate-[scan_2s_ease-in-out_infinite]"></div>
                 </div>
                 <div id="action-status" class="mb-6 p-2 rounded bg-tech-800 text-xs text-tech-primary border border-tech-primary/20">
