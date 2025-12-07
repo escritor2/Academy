@@ -1,702 +1,391 @@
 <?php
 session_start();
+// --- 1. IMPORTAÇÕES ---
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/TreinoDAO.php';
+require_once __DIR__ . '/../Controller/AlunoController.php';
 
-// Verifica se o carimbo de verificação existe
-if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
-    // Se não tiver logado, manda pro login de admin
-    header('Location: admin_login.php');
+// --- 2. API AJAX ---
+if (isset($_GET['acao_ajax'])) {
+    header('Content-Type: application/json');
+    if (!isset($_SESSION['admin_logado'])) { echo json_encode([]); exit; }
+    $treinoDao = new TreinoDAO();
+
+    if ($_GET['acao_ajax'] === 'buscar_treino') {
+        echo json_encode($treinoDao->buscarPorAluno($_GET['id']));
+    }
+    if ($_GET['acao_ajax'] === 'buscar_modelo') {
+        echo json_encode($treinoDao->buscarModeloPorId($_GET['id']));
+    }
     exit;
 }
 
-// Botão de Sair (Adicione lógica se quiser logout no painel)
+// --- 3. SEGURANÇA ---
+if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
+    header('Location: admin_login.php'); exit;
+}
 if (isset($_GET['sair'])) {
-    session_destroy();
-    header('Location: admin_login.php');
-    exit;
+    session_destroy(); header('Location: admin_login.php'); exit;
+}
+
+$nomeAdmin = $_SESSION['admin_nome'] ?? 'Administrador';
+$dao = new AlunoDAO();
+$treinoDao = new TreinoDAO();
+$msgAdm = ''; $tipoMsgAdm = '';
+
+// --- 4. PROCESSAMENTO POST ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $acao = $_POST['acao'] ?? '';
+
+    // ALUNOS
+    if ($acao === 'cadastrar_aluno') {
+        try {
+            $c = new AlunoController();
+            $c->cadastrar($_POST['nome'], $_POST['data_nascimento'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['genero'], $_POST['senha'], 'Indefinido', $_POST['plano']);
+            header("Location: adm.php?tab=alunos&msg=cad_sucesso"); exit;
+        } catch (Exception $e) { $msgAdm = "Erro: " . $e->getMessage(); $tipoMsgAdm = 'erro'; }
+    }
+    if ($acao === 'editar_aluno') {
+        try {
+            $senha = !empty($_POST['nova_senha_adm']) ? $_POST['nova_senha_adm'] : null;
+            $dao->atualizarDadosAdmin($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['plano'], $_POST['objetivo'], $senha);
+            header("Location: adm.php?tab=alunos&msg=edit_sucesso"); exit;
+        } catch (Exception $e) { $msgAdm = "Erro: " . $e->getMessage(); $tipoMsgAdm = 'erro'; }
+    }
+    if ($acao === 'alterar_status') {
+        $dao->atualizarStatus($_POST['id_aluno'], $_POST['novo_status']);
+        $origem = $_POST['origem'] ?? 'alunos';
+        $busca = !empty($_POST['busca_atual']) ? "&busca=".$_POST['busca_atual'] : "";
+        header("Location: adm.php?tab=$origem$busca"); exit;
+    }
+    if ($acao === 'excluir_aluno') {
+        $dao->excluirAluno($_POST['id_aluno']);
+        header("Location: adm.php?tab=alunos&msg=del_sucesso"); exit;
+    }
+
+    // TREINOS
+    if ($acao === 'salvar_treino') {
+        if ($treinoDao->salvarTreino($_POST['aluno_id_treino'], $_POST['treino'] ?? [])) {
+            header("Location: adm.php?tab=treinos&msg=treino_sucesso"); exit;
+        }
+    }
+
+    // BIBLIOTECA
+    if ($acao === 'salvar_modelo') {
+        if ($treinoDao->salvarModelo($_POST['nome_modelo'], $_POST['treino'] ?? [])) {
+            header("Location: adm.php?tab=treinos&sub=padrao&msg=modelo_salvo"); exit;
+        }
+    }
+    if ($acao === 'excluir_modelo') {
+        $treinoDao->excluirModelo($_POST['id_modelo']);
+        header("Location: adm.php?tab=treinos&sub=padrao&msg=modelo_del"); exit;
+    }
+}
+
+// --- 5. DADOS ---
+$totalAlunos = $dao->contarTotal();
+$totalAtivos = $dao->contarPorStatus('Ativo');
+$totalInativos = $totalAlunos - $totalAtivos;
+$dashAlunos = $dao->buscarRecentes(5);
+$termoBusca = $_GET['busca'] ?? '';
+$listaAlunos = $termoBusca ? $dao->pesquisar($termoBusca) : $dao->buscarRecentes(50);
+$listaSelectTreino = $dao->buscarRecentes(100);
+$listaModelos = $treinoDao->listarModelos();
+
+// Mensagens Toast
+if (isset($_GET['msg'])) {
+    $m = [
+        'cad_sucesso'=>'Aluno cadastrado com sucesso!', 'edit_sucesso'=>'Dados atualizados com sucesso!', 
+        'del_sucesso'=>'Aluno excluído permanentemente!', 'treino_sucesso'=>'Treino salvo e atualizado!', 
+        'modelo_salvo'=>'Modelo salvo na biblioteca!', 'modelo_del'=>'Modelo excluído da biblioteca!'
+    ];
+    if(isset($m[$_GET['msg']])) { $msgAdm = $m[$_GET['msg']]; $tipoMsgAdm = 'sucesso'; }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechFit - Painel Administrativo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Painel Administrativo - TechFit</title>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { tech: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', primary: '#f97316' } },
+                    boxShadow: { 'glow': '0 0 15px rgba(249, 115, 22, 0.3)' }
+                }
+            }
+        }
+    </script>
     <style>
-        /* ================== CSS BASE ================== */
-        :root {
-            --bg-dark: #111827;
-            --bg-sidebar: #0f172a;
-            --primary: #f97316;
-            --text-white: #f3f4f6;
-            --text-gray: #9ca3af;
-            --card-bg: #1f2937;
-            --border-color: #374151;
-            
-            /* Variáveis de Tamanho para o Menu */
-            --sidebar-width: 260px;
-            --sidebar-width-collapsed: 80px;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); height: 100vh; display: flex; overflow: hidden; }
-
-        /* ================== SIDEBAR (MENU) ================== */
-        .sidebar { 
-            width: var(--sidebar-width); 
-            background-color: var(--bg-sidebar); 
-            display: flex; 
-            flex-direction: column; 
-            padding: 20px; 
-            border-right: 1px solid var(--border-color); 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            position: relative;
-            z-index: 50;
-        }
-
-        .sidebar-header { margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; white-space: nowrap; }
-        
-        .btn-menu-toggle {
-            background: transparent; border: none; color: var(--text-white); cursor: pointer; padding: 5px;
-            border-radius: 6px; display: flex; align-items: center; justify-content: center;
-        }
-        .btn-menu-toggle:hover { background-color: rgba(255,255,255,0.1); }
-
-        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-x: hidden; }
-        .nav-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-gray); margin-bottom: 10px; letter-spacing: 1px; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; }
-        
-        .nav-item {
-            display: flex; align-items: center; padding: 12px 16px; border-radius: 8px;
-            color: var(--text-gray); text-decoration: none; font-weight: 500; cursor: pointer; 
-            transition: all 0.2s; background: transparent; border: none; width: 100%; font-size: 0.95rem;
-            white-space: nowrap; overflow: hidden;
-        }
-        .nav-item i { flex-shrink: 0; margin-right: 12px; transition: margin 0.3s; }
-        .nav-item:hover { background-color: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { background-color: var(--primary); color: white; }
-
-        .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
-        .user-info-container { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
-        .user-avatar { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background-color: var(--card-bg); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); border: 1px solid var(--border-color); }
-        
-        .btn-logout {
-            width: 100%; background: #374151; color: var(--text-white); border: none; padding: 10px 20px; border-radius: 8px;
-            font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: flex-start; gap: 12px; transition: 0.2s; white-space: nowrap; overflow: hidden;
-        }
-        .btn-logout:hover { background: #4b5563; }
-        .btn-logout i { flex-shrink: 0; }
-
-        /* ================== ESTADO RECOLHIDO (COLLAPSED) ================== */
-        body.menu-collapsed .sidebar { width: var(--sidebar-width-collapsed); padding: 20px 10px; }
-        
-        body.menu-collapsed .logo-text,
-        body.menu-collapsed .nav-title, 
-        body.menu-collapsed .nav-item span, 
-        body.menu-collapsed .user-info,
-        body.menu-collapsed .btn-logout span {
-            opacity: 0; pointer-events: none; display: none;
-        }
-
-        body.menu-collapsed .nav-item { justify-content: center; padding: 12px 0; }
-        body.menu-collapsed .nav-item i { margin-right: 0; }
-        body.menu-collapsed .sidebar-header { justify-content: center; }
-        body.menu-collapsed .btn-menu-toggle { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); }
-        body.menu-collapsed .logo-area { opacity: 0; visibility: hidden; }
-        
-        body.menu-collapsed .user-info-container { justify-content: center; }
-        body.menu-collapsed .btn-logout { justify-content: center; padding: 10px 0; }
-        body.menu-collapsed .btn-logout i { margin: 0; }
-
-        /* Main Content */
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; transition: margin-left 0.3s; }
-        
-        .section-header { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-        .card { background-color: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); padding: 20px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 12px; color: var(--text-gray); font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
-        td { padding: 16px 12px; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
-        tr:last-child td { border-bottom: none; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-        .bg-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-        .bg-yellow { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-        .bg-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-        .bg-blue { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-        .btn-primary {
-            background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px;
-            font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
-        }
-        .btn-primary:hover { filter: brightness(1.1); }
-        .form-input {
-            width: 100%; background-color: #111827; border: 1px solid var(--border-color);
-            color: white; padding: 10px; border-radius: 6px; margin-top: 5px; margin-bottom: 15px;
-        }
-        .form-input:focus { border-color: var(--primary); }
-        label { color: var(--text-gray); font-size: 0.9rem; }
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
-            display: none; justify-content: center; align-items: center; z-index: 100;
-        }
-        .modal-content {
-            background-color: var(--card-bg); width: 500px; padding: 25px;
-            border-radius: 12px; border: 1px solid var(--border-color);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-        .view-section { display: none; animation: fadeIn 0.3s ease; }
-        .view-section.active { display: block; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .workout-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
-        .workout-tab {
-            background: transparent; border: none; padding: 10px 15px; color: var(--text-gray);
-            font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
-        }
-        .workout-tab:hover { color: var(--text-white); }
-        .workout-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-        .workout-sheet-tab { display: none; }
-        .workout-sheet-tab.active { display: block; }
-        .builder-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
-        .accordion-header {
-            background-color: var(--card-bg); padding: 15px; border-radius: 8px; cursor: pointer;
-            display: flex; justify-content: space-between; align-items: center; font-weight: 600;
-            margin-bottom: 5px; border: 1px solid var(--border-color); transition: background-color 0.2s;
-        }
-        .accordion-header:hover { background-color: #2a3547; }
-        .accordion-content { padding: 0 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; }
-        .accordion-content.active { max-height: 500px; padding: 15px; }
-        .exercise-list-group { margin-bottom: 15px; }
-        .exercise-item { 
-            padding: 10px; background: #111827; margin-bottom: 8px; border-radius: 6px; 
-            display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid transparent;
-        }
-        .exercise-item:hover { border-color: var(--primary); }
-        .workout-sheet { min-height: 400px; border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-collapsed .nav-text, .sidebar-collapsed .logo-text { display: none; }
+        .sidebar-collapsed .nav-item { justify-content: center; padding: 0; }
+        .sidebar-collapsed .logo-container { justify-content: center; padding-left: 0; }
+        
+        input, select { background-color: #0f172a !important; color: white !important; border-color: #334155 !important; }
+        input:focus, select:focus { border-color: #f97316 !important; box-shadow: 0 0 0 1px #f97316 !important; }
+        input::placeholder { color: #64748b !important; }
+        ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.7; }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="bg-[#0b1120] text-gray-100 font-sans h-screen flex overflow-hidden">
 
-    <div id="toast" style="position: fixed; top: 20px; right: 20px; background: var(--card-bg); border-left: 4px solid #10b981; padding: 15px 20px; border-radius: 6px; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 200;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i data-lucide="check-circle" style="color: #10b981;"></i>
-            <div>
-                <h4 style="font-weight: bold; font-size: 0.9rem;">Sucesso!</h4>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Ação realizada com êxito.</p>
+    <aside id="sidebar" class="w-64 bg-[#111827] border-r border-white/5 flex flex-col justify-between hidden md:flex transition-all duration-300 relative z-20">
+        <button onclick="toggleSidebar()" class="absolute -right-3 top-24 bg-tech-primary text-white p-1.5 rounded-full shadow-glow z-50 hover:bg-orange-600 transition-transform hover:scale-110"><i id="toggleIcon" data-lucide="chevron-left" class="w-3 h-3"></i></button>
+        <div>
+            <div class="h-20 flex items-center px-6 border-b border-white/5 logo-container">
+                <div class="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg shrink-0"><i data-lucide="dumbbell" class="w-6 h-6 text-white"></i></div>
+                <span class="text-xl font-bold ml-3 logo-text tracking-wide">TECH<span class="text-tech-primary">FIT</span></span>
             </div>
+            <nav class="mt-8 px-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-160px)] no-scrollbar">
+                <p class="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 nav-text">Principal</p>
+                <button onclick="switchTab('dashboard')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-tech-primary/10 text-tech-primary shadow-sm border border-tech-primary/20"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="nav-text">Dashboard</span></button>
+                <button onclick="switchTab('alunos')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="users" class="w-5 h-5"></i><span class="nav-text">Alunos</span></button>
+                <button onclick="switchTab('treinos')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="biceps-flexed" class="w-5 h-5"></i><span class="nav-text">Treinos</span></button>
+                <p class="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mt-6 mb-2 nav-text">Gestão</p>
+                <button onclick="switchTab('professores')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="graduation-cap" class="w-5 h-5"></i><span class="nav-text">Professores</span></button>
+                <button onclick="switchTab('financeiro')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="dollar-sign" class="w-5 h-5"></i><span class="nav-text">Financeiro</span></button>
+                <p class="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mt-6 mb-2 nav-text">Suporte</p>
+                <button onclick="switchTab('recepcionista')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="headset" class="w-5 h-5"></i><span class="nav-text">Recepção</span></button>
+                <button onclick="switchTab('contato')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all"><i data-lucide="message-square" class="w-5 h-5"></i><span class="nav-text">Mensagens</span></button>
+            </nav>
         </div>
-    </div>
-
-    <aside class="sidebar" id="app-sidebar">
-        <div class="sidebar-header">
-            <div class="logo-area">
-                <h1 class="text-2xl font-bold italic tracking-tighter logo-text" style="font-size: 1.5rem; font-style: italic; font-weight: 800;">
-                    Tech<span style="color: var(--primary);">Fit</span> <span style="font-size: 0.8rem; color: var(--text-gray); font-style: normal; font-weight: 400;">Admin</span>
-                </h1>
-            </div>
-            <button onclick="admin.toggleMenu()" class="btn-menu-toggle" title="Alternar Menu">
-                <i data-lucide="menu" style="width: 24px; height: 24px;"></i>
-            </button>
-        </div>
-
-        <nav class="sidebar-nav">
-            <p class="nav-title">Gestão Principal</p>
-            
-            <button onclick="admin.switchTab('alunos')" id="btn-alunos" class="nav-item active">
-                <i data-lucide="users" style="width: 20px;"></i> <span>Alunos</span>
-            </button>
-            
-            <button onclick="admin.switchTab('professores')" id="btn-professores" class="nav-item">
-                <i data-lucide="graduation-cap" style="width: 20px;"></i> <span>Professores</span>
-            </button>
-
-            <button onclick="admin.switchTab('recepcionistas')" id="btn-recepcionistas" class="nav-item">
-                <i data-lucide="contact" style="width: 20px;"></i> <span>Recepcionistas</span>
-            </button>
-            
-            <button onclick="admin.switchTab('produtos')" id="btn-produtos" class="nav-item">
-                <i data-lucide="shopping-bag" style="width: 20px;"></i> <span>Produtos</span>
-            </button>
-            
-            <button onclick="admin.switchTab('treinos')" id="btn-treinos" class="nav-item">
-                <i data-lucide="dumbbell" style="width: 20px;"></i> <span>Gerar Treino</span>
-            </button>
-        </nav>
-        
-        <div class="sidebar-footer">
-            <div class="user-info-container">
-                <div class="user-avatar">AD</div>
-                <div class="user-info">
-                    <p style="font-size: 0.9rem; font-weight: 600;">Administrador</p>
-                    <p style="font-size: 0.75rem; color: var(--text-gray);">Gerente Geral</p>
-                </div>
-            </div>
-            <button onclick="admin.logout()" class="btn-logout">
-                <i data-lucide="log-out" style="width: 20px;"></i> <span>Sair</span>
-            </button>
-        </div>
+        <div class="p-4 border-t border-white/5"><a href="?sair=true" class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"><i data-lucide="log-out" class="w-5 h-5"></i><span class="nav-text">Sair do Sistema</span></a></div>
     </aside>
 
-    <main class="main-content">
-        
-        <div id="view-alunos" class="view-section active">
-            <header class="section-header">
-                <div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700;">Controle de Alunos</h2>
-                    <p style="color: var(--text-gray);">Gerencie cadastros e mensalidades</p>
-                </div>
-                <button onclick="admin.toggleModal('modal-cadastro-aluno')" class="btn-primary">
-                    <i data-lucide="user-plus" style="width: 18px;"></i> Novo Aluno
-                </button>
-            </header>
-            <div class="card">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            <th>Plano</th>
-                            <th>Status</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($alunos as $aluno): ?>
-                        <tr>
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="width: 32px; height: 32px; background: #374151; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.8rem; font-weight: bold;">
-                                        <?php echo substr($aluno['nome'], 0, 1); ?>
-                                    </div>
-                                    <?php echo $aluno['nome']; ?>
-                                </div>
-                            </td>
-                            <td><?php echo $aluno['email']; ?></td>
-                            <td><?php echo $aluno['plano']; ?></td>
-                            <td>
-                                <?php 
-                                    $badgeClass = '';
-                                    if ($aluno['status'] == 'Ativo') $badgeClass = 'bg-green';
-                                    else if ($aluno['status'] == 'Pendente') $badgeClass = 'bg-yellow';
-                                    else $badgeClass = 'bg-red';
-                                ?>
-                                <span class="badge <?php echo $badgeClass; ?>"><?php echo $aluno['status']; ?></span>
-                            </td>
-                            <td style="text-align: right;">
-                                <button style="background: none; border: none; color: var(--text-gray); cursor: pointer; margin-right: 10px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
-                                <button style="background: none; border: none; color: #f87171; cursor: pointer;"><i data-lucide="trash-2" style="width: 16px;"></i></button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-[#0b1120]">
+        <header class="h-20 bg-[#111827]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-8 z-10 sticky top-0">
+            <div><h2 id="pageTitle" class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Visão Geral</h2><p class="text-xs text-gray-500 mt-0.5">Painel de Controle</p></div>
+            <div class="flex items-center gap-4"><div class="text-right hidden sm:block"><p class="text-sm font-bold text-white"><?= htmlspecialchars($nomeAdmin) ?></p><span class="text-[10px] uppercase font-bold tracking-wider bg-tech-primary/20 text-tech-primary px-2 py-0.5 rounded-full">Gerente</span></div><div class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center shadow-lg"><i data-lucide="shield" class="w-5 h-5 text-tech-primary"></i></div></div>
+        </header>
 
-        <div id="view-professores" class="view-section">
-            <header class="section-header">
-                <div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700;">Controle de Professores</h2>
-                    <p style="color: var(--text-gray);">Gerencie a equipe de instrutores e suas especialidades</p>
-                </div>
-                <button onclick="admin.toggleModal('modal-cadastro-professor')" class="btn-primary">
-                    <i data-lucide="user-plus" style="width: 18px;"></i> Novo Professor
-                </button>
-            </header>
-            <div class="card">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            <th>Especialidade</th>
-                            <th>Status</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($professores as $professor): ?>
-                        <tr>
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="width: 32px; height: 32px; background: #374151; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.8rem; font-weight: bold;">
-                                        <?php echo substr($professor['nome'], 0, 1); ?>
-                                    </div>
-                                    <?php echo $professor['nome']; ?>
-                                </div>
-                            </td>
-                            <td><?php echo $professor['email']; ?></td>
-                            <td><?php echo $professor['especialidade']; ?></td>
-                            <td>
-                                <?php 
-                                    $badgeClass = '';
-                                    if ($professor['status'] == 'Ativo') $badgeClass = 'bg-green';
-                                    else if ($professor['status'] == 'Férias') $badgeClass = 'bg-blue';
-                                    else $badgeClass = 'bg-red';
-                                ?>
-                                <span class="badge <?php echo $badgeClass; ?>"><?php echo $professor['status']; ?></span>
-                            </td>
-                            <td style="text-align: right;">
-                                <button style="background: none; border: none; color: var(--text-gray); cursor: pointer; margin-right: 10px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
-                                <button style="background: none; border: none; color: #f87171; cursor: pointer;"><i data-lucide="trash-2" style="width: 16px;"></i></button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="view-recepcionistas" class="view-section">
-            <header class="section-header">
-                <div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700;">Controle de Recepcão</h2>
-                    <p style="color: var(--text-gray);">Gerencie a equipe da recepção e turnos</p>
-                </div>
-                <button onclick="admin.toggleModal('modal-cadastro-recepcionista')" class="btn-primary">
-                    <i data-lucide="user-plus" style="width: 18px;"></i> Nova Recepcionista
-                </button>
-            </header>
-            <div class="card">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            <th>Turno</th>
-                            <th>Status</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recepcionistas as $recep): ?>
-                        <tr>
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="width: 32px; height: 32px; background: #374151; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.8rem; font-weight: bold;">
-                                        <?php echo substr($recep['nome'], 0, 1); ?>
-                                    </div>
-                                    <?php echo $recep['nome']; ?>
-                                </div>
-                            </td>
-                            <td><?php echo $recep['email']; ?></td>
-                            <td><?php echo $recep['turno']; ?></td>
-                            <td>
-                                <?php 
-                                    $badgeClass = '';
-                                    if ($recep['status'] == 'Ativo') $badgeClass = 'bg-green';
-                                    else if ($recep['status'] == 'Licença') $badgeClass = 'bg-blue';
-                                    else $badgeClass = 'bg-red';
-                                ?>
-                                <span class="badge <?php echo $badgeClass; ?>"><?php echo $recep['status']; ?></span>
-                            </td>
-                            <td style="text-align: right;">
-                                <button style="background: none; border: none; color: var(--text-gray); cursor: pointer; margin-right: 10px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
-                                <button style="background: none; border: none; color: #f87171; cursor: pointer;"><i data-lucide="trash-2" style="width: 16px;"></i></button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="view-produtos" class="view-section">
-            <header class="section-header">
-                <div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700;">Controle de Produtos</h2>
-                    <p style="color: var(--text-gray);">Estoque da Loja e Bar</p>
-                </div>
-                <button onclick="admin.showToast('Funcionalidade de adição...')" class="btn-primary" style="background-color: #374151;">
-                    <i data-lucide="package-plus" style="width: 18px;"></i> Adicionar Item
-                </button>
-            </header>
-            <div class="card">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Produto</th>
-                            <th>Categoria</th>
-                            <th>Estoque</th>
-                            <th>Preço Unit.</th>
-                            <th>Situação</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($produtos as $prod): ?>
-                        <tr>
-                            <td style="font-weight: 600;"><?php echo $prod['nome']; ?></td>
-                            <td><?php echo $prod['cat']; ?></td>
-                            <td style="font-weight: bold;"><?php echo $prod['qtd']; ?></td>
-                            <td>R$ <?php echo number_format($prod['preco'], 2, ',', '.'); ?></td>
-                            <td>
-                                <?php if($prod['qtd'] < 5): ?>
-                                    <span style="color: #f87171; font-size: 0.8rem; display: flex; align-items: center; gap: 5px;">
-                                        <i data-lucide="alert-triangle" style="width: 14px;"></i> Baixo Estoque
-                                    </span>
-                                <?php else: ?>
-                                    <span style="color: #34d399; font-size: 0.8rem;">Normal</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="view-treinos" class="view-section">
-            <header class="section-header">
-                <div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700;">Gerador de Treinos</h2>
-                    <p style="color: var(--text-gray);">Monte a ficha e salve no perfil do aluno</p>
-                </div>
-                <button onclick="admin.saveWorkout()" class="btn-primary">
-                    <i data-lucide="save" style="width: 18px;"></i> Salvar Treinos (A, B, C)
-                </button>
-            </header>
+        <div class="flex-1 overflow-y-auto p-8 no-scrollbar relative">
             
-            <div class="card" style="margin-bottom: 20px;">
-                <label>Selecione o Aluno:</label>
-                <select class="form-input" style="width: 300px; display: block;">
-                    <?php foreach($alunos as $aluno): ?>
-                        <option value="<?php echo $aluno['id']; ?>"><?php echo $aluno['nome']; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="builder-grid">
-                <div id="exercise-bank-container">
-                    <h4 style="margin-bottom: 15px; font-weight: 600; color: var(--primary);">Banco de Exercícios (Treino <span id="current-treino-label">A</span>)</h4>
-                    <div id="exercise-accordion"></div>
+            <div id="tab-dashboard" class="tab-content fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg group"><p class="text-gray-400 text-xs font-bold uppercase mb-2">Total de Alunos</p><div class="flex justify-between items-end"><h3 class="text-3xl font-bold text-white"><?= $totalAlunos ?></h3><i data-lucide="users" class="w-8 h-8 text-tech-primary opacity-50"></i></div></div>
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg group"><p class="text-gray-400 text-xs font-bold uppercase mb-2">Faturamento</p><div class="flex justify-between items-end"><h3 class="text-3xl font-bold text-white">R$ <?= number_format($totalAlunos * 89, 2, ',', '.') ?></h3><i data-lucide="wallet" class="w-8 h-8 text-green-500 opacity-50"></i></div></div>
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg group"><p class="text-gray-400 text-xs font-bold uppercase mb-2">Alunos Ativos</p><h3 class="text-3xl font-bold text-green-400"><?= $totalAtivos ?></h3><div class="w-full bg-gray-700 h-1 mt-3 rounded-full"><div class="bg-green-500 h-full" style="width: <?= ($totalAlunos>0)?($totalAtivos/$totalAlunos)*100:0 ?>%"></div></div></div>
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg group"><p class="text-gray-400 text-xs font-bold uppercase mb-2">Inativos</p><h3 class="text-3xl font-bold text-red-400"><?= $totalInativos ?></h3><div class="w-full bg-gray-700 h-1 mt-3 rounded-full"><div class="bg-red-500 h-full" style="width: <?= ($totalAlunos>0)?($totalInativos/$totalAlunos)*100:0 ?>%"></div></div></div>
                 </div>
-
-                <div>
-                    <div class="workout-tabs">
-                        <button onclick="admin.switchWorkoutTab('A', this)" id="tab-A" class="workout-tab active">Treino A</button>
-                        <button onclick="admin.switchWorkoutTab('B', this)" id="tab-B" class="workout-tab">Treino B</button>
-                        <button onclick="admin.switchWorkoutTab('C', this)" id="tab-C" class="workout-tab">Treino C</button>
-                    </div>
-
-                    <div id="workout-container-A" class="workout-sheet workout-sheet-tab active">
-                        <p style="text-align: center; color: var(--text-gray); margin-top: 50px;" id="empty-msg-A">Clique nos exercícios à esquerda para adicionar ao Treino A.</p>
-                    </div>
-                    <div id="workout-container-B" class="workout-sheet workout-sheet-tab">
-                        <p style="text-align: center; color: var(--text-gray); margin-top: 50px;" id="empty-msg-B">Clique nos exercícios à esquerda para adicionar ao Treino B.</p>
-                    </div>
-                    <div id="workout-container-C" class="workout-sheet workout-sheet-tab">
-                        <p style="text-align: center; color: var(--text-gray); margin-top: 50px;" id="empty-msg-C">Clique nos exercícios à esquerda para adicionar ao Treino C.</p>
-                    </div>
+                <div class="bg-[#1e293b] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5"><h3 class="font-bold text-lg text-white flex items-center gap-2"><i data-lucide="clock" class="w-5 h-5 text-tech-primary"></i> Últimas Matrículas</h3><button onclick="switchTab('alunos')" class="text-xs font-bold text-tech-primary hover:text-white uppercase">Ver Todos</button></div>
+                    <table class="w-full text-left text-sm text-gray-300"><thead class="bg-[#0f172a] uppercase text-xs font-bold text-gray-500"><tr><th class="px-6 py-4">Aluno</th><th class="px-6 py-4">Plano</th><th class="px-6 py-4">Status</th><th class="px-6 py-4 text-right">Ação</th></tr></thead><tbody class="divide-y divide-white/5">
+                        <?php foreach($dashAlunos as $aluno): ?>
+                        <tr class="hover:bg-white/5 transition-colors"><td class="px-6 py-4 font-medium text-white"><?= $aluno['nome'] ?></td><td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-xs font-bold bg-white/5 border border-white/10 text-white"><?= $aluno['plano'] ?></span></td><td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-bold <?= $aluno['status'] == 'Ativo' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20' ?>"><?= $aluno['status'] ?></span></td><td class="px-6 py-4 text-right"><form method="POST" class="inline"><input type="hidden" name="acao" value="alterar_status"><input type="hidden" name="id_aluno" value="<?= $aluno['id'] ?>"><input type="hidden" name="origem" value="dashboard"><button type="submit" name="novo_status" value="<?= $aluno['status'] == 'Ativo' ? 'Inativo' : 'Ativo' ?>" class="p-2 rounded-lg hover:bg-white/10 transition-colors"><i data-lucide="<?= $aluno['status'] == 'Ativo' ? 'lock' : 'unlock' ?>" class="w-4 h-4 <?= $aluno['status'] == 'Ativo' ? 'text-red-400' : 'text-green-400' ?>"></i></button></form></td></tr>
+                        <?php endforeach; ?>
+                    </tbody></table>
                 </div>
             </div>
-        </div>
 
-    </main>
+            <div id="tab-alunos" class="tab-content hidden fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-[#1e293b] p-5 rounded-xl border border-white/5 flex items-center justify-between shadow-lg"><div><p class="text-gray-400 text-xs font-bold uppercase">Total Cadastrados</p><h3 class="text-2xl font-bold text-white"><?= $totalAlunos ?></h3></div><div class="w-10 h-10 bg-tech-primary/10 rounded-full flex items-center justify-center text-tech-primary"><i data-lucide="users" class="w-5 h-5"></i></div></div>
+                    <div class="bg-[#1e293b] p-5 rounded-xl border border-white/5 flex items-center justify-between shadow-lg"><div><p class="text-gray-400 text-xs font-bold uppercase">Alunos Ativos</p><h3 class="text-2xl font-bold text-green-400"><?= $totalAtivos ?></h3></div><div class="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center text-green-500"><i data-lucide="check-circle" class="w-5 h-5"></i></div></div>
+                    <div class="bg-[#1e293b] p-5 rounded-xl border border-white/5 flex items-center justify-between shadow-lg"><div><p class="text-gray-400 text-xs font-bold uppercase">Inativos</p><h3 class="text-2xl font-bold text-red-400"><?= $totalInativos ?></h3></div><div class="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center text-red-500"><i data-lucide="x-circle" class="w-5 h-5"></i></div></div>
+                </div>
 
-    <div id="modal-cadastro-aluno" class="modal">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                <h3 style="font-size: 1.2rem; font-weight: 700;">Cadastrar Novo Aluno</h3>
-                <button onclick="admin.toggleModal('modal-cadastro-aluno')" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="x"></i></button>
+                <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                    <div class="relative w-full md:w-96"><form method="GET"><input type="hidden" name="tab" value="alunos"><input type="text" name="busca" value="<?= htmlspecialchars($termoBusca) ?>" placeholder="Buscar aluno por nome ou CPF..." class="w-full bg-[#1e293b] border border-white/10 rounded-xl pl-12 pr-4 py-3 focus:border-tech-primary outline-none text-sm text-white shadow-lg"><button type="submit" class="absolute left-4 top-3 text-gray-500 hover:text-white"><i data-lucide="search" class="w-5 h-5"></i></button></form></div>
+                    <button onclick="abrirModalAluno()" class="bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-glow transition-all transform hover:scale-105"><i data-lucide="user-plus" class="w-5 h-5"></i> Novo Aluno</button>
+                </div>
+
+                <div class="bg-[#1e293b] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
+                    <table class="w-full text-left text-sm text-gray-300"><thead class="bg-[#0f172a] uppercase text-xs font-bold text-gray-500"><tr><th class="px-6 py-4">Aluno</th><th class="px-6 py-4">Desde</th><th class="px-6 py-4">Plano</th><th class="px-6 py-4">Status</th><th class="px-6 py-4 text-right">Ações</th></tr></thead><tbody class="divide-y divide-white/5">
+                        <?php foreach($listaAlunos as $aluno): ?>
+                        <tr class="hover:bg-white/5 transition-colors group">
+                            <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-tech-primary/10 flex items-center justify-center text-tech-primary font-bold"><?= strtoupper(substr($aluno['nome'], 0, 1)) ?></div><div><p class="font-bold text-white"><?= $aluno['nome'] ?></p><p class="text-xs text-gray-500"><?= $aluno['email'] ?></p></div></div></td>
+                            <td class="px-6 py-4 font-mono text-gray-400"><?= date('d/m/y', strtotime($aluno['criado_em'] ?? 'now')) ?></td>
+                            <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-xs font-bold bg-white/5 border border-white/10 text-white"><?= $aluno['plano'] ?></span></td>
+                            <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-bold <?= $aluno['status'] == 'Ativo' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20' ?>"><?= $aluno['status'] ?></span></td>
+                            <td class="px-6 py-4 text-right"><div class="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity"><button onclick='abrirModalEditar(<?= json_encode($aluno) ?>)' class="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors"><i data-lucide="pencil" class="w-4 h-4"></i></button><form method="POST" class="inline"><input type="hidden" name="acao" value="alterar_status"><input type="hidden" name="id_aluno" value="<?= $aluno['id'] ?>"><input type="hidden" name="origem" value="alunos"><input type="hidden" name="busca_atual" value="<?= htmlspecialchars($termoBusca) ?>"><button type="submit" name="novo_status" value="<?= $aluno['status'] == 'Ativo' ? 'Inativo' : 'Ativo' ?>" class="p-2 hover:bg-white/10 rounded-lg transition-colors"><i data-lucide="<?= $aluno['status'] == 'Ativo' ? 'lock' : 'unlock' ?>" class="w-4 h-4 <?= $aluno['status'] == 'Ativo' ? 'text-red-400' : 'text-green-400' ?>"></i></button></form><button onclick="abrirModalExcluir(<?= $aluno['id'] ?>)" class="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody></table>
+                </div>
             </div>
-            <form onsubmit="event.preventDefault(); admin.toggleModal('modal-cadastro-aluno'); admin.showToast('Aluno cadastrado com sucesso!');">
-                <label>Nome Completo</label><input type="text" class="form-input" required placeholder="Ex: João da Silva">
-                <label>Email</label><input type="email" class="form-input" required placeholder="email@exemplo.com">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div><label>Plano</label><select class="form-input"><option>Mensal</option><option>Trimestral</option><option>Anual</option></select></div>
-                    <div><label>Valor (R$)</label><input type="number" class="form-input" value="89.90"></div>
+
+            <div id="tab-treinos" class="tab-content hidden fade-in">
+                <div class="flex gap-6 mb-8 border-b border-white/10 pb-1">
+                    <button onclick="switchSubTab('individual')" id="btn-individual" class="pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all flex items-center gap-2"><i data-lucide="user" class="w-4 h-4"></i> Aluno Específico</button>
+                    <button onclick="switchSubTab('padrao')" id="btn-padrao" class="pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4"></i> Biblioteca de Modelos</button>
                 </div>
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" onclick="admin.toggleModal('modal-cadastro-aluno')" style="background: transparent; border: 1px solid var(--border-color); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancelar</button>
-                    <button type="submit" class="btn-primary">Confirmar</button>
+
+                <div id="view-individual">
+                    <form method="POST" id="formTreino"><input type="hidden" name="acao" value="salvar_treino">
+                        <div class="flex flex-col xl:flex-row justify-between items-end gap-6 mb-8 bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg">
+                            <div class="w-full xl:w-1/2"><label class="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Selecione o Aluno</label><div class="relative"><select name="aluno_id_treino" onchange="carregarTreino(this.value, 'aluno')" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-4 pl-12 cursor-pointer shadow-inner"><option value="">-- Escolha na lista --</option><?php foreach($listaSelectTreino as $a): ?><option value="<?= $a['id'] ?>"><?= $a['nome'] ?></option><?php endforeach; ?></select><i data-lucide="search" class="absolute left-4 top-4 w-5 h-5 text-gray-500 pointer-events-none"></i></div></div>
+                            <div class="flex gap-3 w-full xl:w-auto"><button type="button" onclick="gerarTreinoAutomatico()" class="flex-1 xl:flex-none bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 transition-all"><i data-lucide="wand-2" class="w-5 h-5"></i> Mágica Automática</button><button type="submit" class="flex-1 xl:flex-none bg-tech-primary hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-glow transition-all"><i data-lucide="save" class="w-5 h-5"></i> Salvar Treino</button></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <?php foreach(['A','B','C'] as $div): ?>
+                            <div class="bg-[#1e293b] rounded-2xl border border-white/5 flex flex-col h-full shadow-lg"><div class="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center"><h3 class="font-bold text-white flex items-center gap-3"><span class="bg-tech-primary text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold shadow-lg"><?= $div ?></span> Treino</h3><button type="button" onclick="addExercicio('container-<?= $div ?>')" class="p-1.5 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 hover:text-white"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div id="container-<?= $div ?>" class="p-4 space-y-3 flex-1 min-h-[300px]"></div></div>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
                 </div>
-            </form>
-        </div>
-    </div>
 
-    <div id="modal-cadastro-professor" class="modal">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                <h3 style="font-size: 1.2rem; font-weight: 700;">Cadastrar Novo Professor</h3>
-                <button onclick="admin.toggleModal('modal-cadastro-professor')" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="x"></i></button>
-            </div>
-            <form onsubmit="event.preventDefault(); admin.toggleModal('modal-cadastro-professor'); admin.showToast('Professor cadastrado com sucesso!');">
-                <label>Nome Completo</label><input type="text" class="form-input" required placeholder="Ex: Maria da Silva">
-                <label>Email</label><input type="email" class="form-input" required placeholder="maria@techfit.com">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div><label>Especialidade</label><select class="form-input"><option>Musculação</option><option>Funcional</option><option>Natação</option><option>Pilates</option></select></div>
-                    <div><label>Salário Base (R$)</label><input type="number" class="form-input" value="2500.00"></div>
-                </div>
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" onclick="admin.toggleModal('modal-cadastro-professor')" style="background: transparent; border: 1px solid var(--border-color); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancelar</button>
-                    <button type="submit" class="btn-primary">Confirmar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-cadastro-recepcionista" class="modal">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                <h3 style="font-size: 1.2rem; font-weight: 700;">Cadastrar Nova Recepcionista</h3>
-                <button onclick="admin.toggleModal('modal-cadastro-recepcionista')" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="x"></i></button>
-            </div>
-            <form onsubmit="event.preventDefault(); admin.toggleModal('modal-cadastro-recepcionista'); admin.showToast('Recepcionista cadastrada com sucesso!');">
-                <label>Nome Completo</label><input type="text" class="form-input" required placeholder="Ex: Julia Mendes">
-                <label>Email</label><input type="email" class="form-input" required placeholder="recepcao@techfit.com">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <label>Turno</label>
-                        <select class="form-input">
-                            <option>Manhã</option>
-                            <option>Tarde</option>
-                            <option>Noite</option>
-                        </select>
-                    </div>
-                    <div><label>Salário Base (R$)</label><input type="number" class="form-input" value="1800.00"></div>
-                </div>
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" onclick="admin.toggleModal('modal-cadastro-recepcionista')" style="background: transparent; border: 1px solid var(--border-color); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancelar</button>
-                    <button type="submit" class="btn-primary">Confirmar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        const admin = {
-            toggleMenu: () => {
-                document.body.classList.toggle('menu-collapsed');
-                setTimeout(() => lucide.createIcons(), 300);
-            },
-
-            switchTab: (tabId) => {
-                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-                document.getElementById('view-' + tabId).classList.add('active');
-                document.getElementById('btn-' + tabId).classList.add('active');
-            },
-
-            toggleModal: (modalId) => {
-                const modal = document.getElementById(modalId);
-                modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
-            },
-
-            showToast: (msg) => {
-                const toast = document.getElementById('toast');
-                toast.querySelector('p').innerText = msg;
-                toast.style.display = 'flex';
-                toast.style.animation = 'fadeIn 0.3s ease';
-                setTimeout(() => { toast.style.display = 'none'; }, 3000);
-            },
-
-            logout: () => {
-                window.location.href = '/';
-            },
-
-            // Lógica do Gerador de Treino
-            currentWorkoutTab: 'A',
-            treinoExercicios: <?php echo json_encode($treino_exercicios); ?>,
-
-            toggleAccordion: (headerElement) => {
-                const content = headerElement.nextElementSibling;
-                const icon = headerElement.querySelector('i');
-                if (content.classList.contains('active')) {
-                    content.classList.remove('active');
-                    icon.setAttribute('data-lucide', 'chevron-down');
-                } else {
-                    document.querySelectorAll('.accordion-content.active').forEach(c => {
-                        c.classList.remove('active');
-                        c.previousElementSibling.querySelector('i').setAttribute('data-lucide', 'chevron-down');
-                    });
-                    content.classList.add('active');
-                    icon.setAttribute('data-lucide', 'chevron-up');
-                }
-                lucide.createIcons();
-            },
-
-            renderExerciseBank: (treinoId) => {
-                const bankContainer = document.getElementById('exercise-accordion');
-                const label = document.getElementById('current-treino-label');
-                const exercicios = admin.treinoExercicios[treinoId];
-                let html = '';
-
-                label.innerText = treinoId;
-                for (const grupo in exercicios) {
-                    const lista = exercicios[grupo];
-                    html += `<div class="accordion-header" onclick="admin.toggleAccordion(this)">
-                                <span>${grupo}</span>
-                                <i data-lucide="chevron-down" style="width: 18px;"></i>
-                            </div>
-                            <div class="accordion-content">
-                                <div class="exercise-list-group">`;
-                    lista.forEach(ex => {
-                        html += `<div class="exercise-item" onclick="admin.addExercise('${ex}')">
-                                    <span>${ex}</span>
-                                    <i data-lucide="plus-circle" style="width: 16px; color: var(--text-gray);"></i>
-                                </div>`;
-                    });
-                    html += `       </div>
-                            </div>`;
-                }
-                bankContainer.innerHTML = html;
-                lucide.createIcons();
-            },
-
-            switchWorkoutTab: (tabId, element) => {
-                admin.currentWorkoutTab = tabId;
-                document.querySelectorAll('.workout-sheet-tab').forEach(el => el.classList.remove('active'));
-                document.querySelectorAll('.workout-tab').forEach(el => el.classList.remove('active'));
-                document.getElementById('workout-container-' + tabId).classList.add('active');
-                element.classList.add('active');
-                admin.renderExerciseBank(tabId);
-            },
-
-            saveWorkout: () => {
-                admin.showToast('Treinos A, B e C salvos para o aluno!');
-            },
-
-            addExercise: (name) => {
-                const container = document.getElementById('workout-container-' + admin.currentWorkoutTab);
-                const emptyMsg = document.getElementById('empty-msg-' + admin.currentWorkoutTab);
-                if(emptyMsg) emptyMsg.style.display = 'none';
-
-                const div = document.createElement('div');
-                div.classList.add('workout-item-builder'); 
-                div.style.cssText = 'background: #1f2937; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.2s; margin-bottom: 10px;';
-                
-                div.innerHTML = `
-                    <div style="flex: 1;">
-                        <span style="font-weight: bold; display: block; margin-bottom: 5px;">${name}</span>
-                        <div style="display: flex; gap: 15px; align-items: center;">
-                            <div style="display: flex; flex-direction: column;">
-                                <label style="font-size: 0.7rem; color: var(--text-gray);">Séries/Reps</label>
-                                <input type="text" value="3x12" style="background: #111827; border: 1px solid #374151; color: #9ca3af; padding: 4px 8px; border-radius: 4px; width: 80px; font-size: 0.8rem;">
-                            </div>
-                            <div style="display: flex; flex-direction: column;">
-                                <label style="font-size: 0.7rem; color: var(--text-gray);">Carga (kg)</label>
-                                <input type="text" placeholder="kg" style="background: #111827; border: 1px solid #374151; color: #9ca3af; padding: 4px 8px; border-radius: 4px; width: 60px; font-size: 0.8rem;">
-                            </div>
-                            <div style="display: flex; flex-direction: column; flex: 1;">
-                                <label style="font-size: 0.7rem; color: var(--text-gray);">Observação</label>
-                                <input type="text" placeholder="Ex: Foco na excêntrica" style="background: #111827; border: 1px solid #374151; color: #9ca3af; padding: 4px 8px; border-radius: 4px; width: 100%; font-size: 0.8rem;">
-                            </div>
+                <div id="view-padrao" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="md:col-span-1 bg-[#1e293b] rounded-2xl border border-white/5 p-4 h-fit max-h-[600px] overflow-y-auto no-scrollbar">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Modelos Disponíveis</h3>
+                            <ul class="space-y-2">
+                                <?php if(empty($listaModelos)): ?>
+                                    <li class="text-sm text-gray-600 text-center py-4">Nenhum modelo salvo.</li>
+                                <?php else: ?>
+                                    <?php foreach($listaModelos as $mod): ?>
+                                    <li class="flex justify-between items-center bg-[#0f172a] p-3 rounded-lg hover:bg-white/5 group transition-colors border border-transparent hover:border-white/10"><button onclick="carregarTreino(<?= $mod['id'] ?>, 'modelo')" class="text-sm text-gray-300 hover:text-white flex-1 text-left font-medium"><?= $mod['nome'] ?></button><form method="POST" onsubmit="return confirm('Apagar este modelo?');"><input type="hidden" name="acao" value="excluir_modelo"><input type="hidden" name="id_modelo" value="<?= $mod['id'] ?>"><button type="submit" class="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></form></li>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        <div class="md:col-span-3">
+                            <form method="POST" id="formModelo">
+                                <input type="hidden" name="acao" value="salvar_modelo">
+                                <div class="flex flex-col md:flex-row justify-between items-end gap-4 mb-6 bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-lg">
+                                    <div class="w-full md:w-1/2"><label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nome do Modelo</label><input type="text" name="nome_modelo" required placeholder="Ex: Hipertrofia Avançado" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-4 outline-none focus:border-tech-primary text-white"></div>
+                                    
+                                    <div class="flex gap-3">
+                                        <button type="button" onclick="gerarModeloAutomatico()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-4 rounded-xl font-bold flex gap-2 shadow-lg shadow-purple-900/30 transition-all">
+                                            <i data-lucide="wand-2" class="w-5 h-5"></i> Mágica
+                                        </button>
+                                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-xl font-bold flex gap-2 shadow-lg transition-all"><i data-lucide="save" class="w-5 h-5"></i> Salvar</button>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
+                                    <?php foreach(['A','B','C'] as $div): ?>
+                                    <div class="bg-[#1e293b] rounded-2xl border border-dashed border-white/20 flex flex-col h-full"><div class="p-4 border-b border-white/5 flex justify-between items-center"><h3 class="font-bold text-gray-300">Treino <?= $div ?></h3><button type="button" onclick="addExercicio('modelo-<?= $div ?>')" class="text-blue-400 text-xs font-bold hover:text-blue-300">+ ITEM</button></div><div id="modelo-<?= $div ?>" class="p-4 space-y-2 min-h-[150px]"><p class="text-xs text-gray-600 text-center mt-8 italic">Vazio...</p></div></div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </form>
                         </div>
                     </div>
-                    <button class="remove-btn" style="background: none; border: none; color: #f87171; cursor: pointer; margin-left: 15px;"><i data-lucide="trash-2" style="width: 18px;"></i></button>
-                `;
-                div.querySelector('.remove-btn').onclick = function() { div.remove(); };
-                container.appendChild(div);
-                lucide.createIcons();
-            },
+                </div>
+            </div>
 
-            init: () => {
-                lucide.createIcons();
-                admin.renderExerciseBank(admin.currentWorkoutTab);
-            }
-        };
+            <div id="tab-professores" class="tab-content hidden fade-in"><div class="bg-[#1e293b] p-20 rounded-2xl border border-white/5 text-center"><i data-lucide="graduation-cap" class="w-16 h-16 text-gray-600 mx-auto mb-4"></i><h3 class="text-xl font-bold text-white">Professores</h3><p class="text-gray-500">Em breve.</p></div></div>
+            <div id="tab-recepcionista" class="tab-content hidden fade-in"><div class="bg-[#1e293b] p-20 rounded-2xl border border-white/5 text-center"><i data-lucide="headset" class="w-16 h-16 text-gray-600 mx-auto mb-4"></i><h3 class="text-xl font-bold text-white">Recepção</h3><p class="text-gray-500">Em breve.</p></div></div>
+            <div id="tab-contato" class="tab-content hidden fade-in"><div class="bg-[#1e293b] p-20 rounded-2xl border border-white/5 text-center"><i data-lucide="message-square" class="w-16 h-16 text-gray-600 mx-auto mb-4"></i><h3 class="text-xl font-bold text-white">Mensagens</h3><p class="text-gray-500">Em breve.</p></div></div>
+            <div id="tab-financeiro" class="tab-content hidden fade-in"><div class="bg-[#1e293b] p-20 rounded-2xl border border-white/5 text-center"><i data-lucide="dollar-sign" class="w-16 h-16 text-gray-600 mx-auto mb-4"></i><h3 class="text-xl font-bold text-white">Financeiro</h3><p class="text-gray-500">Em breve.</p></div></div>
+        </div>
+    </main>
 
-        admin.init();
+    <div id="modalEditar" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4"><div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative"><button onclick="document.getElementById('modalEditar').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x"></i></button><h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-white"><i data-lucide="pencil" class="w-6 h-6 text-tech-primary"></i> Editar Aluno</h2><form method="POST" class="space-y-5"><input type="hidden" name="acao" value="editar_aluno"><input type="hidden" name="id" id="edit_id"><div class="grid grid-cols-2 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Nome</label><input type="text" name="nome" id="edit_nome" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">CPF</label><input type="text" id="edit_cpf" disabled class="w-full bg-[#0f172a]/50 border border-white/5 rounded-xl p-3.5 text-gray-500 cursor-not-allowed"></div></div><div class="grid grid-cols-2 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Email</label><input type="email" name="email" id="edit_email" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Telefone</label><input type="text" name="telefone" id="edit_telefone" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div></div><div class="grid grid-cols-2 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Plano</label><select name="plano" id="edit_plano" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"><option value="Start">Start</option><option value="Pro">Pro</option><option value="Black">Black</option></select></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Objetivo</label><input type="text" name="objetivo" id="edit_objetivo" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div></div><div class="border-t border-white/10 pt-5 mt-2"><label class="block text-xs font-bold text-tech-primary uppercase mb-2 flex items-center gap-2"><i data-lucide="key" class="w-4 h-4"></i> Redefinir Senha</label><input type="text" name="nova_senha_adm" placeholder="Nova senha (opcional)" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary placeholder-gray-600 text-white"></div><div class="pt-6 flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalEditar').classList.add('hidden')" class="px-6 py-3 rounded-xl text-gray-400 hover:text-white font-medium">Cancelar</button><button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/30">Salvar</button></div></form></div></div>
+    <div id="modalAluno" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4"><div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative"><button onclick="fecharModalAluno()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x"></i></button><h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-white"><i data-lucide="user-plus" class="w-6 h-6 text-tech-primary"></i> Novo Aluno</h2><form method="POST" class="space-y-5"><input type="hidden" name="acao" value="cadastrar_aluno"><div class="grid grid-cols-2 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Nome</label><input type="text" name="nome" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">CPF</label><input type="text" name="cpf" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div></div><div class="grid grid-cols-2 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Email</label><input type="email" name="email" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Telefone</label><input type="text" name="telefone" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div></div><div class="grid grid-cols-3 gap-5"><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Nascimento</label><input type="date" name="data_nascimento" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Gênero</label><select name="genero" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Plano</label><select name="plano" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-white"><option value="Start">Start</option><option value="Pro">Pro</option><option value="Black">Black</option></select></div></div><div><label class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Senha Provisória</label><input type="text" name="senha" value="techfit123" required class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-3.5 outline-none focus:border-tech-primary text-tech-primary font-mono"></div><div class="pt-6 flex justify-end gap-3"><button type="button" onclick="fecharModalAluno()" class="px-6 py-3 rounded-xl text-gray-400 hover:text-white font-medium">Cancelar</button><button type="submit" class="bg-tech-primary hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-glow transition-all">Confirmar</button></div></form></div></div>
+    <div id="modalExcluir" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4"><div class="bg-[#1e293b] w-full max-w-md rounded-2xl border border-red-500/30 shadow-2xl p-8 text-center relative"><div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 border border-red-500/20"><i data-lucide="alert-triangle" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Excluir Aluno?</h2><p class="text-gray-400 mb-8 leading-relaxed">Esta ação removerá permanentemente o acesso e histórico.</p><form method="POST" class="flex gap-4 justify-center"><input type="hidden" name="acao" value="excluir_aluno"><input type="hidden" name="id_aluno" id="id_exclusao"><button type="button" onclick="document.getElementById('modalExcluir').classList.add('hidden')" class="w-full py-3.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-colors font-bold">Cancelar</button><button type="submit" class="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-900/30 transition-colors">Sim, Excluir</button></form></div></div>
+
+    <script>
+        lucide.createIcons();
+        function abrirModalAluno() { document.getElementById('modalAluno').classList.remove('hidden'); }
+        function fecharModalAluno() { document.getElementById('modalAluno').classList.add('hidden'); }
+        function abrirModalEditar(aluno) { document.getElementById('edit_id').value = aluno.id; document.getElementById('edit_nome').value = aluno.nome; document.getElementById('edit_cpf').value = aluno.cpf; document.getElementById('edit_email').value = aluno.email; document.getElementById('edit_telefone').value = aluno.telefone; document.getElementById('edit_plano').value = aluno.plano; document.getElementById('edit_objetivo').value = aluno.objetivo || ''; document.getElementById('modalEditar').classList.remove('hidden'); }
+        function abrirModalExcluir(id) { document.getElementById('id_exclusao').value = id; document.getElementById('modalExcluir').classList.remove('hidden'); }
+
+        function switchSubTab(subTab) {
+            document.getElementById('view-individual').classList.add('hidden'); document.getElementById('view-padrao').classList.add('hidden');
+            document.getElementById('btn-individual').className = 'pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all flex items-center gap-2';
+            document.getElementById('btn-padrao').className = 'pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all flex items-center gap-2';
+            document.getElementById('view-' + subTab).classList.remove('hidden');
+            document.getElementById('btn-' + subTab).className = 'pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all flex items-center gap-2';
+        }
+
+        async function carregarTreino(id, tipo) {
+            if(!id) return;
+            const prefixo = tipo === 'modelo' ? 'modelo-' : 'container-';
+            ['A','B','C'].forEach(d => document.getElementById(prefixo+d).innerHTML = '');
+            try {
+                const acao = tipo === 'modelo' ? 'buscar_modelo' : 'buscar_treino';
+                const response = await fetch(`adm.php?acao_ajax=${acao}&id=${id}`);
+                const data = await response.json();
+                ['A','B','C'].forEach(div => {
+                    if(data[div] && data[div].length > 0) {
+                        data[div].forEach(t => addExercicio(prefixo + div, t.exercicio, t.series));
+                    }
+                });
+                if(tipo==='modelo') document.querySelector('input[name="nome_modelo"]').value = '';
+                exibirToast(tipo === 'modelo' ? "Modelo carregado!" : "Treino carregado!", "sucesso");
+            } catch (error) { console.error(error); }
+        }
+
+        function addExercicio(containerId, nome = '', series = '3x12') {
+            const container = document.getElementById(containerId);
+            if(container.querySelector('p')) container.querySelector('p').remove();
+            const cleanId = containerId.replace('container-', '').replace('modelo-', ''); 
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center animate-fadeIn group mb-2';
+            div.innerHTML = `<div class="grid grid-cols-[1fr_80px] gap-2 w-full"><input type="text" name="treino[${cleanId}][][nome]" value="${nome}" placeholder="Exercício" class="bg-[#0f172a] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-tech-primary outline-none"><input type="text" name="treino[${cleanId}][][series]" value="${series}" placeholder="Reps" class="bg-[#0f172a] border border-white/10 rounded-lg p-2.5 text-sm text-center text-gray-400 focus:border-tech-primary outline-none"></div><button type="button" onclick="this.parentElement.remove()" class="text-gray-600 hover:text-red-500 transition-colors p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+            container.appendChild(div);
+            lucide.createIcons();
+        }
+
+        // --- FUNÇÃO PARA MÁGICA AUTOMÁTICA NOS MODELOS ---
+        function gerarModeloAutomatico() {
+            ['A','B','C'].forEach(d => document.getElementById('modelo-'+d).innerHTML = '');
+            const tA = [{n:'Supino Reto',s:'4x10'},{n:'Supino Inclinado',s:'3x12'},{n:'Tríceps Corda',s:'4x12'}];
+            const tB = [{n:'Puxada Alta',s:'4x10'},{n:'Remada Baixa',s:'3x12'},{n:'Rosca Direta',s:'3x12'}];
+            const tC = [{n:'Agachamento',s:'4x10'},{n:'Leg Press',s:'3x12'},{n:'Extensora',s:'3x15'}];
+            tA.forEach(e => addExercicio('modelo-A', e.n, e.s)); 
+            tB.forEach(e => addExercicio('modelo-B', e.n, e.s)); 
+            tC.forEach(e => addExercicio('modelo-C', e.n, e.s));
+            exibirToast("Modelo padrão gerado!", "sucesso");
+        }
+
+        function gerarTreinoAutomatico() {
+            ['A','B','C'].forEach(d => document.getElementById('container-'+d).innerHTML = '');
+            const tA = [{n:'Supino Reto',s:'4x10'},{n:'Supino Inclinado',s:'3x12'},{n:'Tríceps Corda',s:'4x12'}];
+            const tB = [{n:'Puxada Alta',s:'4x10'},{n:'Remada Baixa',s:'3x12'},{n:'Rosca Direta',s:'3x12'}];
+            const tC = [{n:'Agachamento',s:'4x10'},{n:'Leg Press',s:'3x12'},{n:'Extensora',s:'3x15'}];
+            tA.forEach(e => addExercicio('container-A', e.n, e.s)); 
+            tB.forEach(e => addExercicio('container-B', e.n, e.s)); 
+            tC.forEach(e => addExercicio('container-C', e.n, e.s));
+            exibirToast("Treino padrão gerado!", "sucesso");
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('bg-tech-primary/10', 'text-tech-primary', 'border-tech-primary/20'); el.classList.add('text-gray-400', 'hover:bg-white/5', 'hover:text-white'); });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const activeBtn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
+            if (activeBtn) { activeBtn.classList.remove('text-gray-400', 'hover:bg-white/5', 'hover:text-white'); activeBtn.classList.add('bg-tech-primary/10', 'text-tech-primary', 'border-tech-primary/20'); }
+            document.getElementById('pageTitle').textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if(tabParam) {
+                switchTab(tabParam);
+                if(urlParams.get('sub')) switchSubTab(urlParams.get('sub'));
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else { switchTab('dashboard'); }
+        });
+
+        function exibirToast(mensagem, tipo = 'erro') {
+            const toast = document.createElement('div');
+            let cores = tipo === 'sucesso' ? 'bg-[#1e293b] border-l-4 border-green-500 text-white shadow-glow' : 'bg-[#1e293b] border-l-4 border-red-500 text-white';
+            toast.className = `${cores} fixed top-5 right-5 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 min-w-[300px] transform transition-all duration-500 translate-x-full border border-white/10`;
+            toast.innerHTML = `<div class="${tipo==='sucesso'?'bg-green-500/20':'bg-red-500/20'} p-2 rounded-full"><i data-lucide="${tipo==='sucesso'?'check-circle':'alert-circle'}" class="w-5 h-5 ${tipo==='sucesso'?'text-green-500':'text-red-500'}"></i></div><div><h4 class="font-bold text-sm">${tipo==='sucesso'?'Sucesso':'Atenção'}</h4><p class="text-xs text-gray-400">${mensagem}</p></div>`;
+            document.body.appendChild(toast);
+            lucide.createIcons();
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+            setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => toast.remove(), 500); }, 4000);
+        }
+        <?php if ($msgAdm): ?>exibirToast("<?= $msgAdm ?>", "<?= $tipoMsgAdm ?>");<?php endif; ?>
+
+        let isSidebarOpen = true;
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const icon = document.getElementById('toggleIcon');
+            if(isSidebarOpen) { sb.classList.remove('w-64'); sb.classList.add('w-20', 'sidebar-collapsed'); icon.setAttribute('data-lucide', 'chevron-right'); }
+            else { sb.classList.remove('w-20', 'sidebar-collapsed'); sb.classList.add('w-64'); icon.setAttribute('data-lucide', 'chevron-left'); }
+            isSidebarOpen = !isSidebarOpen;
+            lucide.createIcons();
+        }
     </script>
 </body>
 </html>

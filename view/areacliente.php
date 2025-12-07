@@ -20,6 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $alunoDao = new AlunoDAO();
         $aluno = $alunoDao->buscarPorEmail($email);
         if ($aluno && password_verify($senha, $aluno['senha'])) {
+            // --- NOVO BLOQUEIO DE STATUS ---
+            if (isset($aluno['status']) && $aluno['status'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $aluno['status'] . ".";
+                header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
+                exit;
+            }
+            // -------------------------------
+
             $_SESSION['usuario_id'] = $aluno['id'];
             $_SESSION['usuario_nome'] = $aluno['nome'];
             $_SESSION['usuario_plano'] = $aluno['plano'];

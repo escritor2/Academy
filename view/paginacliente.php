@@ -1,21 +1,31 @@
 <?php
 session_start();
 
+// 1. IMPORTA O DAO DO TREINO (Para buscar do banco)
+require_once __DIR__ . '/../Model/TreinoDAO.php';
+
 // --- LÓGICA DE LOGOUT ---
 if (isset($_GET['sair'])) {
-    session_destroy(); // Destrói a sessão
-    header('Location: index.php'); // Manda para a home
+    session_destroy();
+    header('Location: index.php');
     exit;
 }
 
-// O "Segurança": Se não tiver ID na sessão, chuta para o index
+// SEGURANÇA: Se não tiver logado, manda pro login
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: index.php?login_erro=1&msg=Faça login para acessar');
     exit;
 }
-// Pega os dados para usar no HTML
+
+// Pega dados da sessão
+$idAluno = $_SESSION['usuario_id'];
 $nomeAluno = $_SESSION['usuario_nome'];
 $planoAluno = $_SESSION['usuario_plano'];
+
+// 2. BUSCA OS TREINOS REAIS DO ALUNO NO BANCO
+$treinoDao = new TreinoDAO();
+$meusTreinos = $treinoDao->buscarPorAluno($idAluno); 
+// $meusTreinos agora é um array assim: ['A' => [...], 'B' => [...], 'C' => [...]]
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
