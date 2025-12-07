@@ -389,8 +389,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="areacliente.php" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-10 py-4 rounded-lg font-bold text-lg transition-all btn-glow transform hover:-translate-y-1">
                     Começar Agora
                 </a>
-                <a href="#classes" class="group bg-white/5 border border-white/20 hover:border-white hover:bg-white/10 text-white px-10 py-4 rounded-lg font-bold text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
-                    Conhecer Modalidades 
+                <a href="saibamais.php" class="group bg-white/5 border border-white/20 hover:border-white hover:bg-white/10 text-white px-10 py-4 rounded-lg font-bold text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
+                    Conheça Sobre Nós
                     <i data-lucide="arrow-down" class="w-5 h-5 group-hover:translate-y-1 transition-transform"></i>
                 </a>
             </div>

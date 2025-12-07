@@ -437,7 +437,7 @@ if (isset($_GET['cadastro'])) {
                         <i data-lucide="arrow-right" class="w-5 h-5"></i>
                     </button>
                     <p class="text-center text-xs text-tech-muted mt-4">
-                        Ao clicar em finalizar, você concorda com nossos <a href="#" class="text-tech-primary hover:underline">Termos de Uso</a>.
+                        Ao clicar em finalizar, você concorda com nossos <a href="termos.php" class="text-tech-primary hover:underline">Termos de Uso</a>.
                     </p>
                 </div>
             </form>
