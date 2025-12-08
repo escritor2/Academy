@@ -337,7 +337,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
             </div>
-            <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+            <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 pr-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
+            <button type="button" onclick="toggleLoginPassword()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-white focus:outline-none cursor-pointer p-1">
+                <i id="login-eye-open" data-lucide="eye" class="w-5 h-5"></i>
+                <i id="login-eye-closed" data-lucide="eye-off" class="w-5 h-5 hidden"></i>
+            </button>
         </div>
     </div>
 
@@ -350,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </form>
                     <div class="mt-4 text-sm text-tech-muted text-center">
-                        <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Cadastre-se</a>
+                        <a href="areacliente.php" class="text-tech-primary hover:text-tech-primaryHover font-semibold">Increver-se</a>
                     </div>
                 </div>
             </div>
@@ -742,6 +746,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 modal.classList.add('hidden');
                 document.body.style.overflow = '';
+            }
+        }
+
+        // Função do olho para modal de login (para index.php)
+        function toggleLoginPassword() {
+            const senhaInput = document.getElementById('login-password');
+            const eyeOpen = document.getElementById('login-eye-open');
+            const eyeClosed = document.getElementById('login-eye-closed');
+            if (!senhaInput) return;
+
+            if (senhaInput.type === 'password') {
+                senhaInput.type = 'text';
+                if (eyeOpen) eyeOpen.classList.add('hidden');
+                if (eyeClosed) eyeClosed.classList.remove('hidden');
+            } else {
+                senhaInput.type = 'password';
+                if (eyeOpen) eyeOpen.classList.remove('hidden');
+                if (eyeClosed) eyeClosed.classList.add('hidden');
             }
         }
 

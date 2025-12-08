@@ -55,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $controller = new AlunoController();
             
             // Recebe e LIMPA os dados
-            // trim() remove espaços do começo/fim, mas mantem "Nome Sobrenome"
             $nome = trim($_POST['nome']); 
             $cpf = $_POST['cpf'];
             $telefone = $_POST['telefone'];
@@ -73,14 +72,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Telefone inválido. Digite DDD + Número.");
             }
 
-            // 3. Senha Fraca? (Mínimo 8)
+            // 3. VALIDAÇÃO DE SENHA FORTE (8 chars, maiúscula, minúscula, número, especial)
             if (strlen($senha) < 8) {
                 throw new Exception("A senha deve ter pelo menos 8 caracteres.");
             }
+            
+            if (!preg_match('/[A-Z]/', $senha)) {
+                throw new Exception("A senha deve conter pelo menos uma letra maiúscula.");
+            }
+            
+            if (!preg_match('/[a-z]/', $senha)) {
+                throw new Exception("A senha deve conter pelo menos uma letra minúscula.");
+            }
+            
+            if (!preg_match('/[0-9]/', $senha)) {
+                throw new Exception("A senha deve conter pelo menos um número.");
+            }
+            
+            if (!preg_match('/[!@#$%^&*()\-_=+{};:,<.>]/', $senha)) {
+                throw new Exception("A senha deve conter pelo menos um caractere especial (!@#$%^&* etc).");
+            }
 
-            // 4. Nome Vazio?
-            if (empty($nome)) {
-                throw new Exception("O nome não pode ser vazio.");
+            // 4. Nome Vazio? - Não permite apenas espaços
+            if (empty($nome) || strlen(trim($nome)) === 0) {
+                throw new Exception("O nome não pode ser vazio ou conter apenas espaços.");
             }
 
             // Se passou tudo, pega o resto e salva
@@ -211,7 +226,7 @@ if (isset($_GET['cadastro'])) {
 
         .loader {
             border: 3px solid rgba(255,255,255,0.1);
-            border-left-color: #ffffff;
+            border-left-color:'#ffffff';
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -237,6 +252,11 @@ if (isset($_GET['cadastro'])) {
         .eye-show.inactive { opacity: 0; transform: rotate(90deg) scale(0.5); }
         .eye-hide.active { opacity: 1; transform: rotate(0deg) scale(1); }
         .eye-hide.inactive { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+        
+        /* Estilo para mensagens de validação de senha */
+        .senha-fraca { border-color: #ef4444 !important; }
+        .senha-media { border-color: #f59e0b !important; }
+        .senha-forte { border-color: #10b981 !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row">
@@ -318,7 +338,8 @@ if (isset($_GET['cadastro'])) {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Nome Completo</label>
-                            <input type="text" id="name" name="nome" required class="w-full p-3 rounded-lg tech-input" placeholder="Seu nome">
+                            <input type="text" id="name" name="nome" required class="w-full p-3 rounded-lg tech-input" 
+                                   placeholder="Seu nome" onblur="validarNome(this)">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-400 mb-1">Data de Nascimento</label>
@@ -360,7 +381,7 @@ if (isset($_GET['cadastro'])) {
                         <div class="relative">
                             <input type="password" name="senha" id="senhaInput" required 
                                 class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-4 pr-12 py-3 text-white focus:outline-none focus:border-tech-primary focus:ring-1 focus:ring-tech-primary transition-all placeholder-gray-600"
-                                placeholder="********">
+                                placeholder="Digite uma senha forte">
                             
                             <button type="button" onclick="togglePassword()" 
                                 class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none cursor-pointer p-1 z-10">
@@ -369,7 +390,16 @@ if (isset($_GET['cadastro'])) {
                             </button>
                         </div>
 
-                        <p id="msgSenha" class="text-xs mt-1 hidden"></p>
+                        <div id="msgSenha" class="text-xs mt-1 hidden">
+                            <div class="grid grid-cols-5 gap-1 mb-1">
+                                <div id="lengthReq" class="h-1 bg-gray-700 rounded"></div>
+                                <div id="upperReq" class="h-1 bg-gray-700 rounded"></div>
+                                <div id="lowerReq" class="h-1 bg-gray-700 rounded"></div>
+                                <div id="numberReq" class="h-1 bg-gray-700 rounded"></div>
+                                <div id="specialReq" class="h-1 bg-gray-700 rounded"></div>
+                            </div>
+                            <p id="senhaText" class="text-gray-400"></p>
+                        </div>
                     </div>
                 </div>
 
@@ -463,38 +493,45 @@ if (isset($_GET['cadastro'])) {
 
                 <div class="px-6 py-6">
                     <form action="" method="POST" class="space-y-4">
-    <input type="hidden" name="form_type" value="login">
+                        <input type="hidden" name="form_type" value="login">
 
-    <div>
-        <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
-        <div class="mt-1 relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
-            </div>
-            <input type="email" name="email" id="login-email" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="seu@email.com">
-        </div>
-    </div>
+                        <div>
+                            <label for="login-email" class="block text-sm text-tech-muted">E-mail</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="mail" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="email" name="email" id="login-email" required 
+                                       class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 pr-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" 
+                                       placeholder="seu@email.com">
+                            </div>
+                        </div>
 
-    <div>
-        <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
-        <div class="mt-1 relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
-            </div>
-            <input type="password" name="senha" id="login-password" required class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" placeholder="********">
-        </div>
-    </div>
+                        <div>
+                            <label for="login-password" class="block text-sm text-tech-muted">Senha</label>
+                            <div class="mt-1 relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <i data-lucide="lock" class="w-4 h-4 text-tech-muted"></i>
+                                </div>
+                                <input type="password" name="senha" id="login-password" required 
+                                       class="block w-full rounded-md border-0 bg-tech-800 py-2.5 pl-10 pr-10 text-white ring-1 ring-inset ring-tech-700 placeholder:text-gray-500 focus:ring-2 focus:ring-tech-primary sm:text-sm" 
+                                       placeholder="********">
+                                <button type="button" onclick="toggleLoginPassword()" 
+                                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none cursor-pointer p-1">
+                                    <i id="login-eye-open" data-lucide="eye" class="w-5 h-5"></i>
+                                    <i id="login-eye-closed" data-lucide="eye-off" class="w-5 h-5 hidden"></i>
+                                </button>
+                            </div>
+                        </div>
 
-    <div class="flex justify-end">
-        <a href="recuperar_senha.php" class="text-xs text-tech-primary hover:text-orange-400 transition-colors">Esqueceu a senha?</a>
-    </div>
+                        <div class="flex justify-end">
+                            <a href="recuperar_senha.php" class="text-xs text-tech-primary hover:text-orange-400 transition-colors">Esqueceu a senha?</a>
+                        </div>
 
-    <div>
-        <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
-    </div>
-</form>
-
-                    <!-- 'Cadastre-se' link removed from modal per request -->
+                        <div>
+                            <button type="submit" class="w-full inline-flex justify-center rounded-md bg-tech-primary px-4 py-2 text-white font-semibold hover:bg-tech-primaryHover">Entrar</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -516,8 +553,6 @@ if (isset($_GET['cadastro'])) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-
-            // (eye toggle removed - using new togglePassword() function + lucide icons)
 
             // Permitir desmarcar radio buttons de plano
             const planRadios = document.querySelectorAll('input[name="plan"]');
@@ -550,6 +585,37 @@ if (isset($_GET['cadastro'])) {
             } else {
                 modal.classList.add('hidden');
                 document.body.style.overflow = '';
+            }
+        }
+        
+        // Função para validar nome (não permite apenas espaços)
+        function validarNome(input) {
+            const valor = input.value.trim();
+            if (!valor || valor.replace(/\s/g, '').length === 0) {
+                input.classList.add('border-red-500', 'animate-pulse');
+                exibirToast("O nome não pode ser vazio ou conter apenas espaços.");
+                return false;
+            } else {
+                input.classList.remove('border-red-500', 'animate-pulse');
+                return true;
+            }
+        }
+        
+        // Função do olho para modal de login
+        function toggleLoginPassword() {
+            const senhaInput = document.getElementById('login-password');
+            const eyeOpen = document.getElementById('login-eye-open');
+            const eyeClosed = document.getElementById('login-eye-closed');
+            if (!senhaInput) return;
+
+            if (senhaInput.type === 'password') {
+                senhaInput.type = 'text';
+                eyeOpen.classList.add('hidden');
+                eyeClosed.classList.remove('hidden');
+            } else {
+                senhaInput.type = 'password';
+                eyeOpen.classList.remove('hidden');
+                eyeClosed.classList.add('hidden');
             }
         }
     </script>
@@ -648,13 +714,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // B. Limpar MENSAGENS DO PHP (Login/Cadastro) que já estão na tela
-    // Procura divs que contenham classes de cor de fundo (bg-red, bg-green)
     const mensagensPHP = document.querySelectorAll('div[class*="bg-red-500"], div[class*="bg-green-500"]');
     
     mensagensPHP.forEach(msg => {
         // Verifica se é uma mensagem de texto (para não apagar botões ou inputs)
         if (msg.tagName === 'DIV' && !msg.querySelector('input')) {
-            agendarDesaparecimento(msg, 5000); // Dá 5 segundos para ler as mensagens do servidor
+            agendarDesaparecimento(msg, 5000);
         }
     });
 
@@ -719,75 +784,180 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================================
-    // 3. BLOQUEIO DE ENVIO (FORMULÁRIO)
+    // 3. VALIDAÇÃO DE SENHA FORTE (CORRIGIDA)
     // ============================================================
     const formCadastro = document.querySelector('form[action=""]'); 
     const senhaInput = document.getElementById('senhaInput');
     const msgSenha = document.getElementById('msgSenha');
     const emailInput = document.querySelector('input[name="email"]');
+    const nomeInput = document.querySelector('input[name="nome"]');
+    
+    // Elementos da barra de progresso
+    const lengthReq = document.getElementById('lengthReq');
+    const upperReq = document.getElementById('upperReq');
+    const lowerReq = document.getElementById('lowerReq');
+    const numberReq = document.getElementById('numberReq');
+    const specialReq = document.getElementById('specialReq');
+    const senhaText = document.getElementById('senhaText');
 
-    if (formCadastro) {
-        if (senhaInput && msgSenha) {
-            senhaInput.addEventListener('input', function() {
-                const senha = this.value;
-                const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senha);
-                
-                if (senha.length === 0) {
-                    msgSenha.classList.add('hidden');
-                    senhaInput.classList.remove('border-red-500', 'border-green-500');
-                    return;
-                }
-                msgSenha.classList.remove('hidden');
-                if (!forte) {
-                    msgSenha.textContent = "Fraca: Mínimo 8 chars, letras, números e símbolo.";
-                    msgSenha.className = 'text-xs mt-1 text-red-400';
-                    senhaInput.classList.add('border-red-500');
-                } else {
-                    msgSenha.textContent = "Senha Forte! ✅";
-                    msgSenha.className = 'text-xs mt-1 text-green-500 font-bold';
-                    senhaInput.classList.remove('border-red-500');
-                    senhaInput.classList.add('border-green-500');
-                }
-            });
+    // Função para validar senha forte (CORRIGIDA)
+    function validarSenhaForte(senha) {
+        let requisitos = {
+            length: senha.length >= 8,
+            upper: /[A-Z]/.test(senha),
+            lower: /[a-z]/.test(senha),
+            number: /[0-9]/.test(senha),
+            special: /[!@#$%^&*()\-_=+{};:,<.>]/.test(senha)
+        };
+        
+        // Contar quantos requisitos foram atendidos
+        let atendidos = Object.values(requisitos).filter(v => v).length;
+        
+        // Atualizar barras de progresso
+        if (lengthReq) lengthReq.className = `h-1 rounded ${requisitos.length ? 'bg-green-500' : 'bg-red-500'}`;
+        if (upperReq) upperReq.className = `h-1 rounded ${requisitos.upper ? 'bg-green-500' : 'bg-red-500'}`;
+        if (lowerReq) lowerReq.className = `h-1 rounded ${requisitos.lower ? 'bg-green-500' : 'bg-red-500'}`;
+        if (numberReq) numberReq.className = `h-1 rounded ${requisitos.number ? 'bg-green-500' : 'bg-red-500'}`;
+        if (specialReq) specialReq.className = `h-1 rounded ${requisitos.special ? 'bg-green-500' : 'bg-red-500'}`;
+        
+        // Determinar força da senha
+        let forca = '';
+        let corBorda = '';
+        let mensagem = '';
+        
+        if (atendidos === 5) {
+            forca = 'Forte';
+            corBorda = 'senha-forte';
+            mensagem = 'Senha forte! ✅';
+        } else if (atendidos >= 3) {
+            forca = 'Média';
+            corBorda = 'senha-media';
+            mensagem = 'Senha média. Adicione: ' + 
+                (!requisitos.length ? '8+ caracteres, ' : '') +
+                (!requisitos.upper ? 'maiúscula, ' : '') +
+                (!requisitos.lower ? 'minúscula, ' : '') +
+                (!requisitos.number ? 'número, ' : '') +
+                (!requisitos.special ? 'caractere especial' : '');
+            mensagem = mensagem.replace(/, $/, '');
+        } else {
+            forca = 'Fraca';
+            corBorda = 'senha-fraca';
+            mensagem = 'Senha fraca. Requer: 8+ caracteres, letra maiúscula, letra minúscula, número e caractere especial.';
         }
+        
+        if (senhaText) senhaText.textContent = mensagem;
+        
+        // Retorna se todos os requisitos foram atendidos
+        return atendidos === 5 ? true : {
+            valido: false,
+            mensagem: mensagem,
+            requisitos: requisitos
+        };
+    }
 
+    if (formCadastro && senhaInput && msgSenha) {
+        senhaInput.addEventListener('input', function() {
+            const senha = this.value;
+            
+            if (senha.length === 0) {
+                msgSenha.classList.add('hidden');
+                senhaInput.classList.remove('senha-fraca', 'senha-media', 'senha-forte');
+                return;
+            }
+            
+            msgSenha.classList.remove('hidden');
+            const validacao = validarSenhaForte(senha);
+            
+            // Remover todas as classes de borda primeiro
+            senhaInput.classList.remove('senha-fraca', 'senha-media', 'senha-forte');
+            
+            if (validacao === true) {
+                senhaInput.classList.add('senha-forte');
+            } else {
+                if (validacao.mensagem.includes('forte')) {
+                    senhaInput.classList.add('senha-forte');
+                } else if (validacao.mensagem.includes('média')) {
+                    senhaInput.classList.add('senha-media');
+                } else {
+                    senhaInput.classList.add('senha-fraca');
+                }
+            }
+        });
+    }
+
+    // ============================================================
+    // 4. BLOQUEIO DE ENVIO (FORMULÁRIO) - COM VALIDAÇÃO COMPLETA
+    // ============================================================
+    if (formCadastro) {
         formCadastro.addEventListener('submit', function(e) {
             // Ignora se for login
             if (document.querySelector('input[name="form_type"][value="login"]')) return;
 
             let temErro = false;
+            let mensagensErro = [];
 
-            // Validações Finais
+            // VALIDAÇÃO DO NOME (Não permite vazio ou apenas espaços)
+            if (nomeInput) {
+                const nomeValor = nomeInput.value.trim();
+                
+                // Verifica se está vazio ou contém apenas espaços
+                if (!nomeValor || nomeValor.replace(/\s/g, '').length === 0) {
+                    mensagensErro.push("O nome não pode ser vazio ou conter apenas espaços.");
+                    nomeInput.classList.add('border-red-500', 'animate-pulse');
+                    temErro = true;
+                } else {
+                    nomeInput.classList.remove('border-red-500', 'animate-pulse');
+                }
+            }
+
+            // Validações Finais existentes (CPF, telefone)
             if (cpfInput && cpfInput.value.length !== 14) {
-                exibirToast("O CPF deve ter 11 números.");
+                mensagensErro.push("O CPF deve ter 11 números.");
                 cpfInput.classList.add('border-red-500', 'animate-pulse');
                 temErro = true;
+            } else if (cpfInput) {
+                cpfInput.classList.remove('border-red-500', 'animate-pulse');
             }
 
             if (telInput && telInput.value.length < 14) {
-                exibirToast("Telefone inválido.");
+                mensagensErro.push("Telefone inválido.");
                 telInput.classList.add('border-red-500', 'animate-pulse');
                 temErro = true;
+            } else if (telInput) {
+                telInput.classList.remove('border-red-500', 'animate-pulse');
             }
 
+            // VALIDAÇÃO DA SENHA FORTE (CORRIGIDA)
             if (senhaInput) {
-                const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(senhaInput.value);
-                if (!forte) {
-                    exibirToast("Senha fraca! Reforce a segurança.");
+                const validacao = validarSenhaForte(senhaInput.value);
+                if (validacao !== true) {
+                    mensagensErro.push(validacao.mensagem);
+                    senhaInput.classList.add('border-red-500', 'animate-pulse');
                     senhaInput.focus();
                     temErro = true;
+                } else {
+                    senhaInput.classList.remove('border-red-500', 'animate-pulse');
                 }
             }
 
             if (emailInput && (!emailInput.value.includes('@') || !emailInput.value.includes('.'))) {
-                exibirToast("E-mail inválido.");
+                mensagensErro.push("E-mail inválido.");
+                emailInput.classList.add('border-red-500', 'animate-pulse');
                 emailInput.focus();
                 temErro = true;
+            } else if (emailInput) {
+                emailInput.classList.remove('border-red-500', 'animate-pulse');
             }
 
             if (temErro) {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                // Exibir todas as mensagens de erro
+                if (mensagensErro.length > 0) {
+                    exibirToast(mensagensErro[0]);
+                }
+                
                 return false;
             }
         });

@@ -10,8 +10,9 @@ class Aluno {
     private $senha;
     private $objetivo; // 'goal' no form
     private $plano;    // 'plan' no form
+    private $foto_perfil; // NOVO CAMPO
 
-    public function __construct($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano) {
+    public function __construct($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano, $foto_perfil = null) {
         $this->nome = $nome;
         $this->data_nascimento = $data_nascimento;
         $this->email = $email;
@@ -21,6 +22,7 @@ class Aluno {
         $this->senha = $senha;
         $this->objetivo = $objetivo;
         $this->plano = $plano;
+        $this->foto_perfil = $foto_perfil;
     }
 
     // Getters
@@ -33,4 +35,5 @@ class Aluno {
     public function getSenha() { return $this->senha; }
     public function getObjetivo() { return $this->objetivo; }
     public function getPlano() { return $this->plano; }
+    public function getFotoPerfil() { return $this->foto_perfil; } // NOVO GETTER
 }

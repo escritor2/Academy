@@ -27,24 +27,85 @@ if (!isset($_SESSION['carrinho'])) {
     $_SESSION['carrinho'] = [];
 }
 
-// --- PROCESSAMENTO: EDITAR PERFIL ---
+// --- PROCESSAMENTO: EDITAR PERFIL E FOTO ---
 $msgCliente = '';
 $tipoMsg = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
     if ($_POST['acao'] === 'editar_perfil') {
+        // Remove espaços extras do nome
+        $nome = trim($_POST['nome']);
         $novaSenha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
         
-        if ($novaSenha && !preg_match('/^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/', $novaSenha)) {
+        if (empty($nome)) {
+            $msgCliente = "O nome não pode estar vazio!";
+            $tipoMsg = 'erro';
+        } elseif ($novaSenha && !preg_match('/^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/', $novaSenha)) {
             $msgCliente = "A senha deve ser forte (Letras, números e símbolo)!";
             $tipoMsg = 'erro';
         } else {
-            if ($daoAluno->atualizarPerfilAluno($idAluno, $_POST['nome'], $_POST['email'], $_POST['telefone'], $novaSenha)) {
-                $_SESSION['usuario_nome'] = $_POST['nome'];
+            if ($daoAluno->atualizarPerfilAluno($idAluno, $nome, $_POST['email'], $_POST['telefone'], $novaSenha)) {
+                $_SESSION['usuario_nome'] = $nome;
                 header("Location: paginacliente.php?tab=perfil&msg=perfil_ok");
                 exit;
             } else {
                 $msgCliente = "Erro ao atualizar. Tente novamente.";
+                $tipoMsg = 'erro';
+            }
+        }
+    }
+    
+    // NOVO: PROCESSAR UPLOAD DE FOTO
+    if ($_POST['acao'] === 'upload_foto') {
+        if (isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === UPLOAD_ERR_OK) {
+            try {
+                // Processar upload
+                $caminhoFoto = $daoAluno->processarUploadFoto($_FILES['foto_perfil'], $idAluno);
+                
+                // Obter foto antiga para deletar
+                $dadosAluno = $daoAluno->buscarPorId($idAluno);
+                $fotoAntiga = $dadosAluno['foto_perfil'] ?? null;
+                
+                // Atualizar no banco
+                if ($daoAluno->atualizarFotoPerfil($idAluno, $caminhoFoto)) {
+                    // Deletar foto antiga se existir
+                    if ($fotoAntiga && $fotoAntiga !== $caminhoFoto) {
+                        $daoAluno->deletarFotoAntiga($fotoAntiga);
+                    }
+                    
+                    $_SESSION['usuario_foto'] = $caminhoFoto;
+                    header("Location: paginacliente.php?tab=perfil&msg=foto_ok");
+                    exit;
+                } else {
+                    $msgCliente = "Erro ao salvar foto no banco de dados.";
+                    $tipoMsg = 'erro';
+                }
+            } catch (Exception $e) {
+                $msgCliente = $e->getMessage();
+                $tipoMsg = 'erro';
+            }
+        } else {
+            $msgCliente = "Selecione uma imagem válida!";
+            $tipoMsg = 'erro';
+        }
+    }
+    
+    // NOVO: REMOVER FOTO DE PERFIL
+    if ($_POST['acao'] === 'remover_foto') {
+        $dadosAluno = $daoAluno->buscarPorId($idAluno);
+        $fotoAntiga = $dadosAluno['foto_perfil'] ?? null;
+        
+        if ($fotoAntiga) {
+            // Deletar arquivo físico
+            $daoAluno->deletarFotoAntiga($fotoAntiga);
+            
+            // Remover do banco
+            if ($daoAluno->atualizarFotoPerfil($idAluno, null)) {
+                unset($_SESSION['usuario_foto']);
+                header("Location: paginacliente.php?tab=perfil&msg=foto_removida");
+                exit;
+            } else {
+                $msgCliente = "Erro ao remover foto.";
                 $tipoMsg = 'erro';
             }
         }
@@ -157,6 +218,23 @@ $nomeCompleto = $dadosAluno['nome'];
 $primeiroNome = explode(' ', $nomeCompleto)[0];
 $planoAluno = $dadosAluno['plano'];
 
+// Foto de perfil
+$fotoPerfil = $dadosAluno['foto_perfil'] ?? null;
+if ($fotoPerfil && file_exists(__DIR__ . '/../' . $fotoPerfil)) {
+    $urlFoto = $fotoPerfil;
+} else {
+    // Foto padrão com iniciais
+    $iniciais = '';
+    $nomes = explode(' ', $nomeCompleto);
+    if (count($nomes) > 0) {
+        $iniciais .= strtoupper(substr($nomes[0], 0, 1));
+        if (count($nomes) > 1) {
+            $iniciais .= strtoupper(substr($nomes[1], 0, 1));
+        }
+    }
+    $urlFoto = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="50" fill="%23ea580c"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">' . $iniciais . '</text></svg>';
+}
+
 // --- DADOS DA LOJA ---
 $listaProdutos = $produtoDao->listar();
 $termoBuscaProd = $_GET['busca_produto'] ?? '';
@@ -201,22 +279,48 @@ $tempoHoje = ($statusFrequencia === 'finalizado') ? $daoAluno->getTempoTreinoHoj
 // Obter hora de entrada se estiver treinando
 $horaEntrada = '';
 if ($statusFrequencia === 'treinando') {
-    $hoje = date('Y-m-d');
-    $stmt = $daoAluno->conn->prepare("SELECT hora_entrada FROM frequencia WHERE aluno_id = :id AND data_treino = :data");
-    $stmt->execute([':id' => $idAluno, ':data' => $hoje]);
-    $horaEntrada = $stmt->fetchColumn();
+    $horaEntrada = $daoAluno->getHoraEntradaHoje($idAluno);
 }
 
-// CALENDÁRIO
-$mesAtual = date('m');
+// CALENDÁRIO MELHORADO
+$mesAtual = date('n');
 $anoAtual = date('Y');
 $diasTreinados = $daoAluno->getFrequenciaMes($idAluno, $mesAtual, $anoAtual);
 $totalDiasMes = date('t');
 $diaHoje = date('j');
+$nomeMes = [
+    1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril', 
+    5 => 'Maio', 6 => 'Junho', 7 => 'Julho', 8 => 'Agosto', 
+    9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro'
+];
+
+// Estatísticas para dashboard
+$presencasMes = count($diasTreinados);
+$diasUteis = date('t');
+$porcentagemPresenca = $diasUteis > 0 ? round(($presencasMes / $diasUteis) * 100) : 0;
+
+// Mensagens motivadoras (para alternar)
+$mensagensMotivacionais = [
+    "A disciplina supera o talento quando o talento não é disciplinado.",
+    "O progresso acontece fora da zona de conforto.",
+    "Cada treino é um investimento no seu futuro.",
+    "A força não vem da capacidade física, mas de uma vontade indomável.",
+    "O único treino ruim é aquele que você não fez.",
+    "Seu corpo pode aguentar quase tudo. É sua mente que você precisa convencer.",
+    "Não espere por inspiração. Crie disciplina e a inspiração virá.",
+    "Peque leve no fast food e pesado nos pesos.",
+    "O cansaço de hoje é a força de amanhã.",
+    "Treine como se sua vida dependesse disso, porque ela depende."
+];
+
+// Selecionar uma mensagem aleatória
+$mensagemMotivacional = $mensagensMotivacionais[array_rand($mensagensMotivacionais)];
 
 // MENSAGENS
 if (isset($_GET['msg'])) {
     if ($_GET['msg'] == 'perfil_ok') { $msgCliente = "Perfil atualizado com sucesso!"; $tipoMsg = 'sucesso'; }
+    if ($_GET['msg'] == 'foto_ok') { $msgCliente = "Foto de perfil atualizada com sucesso!"; $tipoMsg = 'sucesso'; }
+    if ($_GET['msg'] == 'foto_removida') { $msgCliente = "Foto de perfil removida!"; $tipoMsg = 'sucesso'; }
     if ($_GET['msg'] == 'entrada_ok') { $msgCliente = "Bem-vindo! Treino iniciado."; $tipoMsg = 'sucesso'; }
     if ($_GET['msg'] == 'saida_ok') { $msgCliente = "Treino finalizado! Bom descanso."; $tipoMsg = 'sucesso'; }
     if ($_GET['msg'] == 'compra_ok') { $msgCliente = $_SESSION['msg_compra'] ?? "Compra realizada com sucesso!"; $tipoMsg = 'sucesso'; }
@@ -239,6 +343,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
     <title>Área do Aluno - TechFit</title>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         tailwind.config = {
             theme: { 
@@ -253,7 +358,37 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     }, 
                     boxShadow: { 
                         'glow': '0 0 15px rgba(249, 115, 22, 0.3)' 
-                    } 
+                    },
+                    animation: {
+                        'pulse-glow': 'pulse-glow 2s infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'bounce-subtle': 'bounce-subtle 1s infinite',
+                        'fade-in-out': 'fadeInOut 8s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s infinite'
+                    },
+                    keyframes: {
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: 1 },
+                            '50%': { opacity: 0.7 }
+                        },
+                        'fadeIn': {
+                            '0%': { opacity: 0, transform: 'translateY(10px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' }
+                        },
+                        'slideUp': {
+                            '0%': { opacity: 0, transform: 'translateY(20px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' }
+                        },
+                        'bounce-subtle': {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' }
+                        },
+                        'fadeInOut': {
+                            '0%, 100%': { opacity: 0 },
+                            '20%, 80%': { opacity: 1 }
+                        }
+                    }
                 } 
             }
         }
@@ -268,6 +403,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             margin: 0;
             padding: 0;
             overflow: hidden;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
         
         .no-scrollbar::-webkit-scrollbar { 
@@ -315,27 +451,36 @@ $subTab = $_GET['sub'] ?? 'produtos';
             outline: none;
         }
         
-        /* Calendário */
+        /* Calendário melhorado */
         .day-presente { 
-            background-color: rgba(16, 185, 129, 0.2); 
-            border-color: #10b981; 
-            color: #10b981; 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.25) 100%); 
+            border: 2px solid #10b981;
+            color: #10b981;
+            font-weight: 700;
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
         }
         
         .day-falta { 
-            background-color: rgba(239, 68, 68, 0.1); 
-            border-color: #ef4444; 
-            color: #ef4444; 
-            opacity: 0.7; 
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            opacity: 0.8;
         }
         
         .day-hoje { 
-            border-color: #ea580c; 
-            box-shadow: 0 0 10px rgba(234, 88, 12, 0.2); 
+            background: linear-gradient(135deg, rgba(234, 88, 12, 0.2) 0%, rgba(234, 88, 12, 0.3) 100%);
+            border: 2px solid #ea580c;
+            color: #ea580c;
+            font-weight: 700;
+            box-shadow: 0 0 15px rgba(234, 88, 12, 0.4);
+            animation: pulse-glow 2s infinite;
         }
         
         .day-futuro { 
-            opacity: 0.3; 
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            opacity: 0.5;
         }
         
         /* Layout fixo */
@@ -350,15 +495,41 @@ $subTab = $_GET['sub'] ?? 'produtos';
             flex: 1;
             overflow: hidden;
             display: flex;
+            position: relative;
         }
         
         .page-content {
             flex: 1;
             overflow-y: auto;
             padding: 1.5rem;
+            background: linear-gradient(180deg, #0b1120 0%, #0f172a 100%);
         }
         
-        /* Sidebar styles */
+        /* Sidebar styles corrigida */
+        .sidebar {
+            position: relative;
+            z-index: 40;
+        }
+        
+        .toggle-sidebar-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: -0.75rem;
+            z-index: 50;
+            background-color: #ea580c;
+            color: white;
+            padding: 0.375rem;
+            border-radius: 9999px;
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.3);
+            border: 2px solid #1e293b;
+            transition: all 0.3s;
+        }
+        
+        .toggle-sidebar-btn:hover {
+            transform: scale(1.1);
+            background-color: #c2410c;
+        }
+        
         .logo-text { 
             transition: opacity 0.3s; 
         }
@@ -386,40 +557,53 @@ $subTab = $_GET['sub'] ?? 'produtos';
         
         /* Card styles */
         .card {
-            background-color: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
             border-radius: 1rem;
             padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            border-color: rgba(234, 88, 12, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(234, 88, 12, 0.1);
         }
         
         /* Form styles */
         .form-input {
             background-color: #0f172a;
             border: 1px solid #334155;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
+            border-radius: 0.75rem;
+            padding: 0.875rem;
             color: white;
             width: 100%;
+            transition: all 0.2s;
         }
         
         .form-input:focus {
             border-color: #ea580c;
             outline: none;
-            box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+            box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.2);
         }
         
         /* Button styles */
         .btn-primary {
-            background-color: #ea580c;
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
             font-weight: 600;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
+            border: none;
+            box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
         }
         
         .btn-primary:hover {
-            background-color: #c2410c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
         }
         
         /* Responsive fixes */
@@ -463,7 +647,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             width: 1.2rem;
             height: 1.2rem;
             border: 2px solid #4b5563;
-            border-radius: 0.25rem;
+            border-radius: 0.4rem;
             background-color: #0f172a;
             cursor: pointer;
             position: relative;
@@ -485,19 +669,221 @@ $subTab = $_GET['sub'] ?? 'produtos';
             left: 50%;
             transform: translate(-50%, -50%);
         }
+        
+        /* Progress bar */
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.5s ease;
+        }
+        
+        /* Timer display */
+        .timer-display {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* CORREÇÃO DAS MENSAGENS MOTIVACIONAIS */
+        .mensagem-container {
+            position: relative;
+            height: 60px;
+            overflow: hidden;
+        }
+        
+        .mensagem-motivacional {
+            position: absolute;
+            width: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            animation-duration: 40s;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+        }
+        
+        .mensagem-motivacional:nth-child(1) {
+            animation-name: mensagemFade1;
+        }
+        
+        .mensagem-motivacional:nth-child(2) {
+            animation-name: mensagemFade2;
+        }
+        
+        .mensagem-motivacional:nth-child(3) {
+            animation-name: mensagemFade3;
+        }
+        
+        .mensagem-motivacional:nth-child(4) {
+            animation-name: mensagemFade4;
+        }
+        
+        .mensagem-motivacional:nth-child(5) {
+            animation-name: mensagemFade5;
+        }
+        
+        @keyframes mensagemFade1 {
+            0%, 20% { opacity: 1; transform: translateY(0); }
+            25%, 100% { opacity: 0; transform: translateY(-20px); }
+        }
+        
+        @keyframes mensagemFade2 {
+            0%, 20% { opacity: 0; transform: translateY(20px); }
+            25%, 45% { opacity: 1; transform: translateY(0); }
+            50%, 100% { opacity: 0; transform: translateY(-20px); }
+        }
+        
+        @keyframes mensagemFade3 {
+            0%, 45% { opacity: 0; transform: translateY(20px); }
+            50%, 70% { opacity: 1; transform: translateY(0); }
+            75%, 100% { opacity: 0; transform: translateY(-20px); }
+        }
+        
+        @keyframes mensagemFade4 {
+            0%, 70% { opacity: 0; transform: translateY(20px); }
+            75%, 95% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        
+        @keyframes mensagemFade5 {
+            0%, 95% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Animação de confetes */
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(1000px) rotate(720deg); opacity: 0; }
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            animation: confetti-fall 3s linear forwards;
+        }
+        
+        /* Estilos para o modal corrigido */
+        .modal-fixed {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 9999 !important;
+            background-color: rgba(0, 0, 0, 0.9) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 1rem !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        .modal-hidden {
+            display: none !important;
+        }
+        
+        /* QR Code Container */
+        #qrcode {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #qrcode canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        /* QR Code Scan Animation */
+        .qr-scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00ff00, transparent);
+            animation: qrScan 2s infinite linear;
+            border-radius: 3px;
+        }
+        
+        @keyframes qrScan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+        
+        /* Foto de perfil styles */
+        .foto-perfil-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .foto-perfil {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        
+        .foto-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .foto-perfil-container:hover .foto-overlay {
+            opacity: 1;
+        }
+        
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background: #ea580c;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">
     <div class="main-container">
         <div class="content-container">
-            <!-- Sidebar -->
-            <aside id="sidebar" class="w-64 bg-[#111827] border-r border-white/5 flex-col justify-between hidden md:flex transition-all duration-300 flex-shrink-0 relative">
-                <button onclick="toggleSidebar()" class="absolute -right-3 top-6 bg-tech-primary text-white p-1.5 rounded-full shadow-glow z-50 hover:bg-orange-600 transition-transform hover:scale-110">
-                    <i id="toggleIcon" data-lucide="chevron-left" class="w-3 h-3"></i>
+            <!-- Sidebar Corrigida -->
+            <aside id="sidebar" class="w-64 bg-[#111827]/95 backdrop-blur-lg border-r border-white/5 flex-col justify-between hidden md:flex transition-all duration-300 flex-shrink-0 sidebar relative">
+                <button onclick="toggleSidebar()" class="toggle-sidebar-btn">
+                    <i id="toggleIcon" data-lucide="chevron-left" class="w-4 h-4"></i>
                 </button>
                 <div class="flex-1 overflow-hidden flex flex-col">
                     <div class="h-20 flex items-center px-6 border-b border-white/5 logo-container flex-shrink-0">
-                        <div class="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg">
+                        <div class="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg animate-pulse-glow">
                             <i data-lucide="dumbbell" class="w-6 h-6 text-white"></i>
                         </div>
                         <span class="text-xl font-bold ml-3 logo-text tracking-wide">TECH<span class="text-tech-primary">FIT</span></span>
@@ -537,18 +923,31 @@ $subTab = $_GET['sub'] ?? 'produtos';
 
             <!-- Main Content -->
             <main class="flex-1 flex flex-col h-full overflow-hidden relative bg-[#0b1120]">
-                <!-- Header -->
-                <header class="h-20 bg-[#111827]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-6 md:px-8 z-10 flex-shrink-0">
+                <!-- Header ATUALIZADO COM FOTO DE PERFIL -->
+                <header class="h-20 bg-[#111827]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 md:px-8 z-10 flex-shrink-0">
                     <div>
-                        <h2 id="pageTitle" class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Olá, <?= htmlspecialchars($primeiroNome) ?></h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Bons treinos hoje!</p>
+                        <h2 id="pageTitle" class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-gray-400 animate-fade-in">Olá, <?= htmlspecialchars($primeiroNome) ?></h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Seu progresso diário</p>
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-right hidden sm:block">
                             <p class="text-sm font-bold text-white"><?= htmlspecialchars($nomeCompleto) ?></p>
-                            <span class="text-[10px] uppercase font-bold tracking-wider bg-tech-primary/20 text-tech-primary px-2 py-0.5 rounded-full"><?= htmlspecialchars($planoAluno) ?></span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider bg-tech-primary/20 text-tech-primary px-2 py-0.5 rounded-full border border-tech-primary/30"><?= htmlspecialchars($planoAluno) ?></span>
                         </div>
-                        <div onclick="abrirCarteirinha()" class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center shadow-lg cursor-pointer hover:border-tech-primary transition-colors">
+                        <div class="foto-perfil-container w-10 h-10 cursor-pointer" onclick="abrirModalFoto()">
+                            <div class="w-full h-full rounded-full overflow-hidden border-2 border-tech-primary/30 hover:border-tech-primary transition-all duration-300">
+                                <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
+                                    <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
+                                <?php else: ?>
+                                    <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
+                                <?php endif; ?>
+                            </div>
+                            <div class="foto-overlay">
+                                <i data-lucide="camera" class="w-4 h-4 text-white mb-1"></i>
+                                <span class="text-xs text-white">Alterar</span>
+                            </div>
+                        </div>
+                        <div onclick="abrirCarteirinha()" class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center shadow-lg cursor-pointer hover:border-tech-primary hover:scale-105 transition-all duration-300">
                             <i data-lucide="qr-code" class="w-5 h-5 text-white"></i>
                         </div>
                     </div>
@@ -556,71 +955,232 @@ $subTab = $_GET['sub'] ?? 'produtos';
 
                 <!-- Page Content -->
                 <div class="page-content no-scrollbar">
-                    <!-- Dashboard -->
+                    <!-- Dashboard Melhorado -->
                     <div id="tab-dashboard" class="tab-content fade-in">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                            <div onclick="abrirCarteirinha()" class="card cursor-pointer hover:border-tech-primary/50 transition-all group">
-                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Status Hoje</p>
-                                <div class="flex justify-between items-end">
+                        <!-- Mensagem de Boas-Vindas e Motivacional -->
+                        <div class="mb-8 animate-slide-up">
+                            <div class="bg-gradient-to-r from-tech-primary/10 via-orange-500/5 to-transparent border border-tech-primary/20 rounded-2xl p-6">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
-                                        <?php if($statusFrequencia == 'nao_entrou'): ?>
-                                            <h3 class="text-xl md:text-2xl font-bold text-white">Check-in</h3>
-                                            <p class="text-xs text-gray-500">Toque para entrar</p>
-                                        <?php elseif($statusFrequencia == 'treinando'): ?>
-                                            <h3 class="text-xl md:text-2xl font-bold text-green-400 animate-pulse">Treinando</h3>
-                                            <p class="text-xs text-gray-500">
-                                                Entrada: <?= date('H:i', strtotime($horaEntrada)) ?>
-                                                <?php if($horaEntrada): ?>
-                                                    <br><small>Tempo: <span id="tempoDecorrido"></span></small>
-                                                <?php endif; ?>
-                                            </p>
-                                        <?php else: ?>
-                                            <h3 class="text-xl md:text-2xl font-bold text-red-400">Concluído</h3>
-                                            <p class="text-xs text-gray-500">Tempo: <?= $tempoHoje ?></p>
-                                        <?php endif; ?>
+                                        <h1 class="text-2xl md:text-3xl font-bold text-white mb-2">
+                                            Bem-vindo, <span class="text-tech-primary"><?= htmlspecialchars($primeiroNome) ?></span>!
+                                        </h1>
+                                        <p class="text-gray-300">Continue evoluindo. Cada treino conta!</p>
                                     </div>
-                                    <i data-lucide="activity" class="w-8 h-8 text-tech-primary opacity-80"></i>
+                                    <div class="foto-perfil-container w-16 h-16 rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300" onclick="abrirModalFoto()">
+                                        <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
+                                            <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
+                                        <?php else: ?>
+                                            <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
+                                        <?php endif; ?>
+                                        <div class="foto-overlay">
+                                            <i data-lucide="camera" class="w-5 h-5 text-white"></i>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div onclick="switchTab('treinos')" class="card cursor-pointer hover:border-tech-primary/50 transition-all <?= !$podeVerTreinos ? 'opacity-50 cursor-not-allowed' : '' ?>">
-                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Treino Atual</p>
-                                <div class="flex justify-between items-end">
-                                    <h3 class="text-xl md:text-2xl font-bold <?= $podeVerTreinos ? 'text-white' : 'text-gray-500' ?>"><?= $podeVerTreinos ? 'Ver Ficha' : 'Registre entrada' ?></h3>
-                                    <i data-lucide="dumbbell" class="w-8 h-8 <?= $podeVerTreinos ? 'text-blue-500' : 'text-gray-500' ?> opacity-80"></i>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Assinatura</p>
-                                <div class="flex justify-between items-end">
-                                    <h3 class="text-xl md:text-2xl font-bold text-green-400">Ativa</h3>
-                                    <i data-lucide="check-circle" class="w-8 h-8 text-green-500 opacity-80"></i>
+                                
+                                <!-- Mensagem Motivacional que alterna CORRIGIDA -->
+                                <div class="mt-4 pt-4 border-t border-white/10">
+                                    <div class="mensagem-container">
+                                        <?php for($i = 0; $i < 5; $i++): ?>
+                                            <div class="mensagem-motivacional text-center">
+                                                <p class="text-gray-300 italic">"<?= htmlspecialchars($mensagensMotivacionais[$i % count($mensagensMotivacionais)]) ?>"</p>
+                                            </div>
+                                        <?php endfor; ?>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="card">
-                            <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                <i data-lucide="calendar-check" class="w-5 h-5 text-tech-primary"></i> Histórico (<?= date('M/Y') ?>)
-                            </h3>
-                            <div class="grid grid-cols-7 gap-2 text-center">
-                                <?php for($i=1; $i<=$totalDiasMes; $i++): 
-                                    $classeDia = ''; $icone = '';
-                                    if (in_array($i, $diasTreinados)) { 
-                                        $classeDia = 'day-presente'; 
-                                        $icone = '<i data-lucide="check" class="w-3 h-3 mt-1"></i>'; 
-                                    } elseif ($i < $diaHoje) { 
-                                        $classeDia = 'day-falta'; 
-                                        $icone = '<i data-lucide="x" class="w-3 h-3 mt-1"></i>'; 
-                                    } elseif ($i == $diaHoje) { 
-                                        $classeDia = 'day-hoje'; 
-                                    } else { 
-                                        $classeDia = 'day-futuro'; 
-                                    }
-                                ?>
-                                    <div class="p-2 rounded-lg border bg-[#0f172a] text-gray-300 text-sm font-bold flex flex-col justify-center items-center h-14 <?= $classeDia ?>">
-                                        <span><?= $i ?></span><?= $icone ?>
+                        <!-- Cards de Status -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 animate-slide-up">
+                            <div onclick="abrirCarteirinha()" class="card cursor-pointer hover:border-tech-primary/50 transition-all group hover:scale-[1.02]">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-gray-400 text-xs font-bold uppercase mb-2">Status Hoje</p>
+                                        <?php if($statusFrequencia == 'nao_entrou'): ?>
+                                            <h3 class="text-xl md:text-2xl font-bold text-white">Check-in</h3>
+                                            <p class="text-xs text-gray-500 mt-1">Clique para entrar</p>
+                                        <?php elseif($statusFrequencia == 'treinando'): ?>
+                                            <h3 class="text-xl md:text-2xl font-bold text-green-400 animate-pulse">Treinando</h3>
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Entrada: <?= date('H:i', strtotime($horaEntrada)) ?>
+                                            </p>
+                                        <?php else: ?>
+                                            <h3 class="text-xl md:text-2xl font-bold text-blue-400">Concluído</h3>
+                                            <p class="text-xs text-gray-500 mt-1">Tempo: <?= $tempoHoje ?></p>
+                                        <?php endif; ?>
                                     </div>
-                                <?php endfor; ?>
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-tech-primary/20 to-tech-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <i data-lucide="activity" class="w-6 h-6 text-tech-primary"></i>
+                                    </div>
+                                </div>
+                                <?php if($statusFrequencia == 'treinando'): ?>
+                                    <div class="mt-4">
+                                        <div class="text-center timer-display">
+                                            <span id="tempoDecorridoDash">00:00:00</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 text-center mt-1">Tempo de treino</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div onclick="switchTab('treinos')" class="card cursor-pointer hover:border-tech-primary/50 transition-all <?= !$podeVerTreinos ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]' ?>">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-gray-400 text-xs font-bold uppercase mb-2">Treino Atual</p>
+                                        <h3 class="text-xl md:text-2xl font-bold <?= $podeVerTreinos ? 'text-white' : 'text-gray-500' ?>"><?= $podeVerTreinos ? 'Ver Ficha' : 'Registre entrada' ?></h3>
+                                        <p class="text-xs text-gray-500 mt-1">Acesse sua rotina</p>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center">
+                                        <i data-lucide="dumbbell" class="w-6 h-6 <?= $podeVerTreinos ? 'text-blue-500' : 'text-gray-500' ?>"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-gray-400 text-xs font-bold uppercase mb-2">Assinatura</p>
+                                        <h3 class="text-xl md:text-2xl font-bold text-green-400">Ativa</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Plano: <?= htmlspecialchars($planoAluno) ?></p>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-green-500/5 flex items-center justify-center">
+                                        <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Estatísticas do Mês -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="card animate-slide-up" style="animation-delay: 100ms">
+                                <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <i data-lucide="calendar-check" class="w-5 h-5 text-tech-primary"></i> 
+                                    Frequência - <?= $nomeMes[$mesAtual] ?> <?= $anoAtual ?>
+                                </h3>
+                                
+                                <!-- Progresso -->
+                                <div class="mb-6">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm text-gray-400">Presença no mês</span>
+                                        <span class="text-sm font-bold text-white"><?= $presencasMes ?> de <?= $diasUteis ?> dias</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: <?= $porcentagemPresenca ?>%"></div>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <span class="text-xs text-gray-500"><?= $porcentagemPresenca ?>% de frequência</span>
+                                        <?php if($porcentagemPresenca >= 80): ?>
+                                            <span class="text-xs text-green-500 font-bold">Excelente! ✅</span>
+                                        <?php elseif($porcentagemPresenca >= 60): ?>
+                                            <span class="text-xs text-yellow-500 font-bold">Bom 👍</span>
+                                        <?php else: ?>
+                                            <span class="text-xs text-red-500 font-bold">Precisa melhorar ⚠️</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <!-- Calendário Melhorado -->
+                                <div>
+                                    <div class="grid grid-cols-7 gap-2 text-center mb-3">
+                                        <?php 
+                                        $diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                                        foreach($diasSemana as $dia): 
+                                        ?>
+                                            <div class="p-2 text-xs font-bold text-gray-500"><?= htmlspecialchars($dia) ?></div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-7 gap-2 text-center">
+                                        <?php 
+                                        // Encontrar primeiro dia do mês
+                                        $primeiroDia = date('w', strtotime("$anoAtual-$mesAtual-01"));
+                                        
+                                        // Dias vazios antes do primeiro dia
+                                        for($i = 0; $i < $primeiroDia; $i++): 
+                                        ?>
+                                            <div class="p-2 rounded-lg border bg-transparent border-transparent"></div>
+                                        <?php endfor; ?>
+                                        
+                                        <?php 
+                                        // Dias do mês
+                                        for($i = 1; $i <= $totalDiasMes; $i++): 
+                                            $classeDia = ''; 
+                                            $icone = '';
+                                            if (in_array($i, $diasTreinados)) { 
+                                                $classeDia = 'day-presente'; 
+                                                $icone = '<i data-lucide="check" class="w-3 h-3 mt-1 mx-auto"></i>'; 
+                                            } elseif ($i < $diaHoje) { 
+                                                $classeDia = 'day-falta'; 
+                                                $icone = '<i data-lucide="x" class="w-3 h-3 mt-1 mx-auto"></i>'; 
+                                            } elseif ($i == $diaHoje) { 
+                                                $classeDia = 'day-hoje'; 
+                                                $icone = '<span class="text-xs font-bold mt-1">'.$i.'</span>';
+                                            } else { 
+                                                $classeDia = 'day-futuro'; 
+                                                $icone = '<span class="text-sm mt-1">'.$i.'</span>';
+                                            }
+                                        ?>
+                                            <div class="flex flex-col justify-center items-center h-12 rounded-lg border <?= $classeDia ?> transition-all duration-300 hover:scale-110 cursor-pointer relative group">
+                                                <?= $icone ?>
+                                                <div class="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                                                    <?= $i ?>/<?= $mesAtual ?>
+                                                    <?php if(in_array($i, $diasTreinados)): ?>
+                                                        <br><span class="text-green-400">✔ Treinou</span>
+                                                    <?php elseif($i < $diaHoje): ?>
+                                                        <br><span class="text-red-400">✘ Faltou</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endfor; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Próximos Objetivos -->
+                            <div class="card animate-slide-up" style="animation-delay: 200ms">
+                                <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <i data-lucide="target" class="w-5 h-5 text-purple-500"></i> 
+                                    Seus Objetivos
+                                </h3>
+                                
+                                <?php if(!empty($dadosAluno['objetivo'])): ?>
+                                    <div class="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                                        <h4 class="font-bold text-white mb-2">Objetivo Principal</h4>
+                                        <p class="text-gray-300"><?= htmlspecialchars($dadosAluno['objetivo']) ?></p>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="mb-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-center">
+                                        <i data-lucide="target" class="w-12 h-12 text-gray-600 mx-auto mb-3"></i>
+                                        <p class="text-gray-400">Nenhum objetivo definido</p>
+                                        <button onclick="switchTab('perfil')" class="mt-3 px-4 py-2 bg-tech-primary/20 text-tech-primary text-sm rounded-lg hover:bg-tech-primary/30 transition-colors">
+                                            Definir objetivo
+                                        </button>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <!-- Dicas de treino -->
+                                <div class="space-y-3">
+                                    <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                                        <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-500"></i>
+                                        Dica do Dia
+                                    </h4>
+                                    <div class="p-3 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-lg border border-yellow-500/20">
+                                        <p class="text-sm text-gray-300">
+                                            <?php
+                                            $dicas = [
+                                                "Mantenha-se hidratado durante o treino!",
+                                                "Alongue-se antes e depois dos exercícios.",
+                                                "Foque na execução correta, não no peso.",
+                                                "Descanse adequadamente entre as séries.",
+                                                "Varie os exercícios para evitar platô."
+                                            ];
+                                            echo $dicas[array_rand($dicas)];
+                                            ?>
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -628,49 +1188,59 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     <!-- Treinos -->
                     <div id="tab-treinos" class="tab-content hidden fade-in">
                         <?php if(!$podeVerTreinos): ?>
-                            <div class="flex flex-col items-center justify-center py-12 text-center">
-                                <div class="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-6 shadow-glow border border-red-500/30">
+                            <div class="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
+                                <div class="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-6 shadow-glow border border-red-500/30 animate-pulse">
                                     <i data-lucide="lock" class="w-12 h-12 text-red-500"></i>
                                 </div>
                                 <h2 class="text-2xl font-bold text-white mb-2">Treino Bloqueado</h2>
                                 <p class="text-gray-400 max-w-md mb-4">Você precisa registrar sua entrada na academia para acessar sua ficha de treino.</p>
-                                <button onclick="abrirCarteirinha()" class="px-6 py-3 rounded-xl bg-tech-primary hover:bg-orange-600 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2">
+                                <button onclick="abrirCarteirinha()" class="px-6 py-3 rounded-xl bg-tech-primary hover:bg-orange-600 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2 hover:scale-105">
                                     <i data-lucide="qr-code" class="w-5 h-5"></i> REGISTRAR ENTRADA
                                 </button>
                             </div>
                         <?php elseif($statusFrequencia === 'finalizado'): ?>
-                            <div class="flex flex-col items-center justify-center py-12 text-center">
+                            <div class="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
                                 <div class="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-6 shadow-glow border border-green-500/30">
                                     <i data-lucide="check-check" class="w-12 h-12 text-green-500"></i>
                                 </div>
                                 <h2 class="text-2xl font-bold text-white mb-2">Bom Descanso, <?= htmlspecialchars($primeiroNome) ?>!</h2>
-                                <p class="text-gray-400 max-w-md mb-4">Treino finalizado. Volte amanhã.</p>
-                                <div class="p-4 bg-[#1e293b] rounded-xl border border-white/10">
-                                    <p class="text-sm text-gray-500">Tempo hoje:</p>
-                                    <p class="text-xl font-mono text-white font-bold"><?= $tempoHoje ?></p>
+                                <p class="text-gray-400 max-w-md mb-4">Treino finalizado. Volte amanhã para mais progresso!</p>
+                                <div class="p-6 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-xl border border-green-500/30">
+                                    <p class="text-sm text-gray-500">Tempo total de hoje:</p>
+                                    <p class="text-2xl font-mono text-white font-bold mt-1"><?= $tempoHoje ?></p>
+                                    <div class="mt-4 flex justify-center">
+                                        <i data-lucide="award" class="w-8 h-8 text-yellow-500"></i>
+                                    </div>
                                 </div>
                             </div>
                         <?php else: ?>
-                            <div class="mb-4 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl text-blue-400">
+                            <div class="mb-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 p-5 rounded-2xl text-blue-400 animate-slide-up">
                                 <div class="flex items-center gap-3">
-                                    <i data-lucide="clock" class="w-5 h-5"></i>
-                                    <div>
-                                        <h4 class="font-bold">Treinando desde <?= date('H:i', strtotime($horaEntrada)) ?></h4>
-                                        <p class="text-sm">Tempo decorrido: <span id="tempoTreino" class="font-mono font-bold"></span></p>
+                                    <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                        <i data-lucide="clock" class="w-5 h-5 text-blue-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-bold text-lg">Treinando desde <?= date('H:i', strtotime($horaEntrada)) ?></h4>
+                                        <p class="text-sm mt-1">Tempo decorrido: 
+                                            <span id="tempoTreino" class="font-mono font-bold text-white bg-black/30 px-2 py-1 rounded">00:00:00</span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="flex gap-4 mb-6 border-b border-white/10 pb-1 overflow-x-auto">
-                                <button onclick="mudarFicha('A')" id="btn-A" class="pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all whitespace-nowrap px-4">Treino A</button>
+                                <button onclick="mudarFicha('A')" id="btn-A" class="pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all whitespace-nowrap px-4 hover:text-orange-400">Treino A</button>
                                 <button onclick="mudarFicha('B')" id="btn-B" class="pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all whitespace-nowrap px-4">Treino B</button>
                                 <button onclick="mudarFicha('C')" id="btn-C" class="pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all whitespace-nowrap px-4">Treino C</button>
                             </div>
-                            <div id="listaExercicios" class="space-y-3 min-h-[300px]"></div>
+                            
+                            <div id="listaExercicios" class="space-y-3 min-h-[300px] animate-fade-in"></div>
+                            
                             <div class="mt-8 border-t border-white/10 pt-6 text-center">
-                                <button onclick="abrirModalConclusao()" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mx-auto transition-all">
+                                <button onclick="abrirModalConclusao()" class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mx-auto transition-all hover:scale-105">
                                     <i data-lucide="check-circle-2" class="w-6 h-6"></i> CONCLUIR TREINO
                                 </button>
+                                <p class="text-xs text-gray-500 mt-3">Ao concluir, você registra sua saída automática</p>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -867,40 +1437,118 @@ $subTab = $_GET['sub'] ?? 'produtos';
                         </div>
                     </div>
 
-                    <!-- Perfil -->
+                    <!-- Perfil ATUALIZADO COM SEÇÃO DE FOTO -->
                     <div id="tab-perfil" class="tab-content hidden fade-in">
-                        <div class="max-w-2xl mx-auto">
-                            <div class="card">
-                                <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                    <i data-lucide="user-cog" class="w-6 h-6 text-tech-primary"></i> Editar Meus Dados
-                                </h3>
-                                <form method="POST" id="formPerfil">
-                                    <input type="hidden" name="acao" value="editar_perfil">
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nome Completo</label>
-                                            <input type="text" name="nome" value="<?= htmlspecialchars($dadosAluno['nome']) ?>" required class="form-input">
-                                        </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Email</label>
-                                                <input type="email" name="email" value="<?= htmlspecialchars($dadosAluno['email']) ?>" required class="form-input">
+                        <div class="max-w-4xl mx-auto">
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Coluna da Foto -->
+                                <div class="lg:col-span-1">
+                                    <div class="card">
+                                        <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                            <i data-lucide="camera" class="w-6 h-6 text-tech-primary"></i> Foto de Perfil
+                                        </h3>
+                                        <div class="text-center mb-6">
+                                            <div class="foto-perfil-container w-48 h-48 mx-auto rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 cursor-pointer" onclick="abrirModalFoto()">
+                                                <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
+                                                    <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
+                                                <?php else: ?>
+                                                    <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
+                                                <?php endif; ?>
+                                                <div class="foto-overlay">
+                                                    <i data-lucide="camera" class="w-8 h-8 text-white mb-2"></i>
+                                                    <span class="text-sm text-white font-bold">Alterar Foto</span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Telefone</label>
-                                                <input type="text" name="telefone" id="telefoneInput" value="<?= htmlspecialchars($dadosAluno['telefone']) ?>" oninput="mascaraTelefone(this)" maxlength="15" required class="form-input" placeholder="(00) 00000-0000">
-                                            </div>
+                                            <p class="text-gray-400 text-sm mt-4">Clique na foto para alterar</p>
+                                            <p class="text-gray-500 text-xs">Formatos: JPG, PNG, GIF, WEBP<br>Máximo: 5MB</p>
                                         </div>
-                                        <div class="border-t border-white/10 pt-4">
-                                            <label class="block text-xs font-bold text-tech-primary uppercase mb-2">Nova Senha (Opcional)</label>
-                                            <input type="password" name="nova_senha" id="novaSenhaInput" placeholder="Min 8 caracteres, letra, número, símbolo" class="form-input">
-                                            <p id="msgSenha" class="text-xs text-red-400 mt-2 hidden font-bold">A senha deve ter 8+ caracteres, letras, números e símbolo!</p>
-                                        </div>
-                                        <button type="submit" id="btnSalvarPerfil" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all">
-                                            Salvar Alterações
-                                        </button>
+                                        <?php if (strpos($urlFoto, 'data:image/svg+xml') !== 0): ?>
+                                            <form method="POST" class="mt-4" onsubmit="return confirm('Tem certeza que deseja remover sua foto de perfil?')">
+                                                <input type="hidden" name="acao" value="remover_foto">
+                                                <button type="submit" class="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    Remover Foto
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
-                                </form>
+                                </div>
+                                
+                                <!-- Coluna dos Dados -->
+                                <div class="lg:col-span-2">
+                                    <div class="card">
+                                        <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                            <i data-lucide="user-cog" class="w-6 h-6 text-tech-primary"></i> Editar Meus Dados
+                                        </h3>
+                                        <form method="POST" id="formPerfil" onsubmit="return validarFormPerfil()">
+                                            <input type="hidden" name="acao" value="editar_perfil">
+                                            <div class="space-y-4">
+                                                <div>
+                                                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nome Completo *</label>
+                                                    <input type="text" name="nome" id="nomeInput" value="<?= htmlspecialchars($dadosAluno['nome']) ?>" required 
+                                                           class="form-input" 
+                                                           oninput="validarNome(this)">
+                                                    <p id="nomeErro" class="text-xs text-red-400 mt-1 hidden">O nome não pode conter apenas espaços ou caracteres especiais</p>
+                                                </div>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Email *</label>
+                                                        <input type="email" name="email" value="<?= htmlspecialchars($dadosAluno['email']) ?>" required class="form-input">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Telefone *</label>
+                                                        <input type="text" name="telefone" id="telefoneInput" value="<?= htmlspecialchars($dadosAluno['telefone']) ?>" 
+                                                               oninput="mascaraTelefone(this)" maxlength="15" required class="form-input" placeholder="(00) 00000-0000">
+                                                    </div>
+                                                </div>
+                                                <div class="border-t border-white/10 pt-4">
+                                                    <label class="block text-xs font-bold text-tech-primary uppercase mb-2">Nova Senha (Opcional)</label>
+                                                    <input type="password" name="nova_senha" id="novaSenhaInput" 
+                                                           placeholder="Min 8 caracteres, letra, número, símbolo" 
+                                                           class="form-input" oninput="validarSenha(this)">
+                                                    <div id="requisitosSenha" class="text-xs text-gray-500 mt-2 space-y-1 hidden">
+                                                        <p id="reqLength" class="flex items-center gap-1"><i data-lucide="circle" class="w-3 h-3 text-red-400"></i> Mínimo 8 caracteres</p>
+                                                        <p id="reqLetter" class="flex items-center gap-1"><i data-lucide="circle" class="w-3 h-3 text-red-400"></i> Pelo menos 1 letra</p>
+                                                        <p id="reqNumber" class="flex items-center gap-1"><i data-lucide="circle" class="w-3 h-3 text-red-400"></i> Pelo menos 1 número</p>
+                                                        <p id="reqSymbol" class="flex items-center gap-1"><i data-lucide="circle" class="w-3 h-3 text-red-400"></i> Pelo menos 1 símbolo</p>
+                                                    </div>
+                                                </div>
+                                                <button type="submit" id="btnSalvarPerfil" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.02]">
+                                                    <i data-lucide="save" class="w-5 h-5 inline mr-2"></i> Salvar Alterações
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                    
+                                    <!-- Informações adicionais -->
+                                    <div class="card mt-6">
+                                        <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                            <i data-lucide="info" class="w-5 h-5 text-gray-400"></i> Informações da Conta
+                                        </h3>
+                                        <div class="space-y-3">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-400">Data de Nascimento</span>
+                                                <span class="text-white"><?= date('d/m/Y', strtotime($dadosAluno['data_nascimento'])) ?></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-400">CPF</span>
+                                                <span class="text-white"><?= htmlspecialchars($dadosAluno['cpf']) ?></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-400">Gênero</span>
+                                                <span class="text-white"><?= htmlspecialchars($dadosAluno['genero']) ?></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-400">Plano Atual</span>
+                                                <span class="bg-tech-primary/20 text-tech-primary px-3 py-1 rounded-full text-xs font-bold"><?= htmlspecialchars($dadosAluno['plano']) ?></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-400">Membro desde</span>
+                                                <span class="text-white"><?= date('d/m/Y', strtotime($dadosAluno['criado_em'])) ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -909,135 +1557,267 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
-    <!-- MODAL ADICIONAR AO CARRINHO -->
-    <div id="modalAdicionar" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button onclick="document.getElementById('modalAdicionar').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 id="modalProdutoNome" class="text-xl font-bold mb-6 text-white"></h2>
-            <form method="POST" class="space-y-6">
-                <input type="hidden" name="acao" value="adicionar_carrinho">
-                <input type="hidden" name="produto_id" id="modalProdutoId">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Quantidade</label>
-                    <div class="flex items-center gap-4">
-                        <button type="button" onclick="alterarQuantidadeModal(-1)" class="w-12 h-12 bg-[#0f172a] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
-                            <i data-lucide="minus" class="w-6 h-6"></i>
+    <!-- MODAL DA FOTO DE PERFIL (NOVO) -->
+    <div id="modalFoto" class="modal-hidden">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="fecharModalFoto()"></div>
+        <div class="relative z-10 w-full max-w-md mx-auto animate-slide-up">
+            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="camera" class="w-6 h-6 text-tech-primary"></i>
+                        Alterar Foto de Perfil
+                    </h3>
+                    <button onclick="fecharModalFoto()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                        <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
+                    </button>
+                </div>
+                
+                <form id="formFoto" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="acao" value="upload_foto">
+                    
+                    <div class="mb-6">
+                        <div id="previewContainer" class="w-48 h-48 mx-auto rounded-full border-2 border-dashed border-white/20 mb-4 overflow-hidden flex items-center justify-center bg-gray-800/50">
+                            <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
+                                <img id="fotoPreview" src="<?= $urlFoto ?>" alt="Preview" class="w-full h-full object-cover">
+                            <?php else: ?>
+                                <img id="fotoPreview" src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Preview" class="w-full h-full object-cover">
+                            <?php endif; ?>
+                            <div id="placeholderIcon" class="absolute hidden">
+                                <i data-lucide="user" class="w-16 h-16 text-gray-500"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mb-4">
+                            <label for="fotoInput" class="cursor-pointer inline-flex items-center gap-2 bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold transition-all">
+                                <i data-lucide="upload" class="w-5 h-5"></i>
+                                Escolher Imagem
+                            </label>
+                            <input type="file" id="fotoInput" name="foto_perfil" accept="image/*" class="hidden" onchange="previewImagem(this)">
+                            <p class="text-gray-400 text-sm mt-2">Ou arraste e solte uma imagem</p>
+                        </div>
+                        
+                        <div class="upload-progress hidden">
+                            <div id="progressBar" class="upload-progress-bar" style="width: 0%"></div>
+                        </div>
+                        
+                        <div id="erroUpload" class="text-red-400 text-sm text-center mt-2 hidden"></div>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button type="button" onclick="fecharModalFoto()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
+                            Cancelar
                         </button>
-                        <input type="number" name="quantidade" id="modalQuantidade" value="1" min="1" max="10" class="flex-1 text-center bg-[#0f172a] border border-white/10 rounded-xl p-4 text-white text-xl">
-                        <button type="button" onclick="alterarQuantidadeModal(1)" class="w-12 h-12 bg-[#0f172a] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
-                            <i data-lucide="plus" class="w-6 h-6"></i>
+                        <button type="submit" id="btnEnviarFoto" class="flex-1 bg-tech-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i data-lucide="check" class="w-5 h-5 inline mr-2"></i>
+                            Salvar Foto
                         </button>
                     </div>
-                    <p id="modalEstoqueInfo" class="text-xs text-gray-500 mt-2 text-center"></p>
+                </form>
+                
+                <div class="mt-6 pt-4 border-t border-white/10">
+                    <h4 class="text-sm font-bold text-gray-400 mb-2">Requisitos da foto:</h4>
+                    <ul class="text-xs text-gray-500 space-y-1">
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Formatos: JPG, PNG, GIF, WEBP</li>
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Tamanho máximo: 5MB</li>
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Imagem será redimensionada para 200x200px</li>
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Recomendado: foto quadrada</li>
+                    </ul>
                 </div>
-                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                    <i data-lucide="shopping-cart" class="w-5 h-5"></i> ADICIONAR AO CARRINHO
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL PAGAMENTO -->
-    <div id="modalPagamento" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button onclick="document.getElementById('modalPagamento').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold mb-6 text-white">Finalizar Compra</h2>
-            <form method="POST" class="space-y-6">
-                <input type="hidden" name="acao" value="finalizar_compra">
-                <div class="bg-[#0f172a] p-4 rounded-xl border border-white/10">
-                    <div class="flex justify-between mb-2">
-                        <span class="text-gray-400">Valor Total:</span>
-                        <span id="modalTotalValor" class="text-tech-primary text-xl font-bold"></span>
-                    </div>
-                    <p class="text-xs text-gray-500">Frete grátis incluso</p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Forma de Pagamento</label>
-                    <div class="space-y-3">
-                        <label class="flex items-center gap-3 p-4 bg-[#0f172a] border border-white/10 rounded-xl cursor-pointer hover:border-tech-primary/50 transition-all">
-                            <input type="radio" name="forma_pagamento" value="Cartão de Crédito" checked class="w-5 h-5 text-tech-primary">
-                            <i data-lucide="credit-card" class="w-5 h-5 text-blue-400"></i>
-                            <span class="flex-1">Cartão de Crédito</span>
-                        </label>
-                        <label class="flex items-center gap-3 p-4 bg-[#0f172a] border border-white/10 rounded-xl cursor-pointer hover:border-tech-primary/50 transition-all">
-                            <input type="radio" name="forma_pagamento" value="Cartão de Débito" class="w-5 h-5 text-tech-primary">
-                            <i data-lucide="credit-card" class="w-5 h-5 text-green-400"></i>
-                            <span class="flex-1">Cartão de Débito</span>
-                        </label>
-                        <label class="flex items-center gap-3 p-4 bg-[#0f172a] border border-white/10 rounded-xl cursor-pointer hover:border-tech-primary/50 transition-all">
-                            <input type="radio" name="forma_pagamento" value="PIX" class="w-5 h-5 text-tech-primary">
-                            <i data-lucide="qrcode" class="w-5 h-5 text-purple-400"></i>
-                            <span class="flex-1">PIX</span>
-                        </label>
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                    <i data-lucide="check-circle" class="w-5 h-5"></i> CONFIRMAR PAGAMENTO
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAIS EXISTENTES -->
-    <div id="modalConclusao" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-sm rounded-2xl border border-green-500/30 shadow-2xl p-8 text-center relative overflow-hidden">
-            <div id="confetti-container" class="absolute inset-0 pointer-events-none"></div>
-            <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
-                <i data-lucide="trophy" class="w-8 h-8"></i>
             </div>
-            <h2 class="text-xl font-bold text-white mb-2">Já acabou?</h2>
-            <p class="text-gray-400 mb-6">Confirmando, você registra saída e finaliza por hoje.</p>
-            <div class="flex gap-3 justify-center">
-                <button onclick="document.getElementById('modalConclusao').classList.add('hidden')" class="px-6 py-3 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-colors">Voltar</button>
-                <form method="POST">
-                    <input type="hidden" name="acao_frequencia" value="saida">
-                    <button type="submit" class="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg transition-colors">Sim, Finalizar!</button>
+        </div>
+    </div>
+
+    <!-- MODAL DA CARTEIRINHA COM QR CODE -->
+    <div id="modalCarteirinha" class="<?= $abrirQR ? 'modal-fixed' : 'modal-hidden' ?>">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="fecharCarteirinha()"></div>
+        <div class="relative z-10 w-full max-w-md mx-auto animate-slide-up">
+            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="qr-code" class="w-6 h-6 text-tech-primary"></i>
+                        Sua Carteirinha
+                    </h3>
+                    <button onclick="fecharCarteirinha()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                        <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
+                    </button>
+                </div>
+                
+                <div class="text-center mb-6">
+                    <div class="w-48 h-48 mx-auto bg-white p-4 rounded-xl shadow-lg mb-4 relative">
+                        <!-- QR Code dinâmico -->
+                        <div id="qrcode" class="w-full h-full"></div>
+                        <!-- Linha de escaneamento animada -->
+                        <div class="qr-scan-line"></div>
+                    </div>
+                    <p class="text-gray-400 text-sm">Escaneie para registrar entrada/saída</p>
+                    <p class="text-xs text-gray-500 mt-1">ID: ALUNO-<?= $idAluno ?></p>
+                </div>
+                
+                <div class="space-y-4">
+                    <?php if($statusFrequencia == 'nao_entrou'): ?>
+                        <form method="POST">
+                            <input type="hidden" name="acao_frequencia" value="entrada">
+                            <button type="submit" class="w-full bg-gradient-to-r from-tech-primary to-orange-600 hover:from-orange-600 hover:to-red-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.02]">
+                                <i data-lucide="log-in" class="w-6 h-6"></i>
+                                REGISTRAR ENTRADA
+                            </button>
+                            <p class="text-xs text-gray-500 text-center mt-2">Inicie seu treino de hoje</p>
+                        </form>
+                    <?php elseif($statusFrequencia == 'treinando'): ?>
+                        <div class="p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-xl border border-green-500/30 mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="clock" class="w-5 h-5 text-green-500"></i>
+                                    <span class="font-bold text-white">Treinando</span>
+                                </div>
+                                <span class="text-green-400 text-sm font-bold animate-pulse">ONLINE</span>
+                            </div>
+                            <p class="text-sm text-gray-400">Entrada: <?= date('H:i', strtotime($horaEntrada)) ?></p>
+                            <p class="text-sm text-gray-400 mt-1">Tempo decorrido: <span id="tempoCarteirinha" class="font-mono text-white">00:00:00</span></p>
+                        </div>
+                        
+                        <form method="POST">
+                            <input type="hidden" name="acao_frequencia" value="saida">
+                            <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.02]">
+                                <i data-lucide="log-out" class="w-6 h-6"></i>
+                                REGISTRAR SAÍDA
+                            </button>
+                            <p class="text-xs text-gray-500 text-center mt-2">Finalize seu treino de hoje</p>
+                        </form>
+                    <?php else: ?>
+                        <div class="p-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 rounded-xl border border-gray-700 text-center">
+                            <i data-lucide="check-circle" class="w-12 h-12 text-green-500 mx-auto mb-3"></i>
+                            <h4 class="font-bold text-white mb-1">Treino Concluído!</h4>
+                            <p class="text-gray-400 text-sm">Volte amanhã para mais progresso</p>
+                            <div class="mt-3 p-3 bg-black/30 rounded-lg">
+                                <p class="text-xs text-gray-500">Tempo de hoje:</p>
+                                <p class="text-xl font-mono text-white font-bold"><?= $tempoHoje ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="mt-6 pt-4 border-t border-white/10">
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="text-gray-400">
+                            <i data-lucide="user" class="w-4 h-4 inline mr-2"></i>
+                            <?= htmlspecialchars($primeiroNome) ?>
+                        </div>
+                        <span class="bg-tech-primary/20 text-tech-primary px-3 py-1 rounded-full text-xs font-bold">
+                            <?= htmlspecialchars($planoAluno) ?>
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        <i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>
+                        <?= date('d/m/Y') ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outros modais (mantidos) -->
+    <div id="modalAdicionar" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="absolute inset-0" onclick="fecharModalAdicionar()"></div>
+        <div class="relative z-10 w-full max-w-md mx-auto">
+            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
+                <h3 id="modalProdutoNome" class="text-xl font-bold text-white mb-4">Adicionar ao Carrinho</h3>
+                <form id="formAdicionar" method="POST">
+                    <input type="hidden" name="acao" value="adicionar_carrinho">
+                    <input type="hidden" id="modalProdutoId" name="produto_id" value="">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Quantidade</label>
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="alterarQuantidadeModal(-1)" class="w-10 h-10 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
+                                <i data-lucide="minus" class="w-5 h-5"></i>
+                            </button>
+                            <input type="number" id="modalQuantidade" name="quantidade" value="1" min="1" max="10" class="flex-1 text-center bg-[#0f172a] border border-white/10 rounded py-3 text-lg font-bold">
+                            <button type="button" onclick="alterarQuantidadeModal(1)" class="w-10 h-10 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <p id="modalEstoqueInfo" class="text-xs text-gray-500 mt-2 text-center">Disponível: <span id="modalEstoque"></span> unidades</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="fecharModalAdicionar()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="flex-1 bg-tech-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
+                            Adicionar
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <div id="modalCarteirinha" class="fixed inset-0 z-50 <?php echo $abrirQR ? '' : 'hidden'; ?> bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-8 text-center relative">
-            <button onclick="document.getElementById('modalCarteirinha').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold text-white mb-1">Carteirinha Digital</h2>
-            <p class="text-xs text-gray-500 mb-6">ID: #<?= str_pad($idAluno, 6, '0', STR_PAD_LEFT) ?></p>
-            <div class="bg-white p-4 rounded-xl inline-block shadow-glow mb-6">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=Aluno-<?= $idAluno ?>-Acesso" alt="QR Code" class="w-40 h-40">
+    <div id="modalPagamento" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="absolute inset-0" onclick="fecharModalPagamento()"></div>
+        <div class="relative z-10 w-full max-w-md mx-auto">
+            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
+                <h3 class="text-xl font-bold text-white mb-6">Finalizar Compra</h3>
+                <form method="POST">
+                    <input type="hidden" name="acao" value="finalizar_compra">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-3">Forma de Pagamento</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative">
+                                <input type="radio" name="forma_pagamento" value="Cartão" class="sr-only peer" checked>
+                                <div class="p-4 border border-white/10 rounded-xl text-center cursor-pointer peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all">
+                                    <i data-lucide="credit-card" class="w-6 h-6 text-white mx-auto mb-2"></i>
+                                    <span class="text-sm font-medium text-white">Cartão</span>
+                                </div>
+                            </label>
+                            <label class="relative">
+                                <input type="radio" name="forma_pagamento" value="PIX" class="sr-only peer">
+                                <div class="p-4 border border-white/10 rounded-xl text-center cursor-pointer peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all">
+                                    <i data-lucide="qrcode" class="w-6 h-6 text-white mx-auto mb-2"></i>
+                                    <span class="text-sm font-medium text-white">PIX</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-6 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-400">Total a pagar:</span>
+                            <span id="modalTotalCompra" class="text-2xl font-bold text-white">R$ 0,00</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Frete grátis para todo o Brasil</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="fecharModalPagamento()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
+                            Confirmar Compra
+                        </button>
+                    </div>
+                </form>
             </div>
-            <div class="border-t border-white/10 pt-6">
-                <?php if($statusFrequencia == 'nao_entrou'): ?>
-                    <form method="POST">
-                        <input type="hidden" name="acao_frequencia" value="entrada">
-                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                            <i data-lucide="log-in" class="w-5 h-5"></i> REGISTRAR ENTRADA
-                        </button>
-                    </form>
-                <?php elseif($statusFrequencia == 'treinando'): ?>
-                    <div class="mb-4 bg-green-500/10 border border-green-500/30 p-4 rounded-xl text-green-400">
-                        <h4 class="font-bold mb-1">Você está treinando!</h4>
-                        <p class="text-sm">Entrada: <?= date('H:i', strtotime($horaEntrada)) ?></p>
-                        <p class="text-sm font-bold mt-1">Tempo: <span id="tempoCarteirinha"></span></p>
-                    </div>
-                    <form method="POST">
-                        <input type="hidden" name="acao_frequencia" value="saida">
-                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                            <i data-lucide="log-out" class="w-5 h-5"></i> REGISTRAR SAÍDA
-                        </button>
-                    </form>
-                <?php else: ?>
-                    <div class="bg-red-500/10 border border-red-500/30 p-4 rounded-xl text-red-400">
-                        <h4 class="font-bold mb-1">Acesso Encerrado</h4>
-                        <p class="text-xs">Volte amanhã.</p>
-                        <p class="text-sm mt-2">Tempo treino: <?= $tempoHoje ?></p>
-                    </div>
-                <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="modalConclusao" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="absolute inset-0" onclick="fecharModalConclusao()"></div>
+        <div class="relative z-10 w-full max-w-md mx-auto">
+            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-8 shadow-2xl text-center">
+                <div class="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow">
+                    <i data-lucide="trophy" class="w-10 h-10 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">Parabéns!</h3>
+                <p class="text-gray-400 mb-6">Você completou mais um treino. Continue assim!</p>
+                <div class="p-6 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-xl border border-green-500/30 mb-6">
+                    <p class="text-sm text-gray-500 mb-1">Tempo total de hoje:</p>
+                    <p id="tempoFinal" class="text-3xl font-mono text-white font-bold">00:00:00</p>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="acao_frequencia" value="saida">
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                        FINALIZAR TREINO
+                    </button>
+                    <p class="text-xs text-gray-500 mt-3">Ao confirmar, sua saída será registrada</p>
+                </form>
             </div>
         </div>
     </div>
@@ -1047,14 +1827,125 @@ $subTab = $_GET['sub'] ?? 'produtos';
         const treinosData = <?php echo json_encode($meusTreinos); ?>;
         const horaEntrada = "<?= $horaEntrada ?>";
         const statusFrequencia = "<?= $statusFrequencia ?>";
+        const alunoId = <?= $idAluno ?>;
+        const alunoNome = "<?= addslashes($nomeCompleto) ?>";
+        const alunoPlano = "<?= addslashes($planoAluno) ?>";
+        const fotoPerfilAtual = "<?= $dadosAluno['foto_perfil'] ?? '' ?>";
+        let tempoInterval;
+        let qrCodeInstance = null;
 
-        // Função para calcular tempo decorrido
+        // GERAR QR CODE DINÂMICO
+        function gerarQRCode() {
+            const qrCodeElement = document.getElementById('qrcode');
+            if (!qrCodeElement) return;
+
+            // Limpar QR code anterior se existir
+            qrCodeElement.innerHTML = '';
+
+            // Criar dados para o QR Code
+            const dadosQR = {
+                aluno_id: alunoId,
+                nome: alunoNome,
+                plano: alunoPlano,
+                data: new Date().toISOString(),
+                tipo: 'carteirinha_techfit',
+                acao: statusFrequencia === 'nao_entrou' ? 'entrada' : (statusFrequencia === 'treinando' ? 'saida' : 'consulta')
+            };
+
+            const dadosString = JSON.stringify(dadosQR);
+
+            // Tenta usar a biblioteca; se falhar, gera um QR "falso" (SVG) como fallback
+            try {
+                if (typeof QRCode !== 'undefined') {
+                    qrCodeInstance = new QRCode(qrCodeElement, {
+                        text: dadosString,
+                        width: 180,
+                        height: 180,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    return;
+                }
+                throw new Error('QRCode lib não disponível');
+            } catch (error) {
+                console.warn('Gerando QR falso (fallback):', error);
+                
+                // Função de hashing simples para determinismo
+                function hashString(str) {
+                    let h = 2166136261 >>> 0;
+                    for (let i = 0; i < str.length; i++) {
+                        h ^= str.charCodeAt(i);
+                        h = Math.imul(h, 16777619) >>> 0;
+                    }
+                    return h;
+                }
+
+                const seed = hashString(dadosString);
+                const size = 180;
+                const modules = 21;
+                const svg = [];
+                svg.push(`<svg width="${size}" height="${size}" viewBox="0 0 ${modules} ${modules}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code falso">`);
+                svg.push('<rect width="100%" height="100%" fill="#ffffff"/>');
+
+                // desenha padrões de posição (cantos) para parecer mais real
+                function drawFinder(x, y) {
+                    for (let yy = 0; yy < 7; yy++) {
+                        for (let xx = 0; xx < 7; xx++) {
+                            const outer = (xx === 0 || xx === 6 || yy === 0 || yy === 6);
+                            const inner = (xx >= 2 && xx <= 4 && yy >= 2 && yy <= 4);
+                            const fill = outer || inner ? '#000' : '#fff';
+                            svg.push(`<rect x="${x + xx}" y="${y + yy}" width="1" height="1" fill="${fill}"/>`);
+                        }
+                    }
+                }
+
+                drawFinder(0, 0);
+                drawFinder(modules - 7, 0);
+                drawFinder(0, modules - 7);
+
+                // Preenche o restante com um padrão pseudo-aleatório baseado na seed
+                for (let row = 0; row < modules; row++) {
+                    for (let col = 0; col < modules; col++) {
+                        // pula área dos finders
+                        if ((row < 7 && col < 7) || (row < 7 && col >= modules - 7) || (row >= modules - 7 && col < 7)) continue;
+
+                        const bit = ((seed >>> ((row * 5 + col) % 32)) ^ (row * 9176 + col * 3749)) & 1;
+                        if (bit) {
+                            svg.push(`<rect x="${col}" y="${row}" width="1" height="1" fill="#000"/>`);
+                        }
+                    }
+                }
+
+                svg.push('</svg>');
+
+                qrCodeElement.innerHTML = svg.join('');
+            }
+        }
+
+        // CORREÇÃO DO CRONÔMETRO - Função para calcular tempo decorrido corretamente
         function calcularTempoDecorrido() {
-            if (!horaEntrada || statusFrequencia !== 'treinando') return;
+            if (!horaEntrada || statusFrequencia !== 'treinando') {
+                if (tempoInterval) clearInterval(tempoInterval);
+                return;
+            }
             
             const entrada = new Date(horaEntrada);
             const agora = new Date();
+            
+            // Verificar se a data/hora da entrada é válida
+            if (isNaN(entrada.getTime())) {
+                console.error("Hora de entrada inválida:", horaEntrada);
+                return;
+            }
+            
             const diffMs = agora - entrada;
+            
+            // Se diffMs for negativo, ajustar
+            if (diffMs < 0) {
+                console.warn("Tempo negativo detectado, ajustando...");
+                return;
+            }
             
             const horas = Math.floor(diffMs / (1000 * 60 * 60));
             const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -1064,12 +1955,16 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             // Atualizar em todos os lugares
             const tempoTreino = document.getElementById('tempoTreino');
-            const tempoDecorrido = document.getElementById('tempoDecorrido');
+            const tempoDecorridoDash = document.getElementById('tempoDecorridoDash');
             const tempoCarteirinha = document.getElementById('tempoCarteirinha');
+            const tempoFinal = document.getElementById('tempoFinal');
             
             if (tempoTreino) tempoTreino.textContent = tempoFormatado;
-            if (tempoDecorrido) tempoDecorrido.textContent = tempoFormatado;
+            if (tempoDecorridoDash) tempoDecorridoDash.textContent = tempoFormatado;
             if (tempoCarteirinha) tempoCarteirinha.textContent = tempoFormatado;
+            if (tempoFinal) tempoFinal.textContent = tempoFormatado;
+            
+            return tempoFormatado;
         }
 
         // Função para recriar ícones
@@ -1085,6 +1980,205 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     console.log("Recriando ícones...");
                 }
             }, 50);
+        }
+
+        // FUNÇÕES PARA O SISTEMA DE FOTO DE PERFIL
+        function abrirModalFoto() {
+            const modal = document.getElementById('modalFoto');
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-fixed');
+            recriarIcones();
+        }
+        
+        function fecharModalFoto() {
+            const modal = document.getElementById('modalFoto');
+            modal.classList.remove('modal-fixed');
+            modal.classList.add('modal-hidden');
+            // Resetar preview
+            const preview = document.getElementById('fotoPreview');
+            const placeholder = document.getElementById('placeholderIcon');
+            const btnEnviar = document.getElementById('btnEnviarFoto');
+            const erroUpload = document.getElementById('erroUpload');
+            
+            // Restaurar foto atual
+            if (fotoPerfilAtual) {
+                preview.src = '../' + fotoPerfilAtual + '?t=' + Date.now();
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+            
+            btnEnviar.disabled = true;
+            erroUpload.classList.add('hidden');
+            document.getElementById('fotoInput').value = '';
+        }
+        
+        function previewImagem(input) {
+            const preview = document.getElementById('fotoPreview');
+            const placeholder = document.getElementById('placeholderIcon');
+            const btnEnviar = document.getElementById('btnEnviarFoto');
+            const erroUpload = document.getElementById('erroUpload');
+            const progressBar = document.getElementById('progressBar');
+            const uploadProgress = document.querySelector('.upload-progress');
+            
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // Validações
+                const tiposPermitidos = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                const tamanhoMaximo = 5 * 1024 * 1024; // 5MB
+                
+                erroUpload.textContent = '';
+                erroUpload.classList.add('hidden');
+                
+                // Verificar tipo
+                if (!tiposPermitidos.includes(file.type)) {
+                    erroUpload.textContent = 'Formato não suportado. Use JPG, PNG, GIF ou WEBP.';
+                    erroUpload.classList.remove('hidden');
+                    btnEnviar.disabled = true;
+                    return;
+                }
+                
+                // Verificar tamanho
+                if (file.size > tamanhoMaximo) {
+                    erroUpload.textContent = 'Arquivo muito grande. Máximo: 5MB';
+                    erroUpload.classList.remove('hidden');
+                    btnEnviar.disabled = true;
+                    return;
+                }
+                
+                // Simular progresso de upload
+                uploadProgress.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        uploadProgress.classList.add('hidden');
+                    }
+                }, 50);
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                    btnEnviar.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Restaurar foto atual
+                if (fotoPerfilAtual) {
+                    preview.src = '../' + fotoPerfilAtual + '?t=' + Date.now();
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                } else {
+                    preview.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                }
+                btnEnviar.disabled = true;
+            }
+        }
+
+        // VALIDAÇÃO DO FORMULÁRIO DE PERFIL
+        function validarNome(input) {
+            const valor = input.value.trim();
+            const nomeErro = document.getElementById('nomeErro');
+            
+            // Verifica se não está vazio e se tem pelo menos 2 caracteres que não sejam espaços
+            if (valor.length < 2 || /^\s*$/.test(valor)) {
+                nomeErro.classList.remove('hidden');
+                input.classList.add('border-red-500');
+                return false;
+            } else {
+                nomeErro.classList.add('hidden');
+                input.classList.remove('border-red-500');
+                return true;
+            }
+        }
+
+        function mascaraTelefone(input) {
+            let v = input.value.replace(/\D/g,"");
+            v = v.substring(0, 11);
+            if (v.length > 10) {
+                v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+            } else if (v.length > 6) {
+                v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+            } else if (v.length > 2) {
+                v = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+            } else if (v.length > 0) {
+                v = v.replace(/^(\d*)/, "($1");
+            }
+            input.value = v;
+        }
+
+        function validarSenha(input) {
+            const valor = input.value;
+            const requisitosDiv = document.getElementById('requisitosSenha');
+            const btnSalvar = document.getElementById('btnSalvarPerfil');
+            
+            if (valor.length > 0) {
+                requisitosDiv.classList.remove('hidden');
+                
+                // Verificar cada requisito
+                const temLength = valor.length >= 8;
+                const temLetter = /[A-Za-z]/.test(valor);
+                const temNumber = /\d/.test(valor);
+                const temSymbol = /[@$!%*#?&]/.test(valor);
+                
+                // Atualizar ícones
+                document.getElementById('reqLength').querySelector('i').className = `w-3 h-3 ${temLength ? 'text-green-500' : 'text-red-400'}`;
+                document.getElementById('reqLetter').querySelector('i').className = `w-3 h-3 ${temLetter ? 'text-green-500' : 'text-red-400'}`;
+                document.getElementById('reqNumber').querySelector('i').className = `w-3 h-3 ${temNumber ? 'text-green-500' : 'text-red-400'}`;
+                document.getElementById('reqSymbol').querySelector('i').className = `w-3 h-3 ${temSymbol ? 'text-green-500' : 'text-red-400'}`;
+                
+                const senhaValida = temLength && temLetter && temNumber && temSymbol;
+                
+                if (senhaValida) {
+                    input.classList.remove('border-red-500');
+                    input.classList.add('border-green-500');
+                    btnSalvar.disabled = false;
+                    btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    input.classList.remove('border-green-500');
+                    input.classList.add('border-red-500');
+                    btnSalvar.disabled = true;
+                    btnSalvar.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                
+                return senhaValida;
+            } else {
+                requisitosDiv.classList.add('hidden');
+                input.classList.remove('border-red-500', 'border-green-500');
+                btnSalvar.disabled = false;
+                btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
+                return true; // Senha vazia é permitida (opcional)
+            }
+        }
+
+        function validarFormPerfil() {
+            const nomeValido = validarNome(document.getElementById('nomeInput'));
+            const senhaValida = validarSenha(document.getElementById('novaSenhaInput'));
+            
+            // Se senha foi preenchida, deve ser válida
+            const senhaInput = document.getElementById('novaSenhaInput');
+            if (senhaInput.value.length > 0 && !senhaValida) {
+                exibirToast("A senha não atende aos requisitos!", "erro");
+                return false;
+            }
+            
+            if (!nomeValido) {
+                exibirToast("Por favor, corrija o nome antes de salvar.", "erro");
+                return false;
+            }
+            
+            return true;
         }
 
         // Função para alternar entre abas principais
@@ -1188,7 +2282,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             ['A','B','C'].forEach(l => { 
                 const btn = document.getElementById(`btn-${l}`); 
                 if (l === letra) {
-                    btn.className = 'pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all whitespace-nowrap px-4'; 
+                    btn.className = 'pb-3 text-sm font-bold text-tech-primary border-b-2 border-tech-primary transition-all whitespace-nowrap px-4 hover:text-orange-400'; 
                 } else {
                     btn.className = 'pb-3 text-sm font-bold text-gray-400 hover:text-white transition-all whitespace-nowrap px-4'; 
                 }
@@ -1203,16 +2297,19 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             if (!exercicios || exercicios.length === 0) { 
                 lista.innerHTML = `
-                    <div class="text-center py-12 opacity-50">
-                        <i data-lucide="coffee" class="w-16 h-16 mx-auto text-gray-500 mb-4"></i>
-                        <p class="text-gray-400">Descanso (Sem treino)</p>
+                    <div class="text-center py-12 opacity-50 animate-fade-in">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                            <i data-lucide="coffee" class="w-10 h-10 text-gray-500"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-400 mb-2">Dia de Descanso</h3>
+                        <p class="text-gray-500">Aproveite para recuperar as energias!</p>
                     </div>
                 `; 
             } else {
                 // Adicionar cada exercício
                 exercicios.forEach((ex, i) => {
                     const html = `
-                        <div class="card flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-tech-primary/30 transition-all">
+                        <div class="card flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-tech-primary/30 transition-all animate-fade-in" style="animation-delay: ${i * 50}ms">
                             <div class="flex items-center gap-4">
                                 <label class="relative flex items-center cursor-pointer">
                                     <input type="checkbox" class="peer sr-only check-custom" onchange="toggleExercicio(this)">
@@ -1229,7 +2326,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                     </div>
                                 </div>
                             </div>
-                            <button onclick="iniciarDescanso(this)" class="btn-descanso bg-[#0f172a] border border-white/10 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all w-full md:w-auto">
+                            <button onclick="iniciarDescanso(this)" class="btn-descanso bg-[#0f172a] border border-white/10 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all w-full md:w-auto hover:border-tech-primary/50">
                                 <i data-lucide="timer" class="w-4 h-4"></i> 
                                 <span class="timer-text">60s</span>
                             </button>
@@ -1243,16 +2340,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             recriarIcones();
         }
 
-        // Função para marcar/desmarcar exercício
-        function toggleExercicio(checkbox) { 
-            const exercicioDiv = checkbox.closest('.card');
-            if (exercicioDiv) {
-                exercicioDiv.classList.toggle('opacity-50'); 
-                exercicioDiv.classList.toggle('grayscale'); 
-            }
-        }
-        
-        // Sistema de timer
+        // Sistema de timer para descanso
         let timers = new Map();
 
         function iniciarDescanso(btn) {
@@ -1296,104 +2384,16 @@ $subTab = $_GET['sub'] ?? 'produtos';
             timers.set(btn, interval);
         }
 
-        // --- FUNÇÕES DO CARRINHO ---
-        function abrirModalAdicionar(produtoId, produtoNome, estoque) {
-            document.getElementById('modalProdutoId').value = produtoId;
-            document.getElementById('modalProdutoNome').innerText = produtoNome;
-            document.getElementById('modalQuantidade').value = 1;
-            document.getElementById('modalQuantidade').max = Math.min(estoque, 10);
-            document.getElementById('modalEstoqueInfo').innerText = estoque + " unidades disponíveis";
-            document.getElementById('modalAdicionar').classList.remove('hidden');
-            recriarIcones();
-        }
-        
-        function alterarQuantidadeModal(valor) {
-            const input = document.getElementById('modalQuantidade');
-            const novoValor = parseInt(input.value) + valor;
-            const max = parseInt(input.max);
-            const min = parseInt(input.min);
-            
-            if (novoValor >= min && novoValor <= max) {
-                input.value = novoValor;
-            }
-        }
-        
-        function abrirModalPagamento(total) {
-            document.getElementById('modalTotalValor').innerText = "R$ " + total.toFixed(2).replace('.', ',');
-            document.getElementById('modalPagamento').classList.remove('hidden');
-            recriarIcones();
-        }
-        
-        function atualizarQuantidade(btn, valor) {
-            const form = btn.closest('form');
-            const input = form.querySelector('input[name="quantidade"]');
-            const novoValor = parseInt(input.value) + valor;
-            const max = parseInt(input.max);
-            const min = parseInt(input.min);
-            
-            if (novoValor >= min && novoValor <= max) {
-                input.value = novoValor;
-                form.submit();
+        // Função para marcar/desmarcar exercício
+        function toggleExercicio(checkbox) { 
+            const exercicioDiv = checkbox.closest('.card');
+            if (exercicioDiv) {
+                exercicioDiv.classList.toggle('opacity-50'); 
+                exercicioDiv.classList.toggle('grayscale'); 
             }
         }
 
-        // --- VALIDAÇÃO DO PERFIL ---
-        function mascaraTelefone(input) {
-            let v = input.value.replace(/\D/g,"");
-            v = v.replace(/^(\d{2})(\d)/g,"($1) $2");
-            v = v.replace(/(\d)(\d{4})$/,"$1-$2");
-            input.value = v;
-        }
-
-        // Configurar validação de senha
-        document.addEventListener('DOMContentLoaded', function() {
-            const senhaInput = document.getElementById('novaSenhaInput');
-            const btnSalvar = document.getElementById('btnSalvarPerfil');
-            const msgSenha = document.getElementById('msgSenha');
-
-            if(senhaInput && btnSalvar && msgSenha) {
-                senhaInput.addEventListener('input', function() {
-                    const s = this.value;
-                    if(s.length > 0) {
-                        const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(s);
-                        if(!forte) {
-                            msgSenha.classList.remove('hidden');
-                            this.classList.add('border-red-500');
-                            btnSalvar.disabled = true;
-                            btnSalvar.classList.add('opacity-50', 'cursor-not-allowed');
-                        } else {
-                            msgSenha.classList.add('hidden');
-                            this.classList.remove('border-red-500');
-                            this.classList.add('border-green-500');
-                            btnSalvar.disabled = false;
-                            btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
-                        }
-                    } else {
-                        msgSenha.classList.add('hidden');
-                        this.classList.remove('border-red-500', 'border-green-500');
-                        btnSalvar.disabled = false;
-                        btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                });
-            }
-        });
-
-        // Funções dos modais
-        function abrirModalConclusao() { 
-            document.getElementById('modalConclusao').classList.remove('hidden'); 
-            recriarIcones();
-        }
-        
-        function abrirCarteirinha() { 
-            document.getElementById('modalCarteirinha').classList.remove('hidden'); 
-            recriarIcones();
-            // Atualizar tempo se estiver treinando
-            if (statusFrequencia === 'treinando') {
-                calcularTempoDecorrido();
-            }
-        }
-        
-        // Função para recolher/expandir sidebar
+        // Função para recolher/expandir sidebar CORRIGIDA
         function toggleSidebar() { 
             const sb = document.getElementById('sidebar');
             const icon = document.getElementById('toggleIcon');
@@ -1408,6 +2408,43 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 icon.setAttribute('data-lucide', 'chevron-left'); 
             } 
             recriarIcones(); 
+        }
+
+        // Funções dos modais
+        function abrirModalConclusao() { 
+            document.getElementById('modalConclusao').classList.remove('hidden'); 
+            recriarIcones();
+            // Atualizar tempo no modal
+            if (statusFrequencia === 'treinando') {
+                calcularTempoDecorrido();
+            }
+        }
+        
+        function abrirCarteirinha() { 
+            const modal = document.getElementById('modalCarteirinha');
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-fixed');
+            recriarIcones();
+            
+            // Gerar QR Code quando o modal for aberto
+            setTimeout(() => {
+                gerarQRCode();
+            }, 100);
+            
+            // Atualizar tempo se estiver treinando
+            if (statusFrequencia === 'treinando') {
+                calcularTempoDecorrido();
+            }
+        }
+        
+        function fecharCarteirinha() {
+            const modal = document.getElementById('modalCarteirinha');
+            modal.classList.remove('modal-fixed');
+            modal.classList.add('modal-hidden');
+            // Remover parâmetro da URL
+            const url = new URL(window.location);
+            url.searchParams.delete('open_qr');
+            window.history.pushState({}, '', url);
         }
         
         // Função para exibir mensagens toast
@@ -1435,6 +2472,9 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 switchSubTabLoja(subTab);
             }
             
+            // Inicializar validação do nome
+            validarNome(document.getElementById('nomeInput'));
+            
             // Inicializar treino A (se necessário)
             if (tab === 'treinos' && statusFrequencia === 'treinando') {
                 setTimeout(() => mudarFicha('A'), 200);
@@ -1442,9 +2482,18 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             // Iniciar contador de tempo se estiver treinando
             if (statusFrequencia === 'treinando') {
+                // Iniciar imediatamente
                 calcularTempoDecorrido();
-                setInterval(calcularTempoDecorrido, 1000);
+                // Atualizar a cada segundo
+                tempoInterval = setInterval(calcularTempoDecorrido, 1000);
             }
+            
+            // Gerar QR Code inicial se modal estiver aberto
+            <?php if ($abrirQR): ?>
+                setTimeout(() => {
+                    gerarQRCode();
+                }, 300);
+            <?php endif; ?>
             
             // Recriar ícones após carregar
             setTimeout(() => {
@@ -1458,11 +2507,39 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 }, 500);
             <?php endif; ?>
             
+            // Abrir carteirinha se necessário
             <?php if ($abrirQR): ?>
                 setTimeout(() => {
                     abrirCarteirinha();
                 }, 600);
             <?php endif; ?>
+            
+            // Configurar drag and drop para upload de foto
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) {
+                previewContainer.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    previewContainer.classList.add('border-tech-primary', 'bg-gray-700/50');
+                });
+                
+                previewContainer.addEventListener('dragleave', () => {
+                    previewContainer.classList.remove('border-tech-primary', 'bg-gray-700/50');
+                });
+                
+                previewContainer.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    previewContainer.classList.remove('border-tech-primary', 'bg-gray-700/50');
+                    
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        const input = document.getElementById('fotoInput');
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        input.files = dataTransfer.files;
+                        previewImagem(input);
+                    }
+                });
+            }
         });
     </script>
 </body>

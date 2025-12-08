@@ -9,7 +9,7 @@ class Connection {
                 $host = 'localhost';
                 $dbname = 'techfit_ofc';
                 $user = 'root';
-                $pass = 'senaisp'; // Sua senha
+                $pass = '1234'; // Sua senha
 
                 // 1. Conecta ao MySQL sem especificar o banco (para poder criar se não existir)
                 $pdo = new PDO("mysql:host=$host;charset=utf8", $user, $pass);
