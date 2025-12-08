@@ -87,8 +87,11 @@ class AlunoDAO {
 
     // --- ADMINISTRAÇÃO ---
     public function contarTotal() { return $this->conn->query("SELECT COUNT(*) FROM alunos")->fetchColumn(); }
-    public function contarPorStatus($status) { $stmt = $this->conn->prepare("SELECT COUNT(*) FROM alunos WHERE status = :status"); $stmt->execute([':status' => $status]); return $stmt->fetchColumn(); }
-    
+public function contarPorStatus($status) { 
+    $stmt = $this->conn->prepare("SELECT COUNT(*) FROM alunos WHERE status = :status"); 
+    $stmt->execute([':status' => $status]); 
+    return $stmt->fetchColumn(); 
+}    
     public function buscarRecentes($limite = 10) {
         $stmt = $this->conn->prepare("SELECT * FROM alunos ORDER BY id DESC LIMIT :limite");
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
@@ -117,10 +120,12 @@ class AlunoDAO {
         return $stmt->execute($params);
     }
 
-    public function excluirAluno($id) {
-        $stmt = $this->conn->prepare("DELETE FROM alunos WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
-    }
+  // Adicione esta função à classe AlunoDAO:
+
+public function excluirAluno($id) {
+    $stmt = $this->conn->prepare("DELETE FROM alunos WHERE id = :id");
+    return $stmt->execute([':id' => $id]);
+}
 
     // --- ÁREA DO ALUNO (FREQUÊNCIA, HORÁRIOS E PERFIL) ---
 
@@ -185,4 +190,6 @@ class AlunoDAO {
         $stmt = $this->conn->prepare($sql);
         return $stmt->execute($params);
     }
+
+    
 }

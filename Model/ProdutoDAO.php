@@ -62,4 +62,33 @@ class ProdutoDAO {
         $valor = $this->conn->query("SELECT SUM(preco * estoque) FROM produtos")->fetchColumn();
         return ['qtd' => $qtd, 'valor' => $valor ?: 0];
     }
+
+    // Adicione estas funções à classe ProdutoDAO:
+
+public function buscarPorId($id) {
+    $stmt = $this->conn->prepare("SELECT * FROM produtos WHERE id = :id");
+    $stmt->execute([':id' => $id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+public function atualizarEstoque($id, $novoEstoque) {
+    $stmt = $this->conn->prepare("UPDATE produtos SET estoque = :estoque WHERE id = :id");
+    return $stmt->execute([':estoque' => $novoEstoque, ':id' => $id]);
+}
+
+public function atualizar($id, $nome, $preco, $estoque, $categoria, $descricao) {
+    $stmt = $this->conn->prepare("
+        UPDATE produtos 
+        SET nome = :n, preco = :p, estoque = :e, categoria = :c, descricao = :d 
+        WHERE id = :id
+    ");
+    return $stmt->execute([
+        ':n' => $nome, 
+        ':p' => $preco, 
+        ':e' => $estoque, 
+        ':c' => $categoria, 
+        ':d' => $descricao,
+        ':id' => $id
+    ]);
+}
 }
