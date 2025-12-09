@@ -55,8 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }}
 ?>
 <!DOCTYPE html>
-<html lang="pt-br" class="scroll-smooth"></html>
-<!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -499,7 +497,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2 class="text-3xl md:text-4xl font-bold mb-2">TechFit Store</h2>
                     <p class="text-tech-muted">Suplementos e equipamentos oficiais.</p>
                 </div>
-                <a href="#" class="hidden md:flex items-center gap-2 text-tech-primary hover:text-white transition-colors group">
+                <a href="techstore.php" class="hidden md:flex items-center gap-2 text-tech-primary hover:text-white transition-colors group">
                     Ver todos os produtos <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
                 </a>
             </div>
@@ -519,6 +517,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i data-lucide="plus" class="w-5 h-5"></i>
                         </button>
                     </div>
+                    <!-- Botão Ver Detalhes -->
+                    <a href="techstore.php" class="mt-4 block w-full text-center bg-tech-700 hover:bg-tech-600 text-white py-2 rounded-lg transition-all">
+                        Ver Detalhes
+                    </a>
                 </div>
 
                 <!-- Produto 2 -->
@@ -534,6 +536,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i data-lucide="plus" class="w-5 h-5"></i>
                         </button>
                     </div>
+                    <!-- Botão Ver Detalhes -->
+                    <a href="techstore.php" class="mt-4 block w-full text-center bg-tech-700 hover:bg-tech-600 text-white py-2 rounded-lg transition-all">
+                        Ver Detalhes
+                    </a>
                 </div>
 
                  <!-- Produto 3 -->
@@ -549,6 +555,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i data-lucide="plus" class="w-5 h-5"></i>
                         </button>
                     </div>
+                    <!-- Botão Ver Detalhes -->
+                    <a href="techstore.php" class="mt-4 block w-full text-center bg-tech-700 hover:bg-tech-600 text-white py-2 rounded-lg transition-all">
+                        Ver Detalhes
+                    </a>
                 </div>
 
                  <!-- Produto 4 -->
@@ -564,11 +574,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i data-lucide="plus" class="w-5 h-5"></i>
                         </button>
                     </div>
+                    <!-- Botão Ver Detalhes -->
+                    <a href="techstore.php" class="mt-4 block w-full text-center bg-tech-700 hover:bg-tech-600 text-white py-2 rounded-lg transition-all">
+                        Ver Detalhes
+                    </a>
                 </div>
             </div>
             
             <div class="mt-12 text-center md:hidden">
-                 <a href="#" class="inline-flex items-center gap-2 text-tech-primary hover:text-white transition-colors">
+                 <a href="loja.php" class="inline-flex items-center gap-2 text-tech-primary hover:text-white transition-colors">
                     Ver todos os produtos <i data-lucide="arrow-right" class="w-4 h-4"></i>
                 </a>
             </div>
@@ -600,7 +614,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="flex items-center gap-3"><i data-lucide="check" class="w-5 h-5 text-green-500"></i> Sem fidelidade</li>
                         <li class="flex items-center gap-3 text-gray-600"><i data-lucide="x" class="w-5 h-5"></i> Aulas coletivas</li>
                     </ul>
-                    <a href="#" class="block text-center w-full py-3 border border-tech-700 hover:border-tech-primary text-gray-300 hover:text-white rounded-lg font-bold transition-all hover:bg-tech-800">Começar Básico</a>
+                    <a href="areacliente.php" class="block text-center w-full py-3 border border-tech-700 hover:border-tech-primary text-gray-300 hover:text-white rounded-lg font-bold transition-all hover:bg-tech-800">Começar Básico</a>
                 </div>
 
                 <!-- Pro (Destaque) -->
@@ -620,7 +634,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="flex items-center gap-3"><div class="p-1 bg-tech-primary rounded-full"><i data-lucide="check" class="w-3 h-3 text-white"></i></div> Levar 1 amigo por mês</li>
                         <li class="flex items-center gap-3"><div class="p-1 bg-tech-primary rounded-full"><i data-lucide="check" class="w-3 h-3 text-white"></i></div> Acesso Multi-unidades</li>
                     </ul>
-                    <a href="#" class="block text-center w-full py-4 bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white rounded-lg font-bold transition-all shadow-lg hover:shadow-orange-500/50 transform hover:-translate-y-1">Quero Ser Pro</a>
+                    <a href="areacliente.php" class="block text-center w-full py-4 bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white rounded-lg font-bold transition-all shadow-lg hover:shadow-orange-500/50 transform hover:-translate-y-1">Quero Ser Pro</a>
                 </div>
 
                 <!-- Vip -->
@@ -636,7 +650,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="flex items-center gap-3"><i data-lucide="check" class="w-5 h-5 text-green-500"></i> Nutricionista Online</li>
                         <li class="flex items-center gap-3"><i data-lucide="check" class="w-5 h-5 text-green-500"></i> Kit TechFit Exclusivo</li>
                     </ul>
-                    <a href="#" class="block text-center w-full py-3 border border-tech-700 hover:border-tech-primary text-gray-300 hover:text-white rounded-lg font-bold transition-all hover:bg-tech-800">Ser VIP</a>
+                    <a href="areacliente.php" class="block text-center w-full py-3 border border-tech-700 hover:border-tech-primary text-gray-300 hover:text-white rounded-lg font-bold transition-all hover:bg-tech-800">Ser VIP</a>
                 </div>
             </div>
         </div>

@@ -280,6 +280,7 @@ if (isset($_GET['msg'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="icon" href="icons/halter.png">
     <title>Painel TechFit</title>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -303,6 +304,34 @@ if (isset($_GET['msg'])) {
         }
     </script>
     <style>
+        /* REMOVER BARRAS DE ROLAGEM VISUAIS */
+        ::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+            background: transparent;
+        }
+        
+        /* Para Firefox */
+        * {
+            scrollbar-width: none;
+        }
+        
+        /* Para Internet Explorer e Edge */
+        * {
+            -ms-overflow-style: none;
+        }
+        
+        /* Garantir que elementos com overflow não mostrem barras */
+        .no-scrollbar::-webkit-scrollbar {
+            width: 0px !important;
+            height: 0px !important;
+        }
+        
+        .no-scrollbar {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+        
         * {
             box-sizing: border-box;
         }
@@ -379,6 +408,12 @@ if (isset($_GET['msg'])) {
             flex: 1;
             overflow-y: auto;
             padding: 1.5rem;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE e Edge */
+        }
+        
+        .page-content::-webkit-scrollbar {
+            display: none; /* Chrome, Safari e Opera */
         }
         
         /* Sidebar styles */
@@ -585,7 +620,7 @@ if (isset($_GET['msg'])) {
         .requirement-icon {
             width: 0.75rem;
             height: 0.75rem;
-        }
+        }  
     </style>
 </head>
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">

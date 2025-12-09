@@ -27,33 +27,9 @@ if (!isset($_SESSION['carrinho'])) {
     $_SESSION['carrinho'] = [];
 }
 
-// --- PROCESSAMENTO: EDITAR PERFIL E ÍCONE ---
+// --- PROCESSAMENTO: EDITAR PERFIL ---
 $msgCliente = '';
 $tipoMsg = '';
-
-// Lista de ícones disponíveis para perfil
-$iconesDisponiveis = [
-    'user' => ['nome' => 'Usuário', 'cor' => '#3b82f6'],
-    'user-circle' => ['nome' => 'Círculo', 'cor' => '#8b5cf6'],
-    'user-square' => ['nome' => 'Quadrado', 'cor' => '#10b981'],
-    'user-check' => ['nome' => 'Verificado', 'cor' => '#059669'],
-    'user-cog' => ['nome' => 'Configuração', 'cor' => '#6366f1'],
-    'user-plus' => ['nome' => 'Adicionar', 'cor' => '#ec4899'],
-    'crown' => ['nome' => 'Rei', 'cor' => '#f59e0b'],
-    'star' => ['nome' => 'Estrela', 'cor' => '#fbbf24'],
-    'award' => ['nome' => 'Prêmio', 'cor' => '#ef4444'],
-    'trophy' => ['nome' => 'Troféu', 'cor' => '#d97706'],
-    'shield' => ['nome' => 'Escudo', 'cor' => '#0ea5e9'],
-    'heart' => ['nome' => 'Coração', 'cor' => '#dc2626'],
-    'target' => ['nome' => 'Alvo', 'cor' => '#7c3aed'],
-    'zap' => ['nome' => 'Raio', 'cor' => '#eab308'],
-    'flame' => ['nome' => 'Fogo', 'cor' => '#ea580c'],
-    'dumbbell' => ['nome' => 'Haltere', 'cor' => '#06b6d4'],
-    'activity' => ['nome' => 'Atividade', 'cor' => '#22c55e'],
-    'brain' => ['nome' => 'Cérebro', 'cor' => '#8b5cf6'],
-    'mountain' => ['nome' => 'Montanha', 'cor' => '#0d9488'],
-    'rocket' => ['nome' => 'Foguete', 'cor' => '#db2777']
-];
 
 // Processar POSTs
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
@@ -61,7 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         // Remove espaços extras do nome
         $nome = trim($_POST['nome']);
         $novaSenha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
-        $iconePerfil = $_POST['icone_perfil'] ?? 'user';
         
         if (empty($nome)) {
             $msgCliente = "O nome não pode estar vazio!";
@@ -70,9 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
             $msgCliente = "A senha deve ser forte (Letras, números e símbolo)!";
             $tipoMsg = 'erro';
         } else {
-            if ($daoAluno->atualizarPerfilAluno($idAluno, $nome, $_POST['email'], $_POST['telefone'], $novaSenha, $iconePerfil)) {
+            if ($daoAluno->atualizarPerfilAluno($idAluno, $nome, $_POST['email'], $_POST['telefone'], $novaSenha)) {
                 $_SESSION['usuario_nome'] = $nome;
-                $_SESSION['usuario_icone'] = $iconePerfil;
                 header("Location: paginacliente.php?tab=perfil&msg=perfil_ok");
                 exit;
             } else {
@@ -189,22 +163,17 @@ $nomeCompleto = $dadosAluno['nome'];
 $primeiroNome = explode(' ', $nomeCompleto)[0];
 $planoAluno = $dadosAluno['plano'];
 
-// Ícone de perfil
-$iconePerfil = $dadosAluno['icone_perfil'] ?? 'user';
-$corIcone = $iconesDisponiveis[$iconePerfil]['cor'] ?? '#ea580c';
-
-// Gerar SVG do ícone
-$iniciais = '';
+// Gerar iniciais do nome para avatar
 $nomes = explode(' ', $nomeCompleto);
 if (count($nomes) > 0) {
+    $iniciais = '';
     $iniciais .= strtoupper(substr($nomes[0], 0, 1));
     if (count($nomes) > 1) {
         $iniciais .= strtoupper(substr($nomes[1], 0, 1));
     }
+} else {
+    $iniciais = 'U';
 }
-
-// URL do ícone
-$urlIcone = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="50" fill="' . $corIcone . '"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">' . $iniciais . '</text></svg>';
 
 // --- DADOS DA LOJA ---
 $listaProdutos = $produtoDao->listar();
@@ -577,6 +546,19 @@ $subTab = $_GET['sub'] ?? 'produtos';
             box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
         }
         
+        /* Avatar com iniciais - CORRIGIDO */
+        .avatar-iniciais {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            overflow: hidden;
+            line-height: 1;
+        }
+        
         /* Responsive fixes */
         @media (max-width: 768px) {
             .page-content {
@@ -794,68 +776,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
             100% { top: 0; }
         }
         
-        /* Ícone de perfil styles */
-        .icone-perfil-container {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .icone-perfil {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-        }
-        
-        .icone-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .icone-perfil-container:hover .icone-overlay {
-            opacity: 1;
-        }
-        
-        /* Estilos para a seleção de ícones */
-        .icone-option {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 3px solid transparent;
-        }
-        
-        .icone-option:hover {
-            transform: scale(1.1);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-        
-        .icone-option.selecionado {
-            border-color: #ea580c;
-            box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.3);
-            transform: scale(1.05);
-        }
-        
-        .icone-option i {
-            width: 32px;
-            height: 32px;
-        }
-        
         /* Animação suave para o carrinho */
         .quantidade-input {
             transition: all 0.2s ease;
@@ -923,7 +843,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
 
             <!-- Main Content -->
             <main class="flex-1 flex flex-col h-full overflow-hidden relative bg-[#0b1120]">
-                <!-- Header ATUALIZADO COM ÍCONE DE PERFIL -->
+                <!-- Header CORRIGIDO (avatar alinhado) -->
                 <header class="h-20 bg-[#111827]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 md:px-8 z-10 flex-shrink-0">
                     <div>
                         <h2 id="pageTitle" class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-gray-400 animate-fade-in">Olá, <?= htmlspecialchars($primeiroNome) ?></h2>
@@ -934,16 +854,8 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <p class="text-sm font-bold text-white"><?= htmlspecialchars($nomeCompleto) ?></p>
                             <span class="text-[10px] uppercase font-bold tracking-wider bg-tech-primary/20 text-tech-primary px-2 py-0.5 rounded-full border border-tech-primary/30"><?= htmlspecialchars($planoAluno) ?></span>
                         </div>
-                        <div class="icone-perfil-container w-10 h-10 cursor-pointer" onclick="abrirModalIcone()">
-                            <div class="w-full h-full rounded-full overflow-hidden border-2 border-tech-primary/30 hover:border-tech-primary transition-all duration-300 bg-gradient-to-br <?= $corIcone ?>">
-                                <div class="w-full h-full flex items-center justify-center text-white font-bold">
-                                    <?= $iniciais ?>
-                                </div>
-                            </div>
-                            <div class="icone-overlay">
-                                <i data-lucide="edit-2" class="w-4 h-4 text-white mb-1"></i>
-                                <span class="text-xs text-white">Alterar</span>
-                            </div>
+                        <div class="avatar-iniciais w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 border-2 border-white/30 hover:border-tech-primary transition-all duration-300 cursor-pointer flex items-center justify-center text-white font-bold text-sm" onclick="abrirCarteirinha()">
+                            <?= htmlspecialchars($iniciais) ?>
                         </div>
                         <div onclick="abrirCarteirinha()" class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center shadow-lg cursor-pointer hover:border-tech-primary hover:scale-105 transition-all duration-300">
                             <i data-lucide="qr-code" class="w-5 h-5 text-white"></i>
@@ -965,13 +877,8 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                         </h1>
                                         <p class="text-gray-300">Continue evoluindo. Cada treino conta!</p>
                                     </div>
-                                    <div class="icone-perfil-container w-16 h-16 rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 bg-gradient-to-br <?= $corIcone ?>" onclick="abrirModalIcone()">
-                                        <div class="w-full h-full flex items-center justify-center text-white font-bold text-2xl">
-                                            <?= $iniciais ?>
-                                        </div>
-                                        <div class="icone-overlay">
-                                            <i data-lucide="edit-2" class="w-6 h-6 text-white"></i>
-                                        </div>
+                                    <div class="avatar-iniciais w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 cursor-pointer flex items-center justify-center text-white font-bold text-2xl" onclick="abrirCarteirinha()">
+                                        <?= htmlspecialchars($iniciais) ?>
                                     </div>
                                 </div>
                                 
@@ -1431,28 +1338,22 @@ $subTab = $_GET['sub'] ?? 'produtos';
                         </div>
                     </div>
 
-                    <!-- Perfil ATUALIZADO COM SEÇÃO DE ÍCONE -->
+                    <!-- Perfil SIMPLIFICADO (sem ícones) -->
                     <div id="tab-perfil" class="tab-content hidden fade-in">
                         <div class="max-w-4xl mx-auto">
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <!-- Coluna do Ícone -->
+                                <!-- Coluna do Avatar -->
                                 <div class="lg:col-span-1">
                                     <div class="card">
                                         <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                            <i data-lucide="smile" class="w-6 h-6 text-tech-primary"></i> Ícone de Perfil
+                                            <i data-lucide="user" class="w-6 h-6 text-tech-primary"></i> Seu Avatar
                                         </h3>
                                         <div class="text-center mb-6">
-                                            <div class="icone-perfil-container w-48 h-48 mx-auto rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 cursor-pointer" onclick="abrirModalIcone()" style="background: linear-gradient(135deg, <?= $corIcone ?> 0%, <?= $corIcone ?>99 100%)">
-                                                <div class="w-full h-full flex items-center justify-center text-white font-bold text-5xl">
-                                                    <?= $iniciais ?>
-                                                </div>
-                                                <div class="icone-overlay">
-                                                    <i data-lucide="edit-2" class="w-10 h-10 text-white mb-2"></i>
-                                                    <span class="text-sm text-white font-bold">Alterar Ícone</span>
-                                                </div>
+                                            <div class="avatar-iniciais w-48 h-48 bg-gradient-to-br from-orange-500 to-red-600 border-4 border-tech-primary/30 shadow-lg mx-auto flex items-center justify-center text-white font-bold text-6xl">
+                                                <?= htmlspecialchars($iniciais) ?>
                                             </div>
-                                            <p class="text-gray-400 text-sm mt-4">Clique no ícone para alterar</p>
-                                            <p class="text-gray-500 text-xs">Escolha um ícone que te representa</p>
+                                            <p class="text-gray-400 text-sm mt-4">Avatar gerado com suas iniciais</p>
+                                            <p class="text-gray-500 text-xs">Atualize seu nome para alterar as iniciais</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1465,7 +1366,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                         </h3>
                                         <form method="POST" id="formPerfil" onsubmit="return validarFormPerfil()">
                                             <input type="hidden" name="acao" value="editar_perfil">
-                                            <input type="hidden" name="icone_perfil" id="iconePerfilInput" value="<?= $iconePerfil ?>">
                                             <div class="space-y-4">
                                                 <div>
                                                     <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nome Completo *</label>
@@ -1541,68 +1441,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
-    <!-- MODAL DO ÍCONE DE PERFIL -->
-    <div id="modalIcone" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="absolute inset-0" onclick="fecharModalIcone()"></div>
-        <div class="relative z-10 w-full max-w-2xl mx-auto">
-            <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i data-lucide="smile" class="w-6 h-6 text-tech-primary"></i>
-                        Escolher Ícone de Perfil
-                    </h3>
-                    <button onclick="fecharModalIcone()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                        <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
-                    </button>
-                </div>
-                
-                <div class="mb-6">
-                    <h4 class="text-lg font-bold text-white mb-4">Prévia do seu ícone:</h4>
-                    <div class="flex flex-col items-center">
-                        <div id="iconePreview" class="w-32 h-32 rounded-full border-4 border-tech-primary/50 mb-4 flex items-center justify-center text-white font-bold text-4xl shadow-lg" style="background: linear-gradient(135deg, <?= $corIcone ?> 0%, <?= $corIcone ?>99 100%)">
-                            <?= $iniciais ?>
-                        </div>
-                        <p class="text-gray-400 text-sm">Seu nome aparecerá com as iniciais</p>
-                    </div>
-                </div>
-                
-                <div class="mb-6">
-                    <h4 class="text-lg font-bold text-white mb-4">Escolha um ícone:</h4>
-                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 max-h-64 overflow-y-auto p-2">
-                        <?php foreach($iconesDisponiveis as $icone => $dados): ?>
-                        <div class="icone-option <?= $iconePerfil == $icone ? 'selecionado' : '' ?>" 
-                             style="background: linear-gradient(135deg, <?= $dados['cor'] ?> 0%, <?= $dados['cor'] ?>99 100%)"
-                             onclick="selecionarIcone('<?= $icone ?>', '<?= $dados['cor'] ?>')"
-                             data-icone="<?= $icone ?>"
-                             data-cor="<?= $dados['cor'] ?>">
-                            <i data-lucide="<?= $icone ?>" class="w-6 h-6 text-white"></i>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                
-                <div class="flex gap-3">
-                    <button type="button" onclick="fecharModalIcone()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
-                        Cancelar
-                    </button>
-                    <button type="button" onclick="aplicarIcone()" class="flex-1 bg-tech-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
-                        <i data-lucide="check" class="w-5 h-5 inline mr-2"></i>
-                        Aplicar Ícone
-                    </button>
-                </div>
-                
-                <div class="mt-6 pt-4 border-t border-white/10">
-                    <h4 class="text-sm font-bold text-gray-400 mb-2">Como funciona:</h4>
-                    <ul class="text-xs text-gray-500 space-y-1">
-                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> Seu ícone aparecerá em todo o sistema</li>
-                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> As iniciais do seu nome serão mostradas</li>
-                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> Você pode mudar quando quiser</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL DA CARTEIRINHA COM QR CODE -->
     <div id="modalCarteirinha" class="<?= $abrirQR ? 'modal-fixed' : 'modal-hidden' ?>">
         <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="fecharCarteirinha()"></div>
@@ -1675,8 +1513,10 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 
                 <div class="mt-6 pt-4 border-t border-white/10">
                     <div class="flex items-center justify-between text-sm">
-                        <div class="text-gray-400">
-                            <i data-lucide="user" class="w-4 h-4 inline mr-2"></i>
+                        <div class="text-gray-400 flex items-center gap-2">
+                            <div class="avatar-iniciais w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold flex items-center justify-center">
+                                <?= htmlspecialchars($iniciais) ?>
+                            </div>
                             <?= htmlspecialchars($primeiroNome) ?>
                         </div>
                         <span class="bg-tech-primary/20 text-tech-primary px-3 py-1 rounded-full text-xs font-bold">
@@ -1808,14 +1648,9 @@ $subTab = $_GET['sub'] ?? 'produtos';
         const alunoId = <?= $idAluno ?>;
         const alunoNome = "<?= addslashes($nomeCompleto) ?>";
         const alunoPlano = "<?= addslashes($planoAluno) ?>";
-        const iconePerfilAtual = "<?= $iconePerfil ?>";
-        const corIconeAtual = "<?= $corIcone ?>";
         const iniciais = "<?= $iniciais ?>";
-        const iconesDisponiveis = <?php echo json_encode($iconesDisponiveis); ?>;
         let tempoInterval;
         let qrCodeInstance = null;
-        let iconeSelecionado = iconePerfilAtual;
-        let corIconeSelecionada = corIconeAtual;
 
         // GERAR QR CODE DINÂMICO
         function gerarQRCode() {
@@ -1963,71 +1798,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     console.log("Recriando ícones...");
                 }
             }, 50);
-        }
-
-        // FUNÇÕES PARA O SISTEMA DE ÍCONE DE PERFIL
-        function abrirModalIcone() {
-            document.getElementById('modalIcone').classList.remove('hidden');
-            recriarIcones();
-        }
-        
-        function fecharModalIcone() {
-            document.getElementById('modalIcone').classList.add('hidden');
-            // Resetar seleção
-            iconeSelecionado = iconePerfilAtual;
-            corIconeSelecionada = corIconeAtual;
-            
-            // Atualizar preview
-            const preview = document.getElementById('iconePreview');
-            if (preview) {
-                preview.style.background = `linear-gradient(135deg, ${corIconeAtual} 0%, ${corIconeAtual}99 100%)`;
-                preview.innerHTML = iniciais;
-            }
-            
-            // Remover seleção de todos os ícones
-            document.querySelectorAll('.icone-option').forEach(option => {
-                const icone = option.getAttribute('data-icone');
-                if (icone === iconePerfilAtual) {
-                    option.classList.add('selecionado');
-                } else {
-                    option.classList.remove('selecionado');
-                }
-            });
-        }
-        
-        function selecionarIcone(icone, cor) {
-            iconeSelecionado = icone;
-            corIconeSelecionada = cor;
-            
-            // Atualizar preview
-            const preview = document.getElementById('iconePreview');
-            if (preview) {
-                preview.style.background = `linear-gradient(135deg, ${cor} 0%, ${cor}99 100%)`;
-                preview.innerHTML = iniciais;
-            }
-            
-            // Atualizar seleção visual
-            document.querySelectorAll('.icone-option').forEach(option => {
-                if (option.getAttribute('data-icone') === icone) {
-                    option.classList.add('selecionado');
-                } else {
-                    option.classList.remove('selecionado');
-                }
-            });
-        }
-        
-        function aplicarIcone() {
-            // Atualizar campo oculto no formulário
-            const iconeInput = document.getElementById('iconePerfilInput');
-            if (iconeInput) {
-                iconeInput.value = iconeSelecionado;
-            }
-            
-            // Fechar modal
-            fecharModalIcone();
-            
-            // Exibir mensagem de sucesso
-            exibirToast("Ícone selecionado! Salve as alterações para aplicar.", "sucesso");
         }
 
         // VALIDAÇÃO DO FORMULÁRIO DE PERFIL

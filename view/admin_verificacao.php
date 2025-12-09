@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icons/halter.png">
     <title>Protocolo de Segurança Nível 5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -89,9 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="relative">
                             <input type="password" name="pin_secreto" id="pinInput" required maxlength="6"
                                 autocomplete="new-password"
-                                class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all font-mono tracking-widest text-center"
+                                class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-10 pr-12 py-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all font-mono tracking-widest"
                                 placeholder="******">
                             <i data-lucide="hash" class="absolute left-3 top-3.5 w-5 h-5 text-gray-600"></i>
+                            <button type="button" id="togglePin" class="absolute right-3 top-3.5 w-5 h-5 text-white hover:text-gray-300 transition-colors">
+                                <i data-lucide="eye" class="w-5 h-5" id="pinEyeIcon"></i>
+                            </button>
                         </div>
                     </div>
                     <div>
@@ -99,9 +103,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="relative">
                             <input type="password" name="palavra_chave" id="keyInput" required 
                                 autocomplete="new-password"
-                                class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all font-mono"
+                                class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-10 pr-12 py-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all font-mono"
                                 placeholder="Acesso Mestre">
                             <i data-lucide="key" class="absolute left-3 top-3.5 w-5 h-5 text-gray-600"></i>
+                            <button type="button" id="toggleKey" class="absolute right-3 top-3.5 w-5 h-5 text-white hover:text-gray-300 transition-colors">
+                                <i data-lucide="eye" class="w-5 h-5" id="keyEyeIcon"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -122,7 +129,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.addEventListener('DOMContentLoaded', function() {
         lucide.createIcons();
 
-        // 1. TOAST (Notificações)
+        // 1. TOGGLE VISIBILIDADE PIN
+        const pinInput = document.getElementById('pinInput');
+        const togglePinBtn = document.getElementById('togglePin');
+        const pinEyeIcon = document.getElementById('pinEyeIcon');
+        
+        togglePinBtn.addEventListener('click', function() {
+            const type = pinInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            pinInput.setAttribute('type', type);
+            
+            if (type === 'text') {
+                pinEyeIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                pinEyeIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        });
+
+        // 2. TOGGLE VISIBILIDADE PALAVRA-CHAVE
+        const keyInput = document.getElementById('keyInput');
+        const toggleKeyBtn = document.getElementById('toggleKey');
+        const keyEyeIcon = document.getElementById('keyEyeIcon');
+        
+        toggleKeyBtn.addEventListener('click', function() {
+            const type = keyInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            keyInput.setAttribute('type', type);
+            
+            if (type === 'text') {
+                keyEyeIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                keyEyeIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        });
+
+        // 3. TOAST (Notificações)
         function exibirToast(mensagem) {
             const toast = document.createElement('div');
             toast.className = `fixed top-5 right-5 z-50 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4 min-w-[300px] transform transition-all duration-500 translate-x-full bg-tech-800 border-l-4 border-red-500 text-white`;
@@ -138,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => toast.remove(), 500); }, 4000);
         }
 
-        // 2. MÁSCARA CPF
+        // 4. MÁSCARA CPF
         const cpfInput = document.getElementById('cpfInput');
         cpfInput.setAttribute('maxlength', '14');
         cpfInput.addEventListener('input', function(e) {
@@ -150,13 +191,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             e.target.value = v;
         });
 
-        // 3. MÁSCARA PIN (SÓ NÚMEROS)
-        const pinInput = document.getElementById('pinInput');
+        // 5. MÁSCARA PIN (SÓ NÚMEROS)
         pinInput.addEventListener('input', function(e) {
-            e.target.value = e.target.value.replace(/\D/g, ""); // Remove letras na hora
+            e.target.value = e.target.value.replace(/\D/g, "");
         });
 
-        // 4. VALIDAÇÃO DE ENVIO
+        // 6. VALIDAÇÃO DE ENVIO
         const form = document.querySelector('form');
         form.addEventListener('submit', function(e) {
             let temErro = false;
@@ -180,7 +220,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Valida Palavra-Chave (Vazia?)
-            const keyInput = document.getElementById('keyInput');
             if (keyInput.value.trim() === '') {
                 exibirToast("Digite a Palavra-Chave Mestra.");
                 keyInput.classList.add('border-red-500', 'animate-pulse');

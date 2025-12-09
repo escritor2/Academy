@@ -50,10 +50,15 @@ class AlunoDAO {
             objetivo VARCHAR(50),
             plano VARCHAR(20),
             status VARCHAR(20) DEFAULT 'Ativo',
-            foto_perfil VARCHAR(50) DEFAULT NULL,
+            foto_perfil VARCHAR(50) DEFAULT 'user',  // VALOR PADRÃO 'user'
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )";
-        $this->conn->exec($sqlAlunos);
+        
+        try {
+            $this->conn->exec($sqlAlunos);
+        } catch (Exception $e) {
+            error_log("Erro ao criar tabela alunos: " . $e->getMessage());
+        }
 
         // Tabela de Frequência
         $sqlFreq = "CREATE TABLE IF NOT EXISTS frequencia (
@@ -64,15 +69,30 @@ class AlunoDAO {
             hora_saida DATETIME DEFAULT NULL,
             FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
         )";
-        $this->conn->exec($sqlFreq);
-
-        // Migrations
-        try { $this->conn->exec("ALTER TABLE alunos ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'"); } catch (Exception $e) {}
-        try { $this->conn->exec("ALTER TABLE alunos ADD COLUMN criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
-        try { $this->conn->exec("ALTER TABLE alunos MODIFY COLUMN foto_perfil VARCHAR(50) DEFAULT NULL"); } catch (Exception $e) {}
         
-        try { $this->conn->exec("ALTER TABLE frequencia ADD COLUMN hora_entrada DATETIME DEFAULT NULL"); } catch (Exception $e) {}
-        try { $this->conn->exec("ALTER TABLE frequencia ADD COLUMN hora_saida DATETIME DEFAULT NULL"); } catch (Exception $e) {}
+        try {
+            $this->conn->exec($sqlFreq);
+        } catch (Exception $e) {
+            error_log("Erro ao criar tabela frequencia: " . $e->getMessage());
+        }
+
+        // Migrations - usando try-catch para cada operação individual
+        $migrations = [
+            "ALTER TABLE alunos ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'",
+            "ALTER TABLE alunos ADD COLUMN criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE alunos MODIFY COLUMN foto_perfil VARCHAR(50) DEFAULT 'user'",
+            "ALTER TABLE frequencia ADD COLUMN hora_entrada DATETIME DEFAULT NULL",
+            "ALTER TABLE frequencia ADD COLUMN hora_saida DATETIME DEFAULT NULL"
+        ];
+
+        foreach ($migrations as $migration) {
+            try {
+                $this->conn->exec($migration);
+            } catch (Exception $e) {
+                // Ignora erros de coluna já existente
+                // error_log("Migration ignorada: " . $e->getMessage());
+            }
+        }
     }
 
     // --- CADASTRO ---
@@ -85,8 +105,8 @@ class AlunoDAO {
         $nomeLimpo = trim(preg_replace('/\s+/', ' ', $aluno->getNome()));
         $senhaHash = password_hash($aluno->getSenha(), PASSWORD_DEFAULT);
         
-        $sql = "INSERT INTO alunos (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status";
-        $sqlValues = "VALUES (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo'";
+        $sql = "INSERT INTO alunos (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status, foto_perfil";  // ADICIONADO foto_perfil
+        $sqlValues = "VALUES (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo', :foto_perfil";  // ADICIONADO :foto_perfil
         $params = [
             ':nome' => $nomeLimpo, 
             ':data_nascimento' => $aluno->getDataNascimento(), 
@@ -96,14 +116,9 @@ class AlunoDAO {
             ':genero' => $aluno->getGenero(),
             ':senha' => $senhaHash, 
             ':objetivo' => $aluno->getObjetivo(), 
-            ':plano' => $aluno->getPlano()
+            ':plano' => $aluno->getPlano(),
+            ':foto_perfil' => $icone_perfil ?? 'user'  // VALOR PADRÃO 'user' SE NULL
         ];
-        
-        if ($icone_perfil) {
-            $sql .= ", foto_perfil";
-            $sqlValues .= ", :foto_perfil";
-            $params[':foto_perfil'] = $icone_perfil;
-        }
         
         $sql .= ") " . $sqlValues . ")";
         $stmt = $this->conn->prepare($sql);
@@ -114,13 +129,23 @@ class AlunoDAO {
     public function buscarPorEmail($email) {
         $stmt = $this->conn->prepare("SELECT * FROM alunos WHERE email = :email");
         $stmt->execute([':email' => $email]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $aluno = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Garantir que tem valor padrão para foto_perfil
+        if ($aluno && empty($aluno['foto_perfil'])) {
+            $aluno['foto_perfil'] = 'user';
+        }
+        return $aluno;
     }
 
     public function buscarPorId($id) {
         $stmt = $this->conn->prepare("SELECT * FROM alunos WHERE id = :id");
         $stmt->execute([':id' => $id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $aluno = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Garantir que tem valor padrão para foto_perfil
+        if ($aluno && empty($aluno['foto_perfil'])) {
+            $aluno['foto_perfil'] = 'user';
+        }
+        return $aluno;
     }
 
     public function validarRecuperacao($email, $cpf, $data_nascimento) {
@@ -311,14 +336,14 @@ class AlunoDAO {
         return $stmt->execute([':foto' => $icone_perfil, ':id' => $id]);
     }
     
-    // NOVO: Método para deletar foto antiga (removido o upload físico)
+    // Método para deletar foto antiga (removido o upload físico)
     public function deletarFotoAntiga($fotoCaminho) {
         // Como agora usamos apenas ícones, não há mais arquivos físicos para deletar
         // Este método é mantido apenas para compatibilidade, mas não faz nada
         return true;
     }
     
-    // NOVO: Método para processar upload de foto (removido)
+    // Método para processar upload de foto (removido)
     public function processarUploadFoto($arquivo, $alunoId) {
         // Método removido pois agora usamos apenas ícones
         // Retorna um valor padrão para compatibilidade
@@ -347,31 +372,5 @@ class AlunoDAO {
     
     public function limparNome($nome) {
         return trim(preg_replace('/\s+/', ' ', $nome));
-    }
-    
-    // NOVO: Método para obter lista de ícones disponíveis
-    public function getIconesDisponiveis() {
-        return [
-            'user' => ['nome' => 'Usuário', 'cor' => '#3b82f6'],
-            'user-circle' => ['nome' => 'Círculo', 'cor' => '#8b5cf6'],
-            'user-square' => ['nome' => 'Quadrado', 'cor' => '#10b981'],
-            'user-check' => ['nome' => 'Verificado', 'cor' => '#059669'],
-            'user-cog' => ['nome' => 'Configuração', 'cor' => '#6366f1'],
-            'user-plus' => ['nome' => 'Adicionar', 'cor' => '#ec4899'],
-            'crown' => ['nome' => 'Rei', 'cor' => '#f59e0b'],
-            'star' => ['nome' => 'Estrela', 'cor' => '#fbbf24'],
-            'award' => ['nome' => 'Prêmio', 'cor' => '#ef4444'],
-            'trophy' => ['nome' => 'Troféu', 'cor' => '#d97706'],
-            'shield' => ['nome' => 'Escudo', 'cor' => '#0ea5e9'],
-            'heart' => ['nome' => 'Coração', 'cor' => '#dc2626'],
-            'target' => ['nome' => 'Alvo', 'cor' => '#7c3aed'],
-            'zap' => ['nome' => 'Raio', 'cor' => '#eab308'],
-            'flame' => ['nome' => 'Fogo', 'cor' => '#ea580c'],
-            'dumbbell' => ['nome' => 'Haltere', 'cor' => '#06b6d4'],
-            'activity' => ['nome' => 'Atividade', 'cor' => '#22c55e'],
-            'brain' => ['nome' => 'Cérebro', 'cor' => '#8b5cf6'],
-            'mountain' => ['nome' => 'Montanha', 'cor' => '#0d9488'],
-            'rocket' => ['nome' => 'Foguete', 'cor' => '#db2777']
-        ];
     }
 }
