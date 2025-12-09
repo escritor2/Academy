@@ -27,15 +27,41 @@ if (!isset($_SESSION['carrinho'])) {
     $_SESSION['carrinho'] = [];
 }
 
-// --- PROCESSAMENTO: EDITAR PERFIL E FOTO ---
+// --- PROCESSAMENTO: EDITAR PERFIL E ÍCONE ---
 $msgCliente = '';
 $tipoMsg = '';
 
+// Lista de ícones disponíveis para perfil
+$iconesDisponiveis = [
+    'user' => ['nome' => 'Usuário', 'cor' => '#3b82f6'],
+    'user-circle' => ['nome' => 'Círculo', 'cor' => '#8b5cf6'],
+    'user-square' => ['nome' => 'Quadrado', 'cor' => '#10b981'],
+    'user-check' => ['nome' => 'Verificado', 'cor' => '#059669'],
+    'user-cog' => ['nome' => 'Configuração', 'cor' => '#6366f1'],
+    'user-plus' => ['nome' => 'Adicionar', 'cor' => '#ec4899'],
+    'crown' => ['nome' => 'Rei', 'cor' => '#f59e0b'],
+    'star' => ['nome' => 'Estrela', 'cor' => '#fbbf24'],
+    'award' => ['nome' => 'Prêmio', 'cor' => '#ef4444'],
+    'trophy' => ['nome' => 'Troféu', 'cor' => '#d97706'],
+    'shield' => ['nome' => 'Escudo', 'cor' => '#0ea5e9'],
+    'heart' => ['nome' => 'Coração', 'cor' => '#dc2626'],
+    'target' => ['nome' => 'Alvo', 'cor' => '#7c3aed'],
+    'zap' => ['nome' => 'Raio', 'cor' => '#eab308'],
+    'flame' => ['nome' => 'Fogo', 'cor' => '#ea580c'],
+    'dumbbell' => ['nome' => 'Haltere', 'cor' => '#06b6d4'],
+    'activity' => ['nome' => 'Atividade', 'cor' => '#22c55e'],
+    'brain' => ['nome' => 'Cérebro', 'cor' => '#8b5cf6'],
+    'mountain' => ['nome' => 'Montanha', 'cor' => '#0d9488'],
+    'rocket' => ['nome' => 'Foguete', 'cor' => '#db2777']
+];
+
+// Processar POSTs
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
     if ($_POST['acao'] === 'editar_perfil') {
         // Remove espaços extras do nome
         $nome = trim($_POST['nome']);
         $novaSenha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
+        $iconePerfil = $_POST['icone_perfil'] ?? 'user';
         
         if (empty($nome)) {
             $msgCliente = "O nome não pode estar vazio!";
@@ -44,68 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
             $msgCliente = "A senha deve ser forte (Letras, números e símbolo)!";
             $tipoMsg = 'erro';
         } else {
-            if ($daoAluno->atualizarPerfilAluno($idAluno, $nome, $_POST['email'], $_POST['telefone'], $novaSenha)) {
+            if ($daoAluno->atualizarPerfilAluno($idAluno, $nome, $_POST['email'], $_POST['telefone'], $novaSenha, $iconePerfil)) {
                 $_SESSION['usuario_nome'] = $nome;
+                $_SESSION['usuario_icone'] = $iconePerfil;
                 header("Location: paginacliente.php?tab=perfil&msg=perfil_ok");
                 exit;
             } else {
                 $msgCliente = "Erro ao atualizar. Tente novamente.";
-                $tipoMsg = 'erro';
-            }
-        }
-    }
-    
-    // NOVO: PROCESSAR UPLOAD DE FOTO
-    if ($_POST['acao'] === 'upload_foto') {
-        if (isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === UPLOAD_ERR_OK) {
-            try {
-                // Processar upload
-                $caminhoFoto = $daoAluno->processarUploadFoto($_FILES['foto_perfil'], $idAluno);
-                
-                // Obter foto antiga para deletar
-                $dadosAluno = $daoAluno->buscarPorId($idAluno);
-                $fotoAntiga = $dadosAluno['foto_perfil'] ?? null;
-                
-                // Atualizar no banco
-                if ($daoAluno->atualizarFotoPerfil($idAluno, $caminhoFoto)) {
-                    // Deletar foto antiga se existir
-                    if ($fotoAntiga && $fotoAntiga !== $caminhoFoto) {
-                        $daoAluno->deletarFotoAntiga($fotoAntiga);
-                    }
-                    
-                    $_SESSION['usuario_foto'] = $caminhoFoto;
-                    header("Location: paginacliente.php?tab=perfil&msg=foto_ok");
-                    exit;
-                } else {
-                    $msgCliente = "Erro ao salvar foto no banco de dados.";
-                    $tipoMsg = 'erro';
-                }
-            } catch (Exception $e) {
-                $msgCliente = $e->getMessage();
-                $tipoMsg = 'erro';
-            }
-        } else {
-            $msgCliente = "Selecione uma imagem válida!";
-            $tipoMsg = 'erro';
-        }
-    }
-    
-    // NOVO: REMOVER FOTO DE PERFIL
-    if ($_POST['acao'] === 'remover_foto') {
-        $dadosAluno = $daoAluno->buscarPorId($idAluno);
-        $fotoAntiga = $dadosAluno['foto_perfil'] ?? null;
-        
-        if ($fotoAntiga) {
-            // Deletar arquivo físico
-            $daoAluno->deletarFotoAntiga($fotoAntiga);
-            
-            // Remover do banco
-            if ($daoAluno->atualizarFotoPerfil($idAluno, null)) {
-                unset($_SESSION['usuario_foto']);
-                header("Location: paginacliente.php?tab=perfil&msg=foto_removida");
-                exit;
-            } else {
-                $msgCliente = "Erro ao remover foto.";
                 $tipoMsg = 'erro';
             }
         }
@@ -218,22 +189,22 @@ $nomeCompleto = $dadosAluno['nome'];
 $primeiroNome = explode(' ', $nomeCompleto)[0];
 $planoAluno = $dadosAluno['plano'];
 
-// Foto de perfil
-$fotoPerfil = $dadosAluno['foto_perfil'] ?? null;
-if ($fotoPerfil && file_exists(__DIR__ . '/../' . $fotoPerfil)) {
-    $urlFoto = $fotoPerfil;
-} else {
-    // Foto padrão com iniciais
-    $iniciais = '';
-    $nomes = explode(' ', $nomeCompleto);
-    if (count($nomes) > 0) {
-        $iniciais .= strtoupper(substr($nomes[0], 0, 1));
-        if (count($nomes) > 1) {
-            $iniciais .= strtoupper(substr($nomes[1], 0, 1));
-        }
+// Ícone de perfil
+$iconePerfil = $dadosAluno['icone_perfil'] ?? 'user';
+$corIcone = $iconesDisponiveis[$iconePerfil]['cor'] ?? '#ea580c';
+
+// Gerar SVG do ícone
+$iniciais = '';
+$nomes = explode(' ', $nomeCompleto);
+if (count($nomes) > 0) {
+    $iniciais .= strtoupper(substr($nomes[0], 0, 1));
+    if (count($nomes) > 1) {
+        $iniciais .= strtoupper(substr($nomes[1], 0, 1));
     }
-    $urlFoto = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="50" fill="%23ea580c"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">' . $iniciais . '</text></svg>';
 }
+
+// URL do ícone
+$urlIcone = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="50" fill="' . $corIcone . '"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">' . $iniciais . '</text></svg>';
 
 // --- DADOS DA LOJA ---
 $listaProdutos = $produtoDao->listar();
@@ -823,20 +794,20 @@ $subTab = $_GET['sub'] ?? 'produtos';
             100% { top: 0; }
         }
         
-        /* Foto de perfil styles */
-        .foto-perfil-container {
+        /* Ícone de perfil styles */
+        .icone-perfil-container {
             position: relative;
             display: inline-block;
         }
         
-        .foto-perfil {
+        .icone-perfil {
             width: 100%;
             height: 100%;
             object-fit: cover;
             border-radius: 50%;
         }
         
-        .foto-overlay {
+        .icone-overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -852,24 +823,53 @@ $subTab = $_GET['sub'] ?? 'produtos';
             transition: opacity 0.3s;
         }
         
-        .foto-perfil-container:hover .foto-overlay {
+        .icone-perfil-container:hover .icone-overlay {
             opacity: 1;
         }
         
-        .upload-progress {
-            width: 100%;
-            height: 4px;
-            background: #334155;
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 8px;
+        /* Estilos para a seleção de ícones */
+        .icone-option {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
         }
         
-        .upload-progress-bar {
-            height: 100%;
-            background: #ea580c;
-            border-radius: 2px;
-            transition: width 0.3s;
+        .icone-option:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .icone-option.selecionado {
+            border-color: #ea580c;
+            box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.3);
+            transform: scale(1.05);
+        }
+        
+        .icone-option i {
+            width: 32px;
+            height: 32px;
+        }
+        
+        /* Animação suave para o carrinho */
+        .quantidade-input {
+            transition: all 0.2s ease;
+        }
+        
+        .quantidade-input:focus {
+            transform: scale(1.05);
+            border-color: #ea580c !important;
+            box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2) !important;
+        }
+        
+        /* Efeito de clique nos botões do carrinho */
+        .btn-carrinho:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -923,7 +923,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
 
             <!-- Main Content -->
             <main class="flex-1 flex flex-col h-full overflow-hidden relative bg-[#0b1120]">
-                <!-- Header ATUALIZADO COM FOTO DE PERFIL -->
+                <!-- Header ATUALIZADO COM ÍCONE DE PERFIL -->
                 <header class="h-20 bg-[#111827]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 md:px-8 z-10 flex-shrink-0">
                     <div>
                         <h2 id="pageTitle" class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-gray-400 animate-fade-in">Olá, <?= htmlspecialchars($primeiroNome) ?></h2>
@@ -934,16 +934,14 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <p class="text-sm font-bold text-white"><?= htmlspecialchars($nomeCompleto) ?></p>
                             <span class="text-[10px] uppercase font-bold tracking-wider bg-tech-primary/20 text-tech-primary px-2 py-0.5 rounded-full border border-tech-primary/30"><?= htmlspecialchars($planoAluno) ?></span>
                         </div>
-                        <div class="foto-perfil-container w-10 h-10 cursor-pointer" onclick="abrirModalFoto()">
-                            <div class="w-full h-full rounded-full overflow-hidden border-2 border-tech-primary/30 hover:border-tech-primary transition-all duration-300">
-                                <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
-                                    <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
-                                <?php else: ?>
-                                    <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
-                                <?php endif; ?>
+                        <div class="icone-perfil-container w-10 h-10 cursor-pointer" onclick="abrirModalIcone()">
+                            <div class="w-full h-full rounded-full overflow-hidden border-2 border-tech-primary/30 hover:border-tech-primary transition-all duration-300 bg-gradient-to-br <?= $corIcone ?>">
+                                <div class="w-full h-full flex items-center justify-center text-white font-bold">
+                                    <?= $iniciais ?>
+                                </div>
                             </div>
-                            <div class="foto-overlay">
-                                <i data-lucide="camera" class="w-4 h-4 text-white mb-1"></i>
+                            <div class="icone-overlay">
+                                <i data-lucide="edit-2" class="w-4 h-4 text-white mb-1"></i>
                                 <span class="text-xs text-white">Alterar</span>
                             </div>
                         </div>
@@ -967,14 +965,12 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                         </h1>
                                         <p class="text-gray-300">Continue evoluindo. Cada treino conta!</p>
                                     </div>
-                                    <div class="foto-perfil-container w-16 h-16 rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300" onclick="abrirModalFoto()">
-                                        <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
-                                            <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
-                                        <?php else: ?>
-                                            <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
-                                        <?php endif; ?>
-                                        <div class="foto-overlay">
-                                            <i data-lucide="camera" class="w-5 h-5 text-white"></i>
+                                    <div class="icone-perfil-container w-16 h-16 rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 bg-gradient-to-br <?= $corIcone ?>" onclick="abrirModalIcone()">
+                                        <div class="w-full h-full flex items-center justify-center text-white font-bold text-2xl">
+                                            <?= $iniciais ?>
+                                        </div>
+                                        <div class="icone-overlay">
+                                            <i data-lucide="edit-2" class="w-6 h-6 text-white"></i>
                                         </div>
                                     </div>
                                 </div>
@@ -1346,7 +1342,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             </div>
                         </div>
                         
-                        <!-- Carrinho -->
+                        <!-- Carrinho CORRIGIDO (sem tremedeira) -->
                         <div id="view-carrinho" class="<?= $subTab == 'carrinho' ? '' : 'hidden' ?>">
                             <?php if(empty($itensCarrinho)): ?>
                                 <div class="text-center py-12 opacity-50">
@@ -1376,21 +1372,19 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                                         <p class="text-tech-primary font-bold text-sm">R$ <?= number_format($item['preco'], 2, ',', '.') ?> cada</p>
                                                     </div>
                                                     <div class="flex items-center gap-3">
-                                                        <form method="POST" class="flex items-center gap-2">
-                                                            <input type="hidden" name="acao" value="atualizar_carrinho">
-                                                            <input type="hidden" name="produto_id" value="<?= $item['id'] ?>">
-                                                            <button type="button" onclick="atualizarQuantidade(this, -1)" class="w-8 h-8 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors" <?= $item['quantidade'] <= 1 ? 'disabled' : '' ?>>
+                                                        <div class="flex items-center gap-2">
+                                                            <button type="button" onclick="atualizarQuantidadeCarrinho(<?= $item['id'] ?>, -1)" class="w-8 h-8 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors btn-carrinho" <?= $item['quantidade'] <= 1 ? 'disabled' : '' ?>>
                                                                 <i data-lucide="minus" class="w-4 h-4"></i>
                                                             </button>
-                                                            <input type="number" name="quantidade" value="<?= $item['quantidade'] ?>" min="1" max="<?= $item['estoque'] ?>" class="w-16 text-center bg-[#1e293b] border border-white/10 rounded py-1" onchange="this.form.submit()">
-                                                            <button type="button" onclick="atualizarQuantidade(this, 1)" class="w-8 h-8 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors" <?= $item['quantidade'] >= $item['estoque'] ? 'disabled' : '' ?>>
+                                                            <input type="number" id="quantidade-<?= $item['id'] ?>" value="<?= $item['quantidade'] ?>" min="1" max="<?= $item['estoque'] ?>" class="w-16 text-center bg-[#1e293b] border border-white/10 rounded py-1 quantidade-input" onchange="atualizarInputCarrinho(<?= $item['id'] ?>, <?= $item['estoque'] ?>)">
+                                                            <button type="button" onclick="atualizarQuantidadeCarrinho(<?= $item['id'] ?>, 1)" class="w-8 h-8 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors btn-carrinho" <?= $item['quantidade'] >= $item['estoque'] ? 'disabled' : '' ?>>
                                                                 <i data-lucide="plus" class="w-4 h-4"></i>
                                                             </button>
-                                                        </form>
+                                                        </div>
                                                         <form method="POST" class="inline">
                                                             <input type="hidden" name="acao" value="remover_carrinho">
                                                             <input type="hidden" name="produto_id" value="<?= $item['id'] ?>">
-                                                            <button type="submit" class="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors">
+                                                            <button type="submit" class="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors btn-carrinho">
                                                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                                                             </button>
                                                         </form>
@@ -1437,40 +1431,29 @@ $subTab = $_GET['sub'] ?? 'produtos';
                         </div>
                     </div>
 
-                    <!-- Perfil ATUALIZADO COM SEÇÃO DE FOTO -->
+                    <!-- Perfil ATUALIZADO COM SEÇÃO DE ÍCONE -->
                     <div id="tab-perfil" class="tab-content hidden fade-in">
                         <div class="max-w-4xl mx-auto">
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <!-- Coluna da Foto -->
+                                <!-- Coluna do Ícone -->
                                 <div class="lg:col-span-1">
                                     <div class="card">
                                         <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                            <i data-lucide="camera" class="w-6 h-6 text-tech-primary"></i> Foto de Perfil
+                                            <i data-lucide="smile" class="w-6 h-6 text-tech-primary"></i> Ícone de Perfil
                                         </h3>
                                         <div class="text-center mb-6">
-                                            <div class="foto-perfil-container w-48 h-48 mx-auto rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 cursor-pointer" onclick="abrirModalFoto()">
-                                                <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
-                                                    <img src="<?= $urlFoto ?>" alt="Foto de perfil" class="foto-perfil">
-                                                <?php else: ?>
-                                                    <img src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Foto de perfil" class="foto-perfil">
-                                                <?php endif; ?>
-                                                <div class="foto-overlay">
-                                                    <i data-lucide="camera" class="w-8 h-8 text-white mb-2"></i>
-                                                    <span class="text-sm text-white font-bold">Alterar Foto</span>
+                                            <div class="icone-perfil-container w-48 h-48 mx-auto rounded-full border-4 border-tech-primary/30 shadow-lg hover:border-tech-primary transition-all duration-300 cursor-pointer" onclick="abrirModalIcone()" style="background: linear-gradient(135deg, <?= $corIcone ?> 0%, <?= $corIcone ?>99 100%)">
+                                                <div class="w-full h-full flex items-center justify-center text-white font-bold text-5xl">
+                                                    <?= $iniciais ?>
+                                                </div>
+                                                <div class="icone-overlay">
+                                                    <i data-lucide="edit-2" class="w-10 h-10 text-white mb-2"></i>
+                                                    <span class="text-sm text-white font-bold">Alterar Ícone</span>
                                                 </div>
                                             </div>
-                                            <p class="text-gray-400 text-sm mt-4">Clique na foto para alterar</p>
-                                            <p class="text-gray-500 text-xs">Formatos: JPG, PNG, GIF, WEBP<br>Máximo: 5MB</p>
+                                            <p class="text-gray-400 text-sm mt-4">Clique no ícone para alterar</p>
+                                            <p class="text-gray-500 text-xs">Escolha um ícone que te representa</p>
                                         </div>
-                                        <?php if (strpos($urlFoto, 'data:image/svg+xml') !== 0): ?>
-                                            <form method="POST" class="mt-4" onsubmit="return confirm('Tem certeza que deseja remover sua foto de perfil?')">
-                                                <input type="hidden" name="acao" value="remover_foto">
-                                                <button type="submit" class="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                    Remover Foto
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 
@@ -1482,6 +1465,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                         </h3>
                                         <form method="POST" id="formPerfil" onsubmit="return validarFormPerfil()">
                                             <input type="hidden" name="acao" value="editar_perfil">
+                                            <input type="hidden" name="icone_perfil" id="iconePerfilInput" value="<?= $iconePerfil ?>">
                                             <div class="space-y-4">
                                                 <div>
                                                     <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nome Completo *</label>
@@ -1557,70 +1541,62 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
-    <!-- MODAL DA FOTO DE PERFIL (NOVO) -->
-    <div id="modalFoto" class="modal-hidden">
-        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="fecharModalFoto()"></div>
-        <div class="relative z-10 w-full max-w-md mx-auto animate-slide-up">
+    <!-- MODAL DO ÍCONE DE PERFIL -->
+    <div id="modalIcone" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="absolute inset-0" onclick="fecharModalIcone()"></div>
+        <div class="relative z-10 w-full max-w-2xl mx-auto">
             <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-white/10 p-6 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i data-lucide="camera" class="w-6 h-6 text-tech-primary"></i>
-                        Alterar Foto de Perfil
+                        <i data-lucide="smile" class="w-6 h-6 text-tech-primary"></i>
+                        Escolher Ícone de Perfil
                     </h3>
-                    <button onclick="fecharModalFoto()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <button onclick="fecharModalIcone()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
                         <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
                     </button>
                 </div>
                 
-                <form id="formFoto" method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="acao" value="upload_foto">
-                    
-                    <div class="mb-6">
-                        <div id="previewContainer" class="w-48 h-48 mx-auto rounded-full border-2 border-dashed border-white/20 mb-4 overflow-hidden flex items-center justify-center bg-gray-800/50">
-                            <?php if (strpos($urlFoto, 'data:image/svg+xml') === 0): ?>
-                                <img id="fotoPreview" src="<?= $urlFoto ?>" alt="Preview" class="w-full h-full object-cover">
-                            <?php else: ?>
-                                <img id="fotoPreview" src="../<?= htmlspecialchars($urlFoto) ?>?t=<?= time() ?>" alt="Preview" class="w-full h-full object-cover">
-                            <?php endif; ?>
-                            <div id="placeholderIcon" class="absolute hidden">
-                                <i data-lucide="user" class="w-16 h-16 text-gray-500"></i>
-                            </div>
+                <div class="mb-6">
+                    <h4 class="text-lg font-bold text-white mb-4">Prévia do seu ícone:</h4>
+                    <div class="flex flex-col items-center">
+                        <div id="iconePreview" class="w-32 h-32 rounded-full border-4 border-tech-primary/50 mb-4 flex items-center justify-center text-white font-bold text-4xl shadow-lg" style="background: linear-gradient(135deg, <?= $corIcone ?> 0%, <?= $corIcone ?>99 100%)">
+                            <?= $iniciais ?>
                         </div>
-                        
-                        <div class="text-center mb-4">
-                            <label for="fotoInput" class="cursor-pointer inline-flex items-center gap-2 bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold transition-all">
-                                <i data-lucide="upload" class="w-5 h-5"></i>
-                                Escolher Imagem
-                            </label>
-                            <input type="file" id="fotoInput" name="foto_perfil" accept="image/*" class="hidden" onchange="previewImagem(this)">
-                            <p class="text-gray-400 text-sm mt-2">Ou arraste e solte uma imagem</p>
-                        </div>
-                        
-                        <div class="upload-progress hidden">
-                            <div id="progressBar" class="upload-progress-bar" style="width: 0%"></div>
-                        </div>
-                        
-                        <div id="erroUpload" class="text-red-400 text-sm text-center mt-2 hidden"></div>
+                        <p class="text-gray-400 text-sm">Seu nome aparecerá com as iniciais</p>
                     </div>
-                    
-                    <div class="flex gap-3">
-                        <button type="button" onclick="fecharModalFoto()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
-                            Cancelar
-                        </button>
-                        <button type="submit" id="btnEnviarFoto" class="flex-1 bg-tech-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            <i data-lucide="check" class="w-5 h-5 inline mr-2"></i>
-                            Salvar Foto
-                        </button>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-bold text-white mb-4">Escolha um ícone:</h4>
+                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 max-h-64 overflow-y-auto p-2">
+                        <?php foreach($iconesDisponiveis as $icone => $dados): ?>
+                        <div class="icone-option <?= $iconePerfil == $icone ? 'selecionado' : '' ?>" 
+                             style="background: linear-gradient(135deg, <?= $dados['cor'] ?> 0%, <?= $dados['cor'] ?>99 100%)"
+                             onclick="selecionarIcone('<?= $icone ?>', '<?= $dados['cor'] ?>')"
+                             data-icone="<?= $icone ?>"
+                             data-cor="<?= $dados['cor'] ?>">
+                            <i data-lucide="<?= $icone ?>" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
-                </form>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="button" onclick="fecharModalIcone()" class="flex-1 border border-white/10 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition-all">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="aplicarIcone()" class="flex-1 bg-tech-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
+                        <i data-lucide="check" class="w-5 h-5 inline mr-2"></i>
+                        Aplicar Ícone
+                    </button>
+                </div>
                 
                 <div class="mt-6 pt-4 border-t border-white/10">
-                    <h4 class="text-sm font-bold text-gray-400 mb-2">Requisitos da foto:</h4>
+                    <h4 class="text-sm font-bold text-gray-400 mb-2">Como funciona:</h4>
                     <ul class="text-xs text-gray-500 space-y-1">
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Formatos: JPG, PNG, GIF, WEBP</li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Tamanho máximo: 5MB</li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Imagem será redimensionada para 200x200px</li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="w-3 h-3 text-green-500"></i> Recomendado: foto quadrada</li>
+                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> Seu ícone aparecerá em todo o sistema</li>
+                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> As iniciais do seu nome serão mostradas</li>
+                        <li class="flex items-center gap-2"><i data-lucide="info" class="w-3 h-3 text-blue-500"></i> Você pode mudar quando quiser</li>
                     </ul>
                 </div>
             </div>
@@ -1716,7 +1692,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
-    <!-- Outros modais (mantidos) -->
+    <!-- MODAL ADICIONAR AO CARRINHO (CORRIGIDO) -->
     <div id="modalAdicionar" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
         <div class="absolute inset-0" onclick="fecharModalAdicionar()"></div>
         <div class="relative z-10 w-full max-w-md mx-auto">
@@ -1731,7 +1707,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <button type="button" onclick="alterarQuantidadeModal(-1)" class="w-10 h-10 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
                                 <i data-lucide="minus" class="w-5 h-5"></i>
                             </button>
-                            <input type="number" id="modalQuantidade" name="quantidade" value="1" min="1" max="10" class="flex-1 text-center bg-[#0f172a] border border-white/10 rounded py-3 text-lg font-bold">
+                            <input type="number" id="modalQuantidade" name="quantidade" value="1" min="1" class="flex-1 text-center bg-[#0f172a] border border-white/10 rounded py-3 text-lg font-bold">
                             <button type="button" onclick="alterarQuantidadeModal(1)" class="w-10 h-10 bg-[#1e293b] border border-white/10 rounded flex items-center justify-center hover:bg-white/5 transition-colors">
                                 <i data-lucide="plus" class="w-5 h-5"></i>
                             </button>
@@ -1751,6 +1727,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
+    <!-- MODAL PAGAMENTO (CORRIGIDO) -->
     <div id="modalPagamento" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
         <div class="absolute inset-0" onclick="fecharModalPagamento()"></div>
         <div class="relative z-10 w-full max-w-md mx-auto">
@@ -1797,6 +1774,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
     </div>
 
+    <!-- MODAL CONCLUSÃO -->
     <div id="modalConclusao" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
         <div class="absolute inset-0" onclick="fecharModalConclusao()"></div>
         <div class="relative z-10 w-full max-w-md mx-auto">
@@ -1830,9 +1808,14 @@ $subTab = $_GET['sub'] ?? 'produtos';
         const alunoId = <?= $idAluno ?>;
         const alunoNome = "<?= addslashes($nomeCompleto) ?>";
         const alunoPlano = "<?= addslashes($planoAluno) ?>";
-        const fotoPerfilAtual = "<?= $dadosAluno['foto_perfil'] ?? '' ?>";
+        const iconePerfilAtual = "<?= $iconePerfil ?>";
+        const corIconeAtual = "<?= $corIcone ?>";
+        const iniciais = "<?= $iniciais ?>";
+        const iconesDisponiveis = <?php echo json_encode($iconesDisponiveis); ?>;
         let tempoInterval;
         let qrCodeInstance = null;
+        let iconeSelecionado = iconePerfilAtual;
+        let corIconeSelecionada = corIconeAtual;
 
         // GERAR QR CODE DINÂMICO
         function gerarQRCode() {
@@ -1923,7 +1906,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             }
         }
 
-        // CORREÇÃO DO CRONÔMETRO - Função para calcular tempo decorrido corretamente
+        // CORREÇÃO DO CRONÔMETRO
         function calcularTempoDecorrido() {
             if (!horaEntrada || statusFrequencia !== 'treinando') {
                 if (tempoInterval) clearInterval(tempoInterval);
@@ -1982,108 +1965,69 @@ $subTab = $_GET['sub'] ?? 'produtos';
             }, 50);
         }
 
-        // FUNÇÕES PARA O SISTEMA DE FOTO DE PERFIL
-        function abrirModalFoto() {
-            const modal = document.getElementById('modalFoto');
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-fixed');
+        // FUNÇÕES PARA O SISTEMA DE ÍCONE DE PERFIL
+        function abrirModalIcone() {
+            document.getElementById('modalIcone').classList.remove('hidden');
             recriarIcones();
         }
         
-        function fecharModalFoto() {
-            const modal = document.getElementById('modalFoto');
-            modal.classList.remove('modal-fixed');
-            modal.classList.add('modal-hidden');
-            // Resetar preview
-            const preview = document.getElementById('fotoPreview');
-            const placeholder = document.getElementById('placeholderIcon');
-            const btnEnviar = document.getElementById('btnEnviarFoto');
-            const erroUpload = document.getElementById('erroUpload');
+        function fecharModalIcone() {
+            document.getElementById('modalIcone').classList.add('hidden');
+            // Resetar seleção
+            iconeSelecionado = iconePerfilAtual;
+            corIconeSelecionada = corIconeAtual;
             
-            // Restaurar foto atual
-            if (fotoPerfilAtual) {
-                preview.src = '../' + fotoPerfilAtual + '?t=' + Date.now();
-                preview.classList.remove('hidden');
-                placeholder.classList.add('hidden');
-            } else {
-                preview.classList.add('hidden');
-                placeholder.classList.remove('hidden');
+            // Atualizar preview
+            const preview = document.getElementById('iconePreview');
+            if (preview) {
+                preview.style.background = `linear-gradient(135deg, ${corIconeAtual} 0%, ${corIconeAtual}99 100%)`;
+                preview.innerHTML = iniciais;
             }
             
-            btnEnviar.disabled = true;
-            erroUpload.classList.add('hidden');
-            document.getElementById('fotoInput').value = '';
+            // Remover seleção de todos os ícones
+            document.querySelectorAll('.icone-option').forEach(option => {
+                const icone = option.getAttribute('data-icone');
+                if (icone === iconePerfilAtual) {
+                    option.classList.add('selecionado');
+                } else {
+                    option.classList.remove('selecionado');
+                }
+            });
         }
         
-        function previewImagem(input) {
-            const preview = document.getElementById('fotoPreview');
-            const placeholder = document.getElementById('placeholderIcon');
-            const btnEnviar = document.getElementById('btnEnviarFoto');
-            const erroUpload = document.getElementById('erroUpload');
-            const progressBar = document.getElementById('progressBar');
-            const uploadProgress = document.querySelector('.upload-progress');
+        function selecionarIcone(icone, cor) {
+            iconeSelecionado = icone;
+            corIconeSelecionada = cor;
             
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                
-                // Validações
-                const tiposPermitidos = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                const tamanhoMaximo = 5 * 1024 * 1024; // 5MB
-                
-                erroUpload.textContent = '';
-                erroUpload.classList.add('hidden');
-                
-                // Verificar tipo
-                if (!tiposPermitidos.includes(file.type)) {
-                    erroUpload.textContent = 'Formato não suportado. Use JPG, PNG, GIF ou WEBP.';
-                    erroUpload.classList.remove('hidden');
-                    btnEnviar.disabled = true;
-                    return;
-                }
-                
-                // Verificar tamanho
-                if (file.size > tamanhoMaximo) {
-                    erroUpload.textContent = 'Arquivo muito grande. Máximo: 5MB';
-                    erroUpload.classList.remove('hidden');
-                    btnEnviar.disabled = true;
-                    return;
-                }
-                
-                // Simular progresso de upload
-                uploadProgress.classList.remove('hidden');
-                progressBar.style.width = '0%';
-                
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += 10;
-                    progressBar.style.width = progress + '%';
-                    
-                    if (progress >= 100) {
-                        clearInterval(interval);
-                        uploadProgress.classList.add('hidden');
-                    }
-                }, 50);
-                
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.classList.remove('hidden');
-                    placeholder.classList.add('hidden');
-                    btnEnviar.disabled = false;
-                };
-                reader.readAsDataURL(file);
-            } else {
-                // Restaurar foto atual
-                if (fotoPerfilAtual) {
-                    preview.src = '../' + fotoPerfilAtual + '?t=' + Date.now();
-                    preview.classList.remove('hidden');
-                    placeholder.classList.add('hidden');
-                } else {
-                    preview.classList.add('hidden');
-                    placeholder.classList.remove('hidden');
-                }
-                btnEnviar.disabled = true;
+            // Atualizar preview
+            const preview = document.getElementById('iconePreview');
+            if (preview) {
+                preview.style.background = `linear-gradient(135deg, ${cor} 0%, ${cor}99 100%)`;
+                preview.innerHTML = iniciais;
             }
+            
+            // Atualizar seleção visual
+            document.querySelectorAll('.icone-option').forEach(option => {
+                if (option.getAttribute('data-icone') === icone) {
+                    option.classList.add('selecionado');
+                } else {
+                    option.classList.remove('selecionado');
+                }
+            });
+        }
+        
+        function aplicarIcone() {
+            // Atualizar campo oculto no formulário
+            const iconeInput = document.getElementById('iconePerfilInput');
+            if (iconeInput) {
+                iconeInput.value = iconeSelecionado;
+            }
+            
+            // Fechar modal
+            fecharModalIcone();
+            
+            // Exibir mensagem de sucesso
+            exibirToast("Ícone selecionado! Salve as alterações para aplicar.", "sucesso");
         }
 
         // VALIDAÇÃO DO FORMULÁRIO DE PERFIL
@@ -2181,6 +2125,166 @@ $subTab = $_GET['sub'] ?? 'produtos';
             return true;
         }
 
+        // FUNÇÕES DA LOJA (CORRIGIDAS - sem tremedeira)
+        function abrirModalAdicionar(produtoId, produtoNome, estoque) {
+            document.getElementById('modalProdutoId').value = produtoId;
+            document.getElementById('modalProdutoNome').textContent = produtoNome;
+            document.getElementById('modalEstoque').textContent = estoque;
+            document.getElementById('modalQuantidade').value = 1;
+            document.getElementById('modalQuantidade').max = estoque;
+            
+            // Atualizar mensagem de estoque
+            const estoqueInfo = document.getElementById('modalEstoqueInfo');
+            if (estoque < 5) {
+                estoqueInfo.innerHTML = `Disponível: <span id="modalEstoque" class="text-red-400">${estoque}</span> unidades (Últimas!)`;
+            } else {
+                estoqueInfo.innerHTML = `Disponível: <span id="modalEstoque">${estoque}</span> unidades`;
+            }
+            
+            document.getElementById('modalAdicionar').classList.remove('hidden');
+            recriarIcones();
+        }
+        
+        function fecharModalAdicionar() {
+            document.getElementById('modalAdicionar').classList.add('hidden');
+        }
+        
+        function alterarQuantidadeModal(valor) {
+            const input = document.getElementById('modalQuantidade');
+            const estoque = parseInt(document.getElementById('modalQuantidade').max);
+            let novaQuantidade = parseInt(input.value) + valor;
+            
+            if (novaQuantidade < 1) novaQuantidade = 1;
+            if (novaQuantidade > estoque) novaQuantidade = estoque;
+            
+            input.value = novaQuantidade;
+        }
+        
+        function abrirModalPagamento(total) {
+            document.getElementById('modalTotalCompra').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+            document.getElementById('modalPagamento').classList.remove('hidden');
+            recriarIcones();
+        }
+        
+        function fecharModalPagamento() {
+            document.getElementById('modalPagamento').classList.add('hidden');
+        }
+        
+        function abrirModalConclusao() { 
+            document.getElementById('modalConclusao').classList.remove('hidden'); 
+            recriarIcones();
+            // Atualizar tempo no modal
+            if (statusFrequencia === 'treinando') {
+                calcularTempoDecorrido();
+            }
+        }
+        
+        function fecharModalConclusao() {
+            document.getElementById('modalConclusao').classList.add('hidden');
+        }
+        
+        function abrirCarteirinha() { 
+            const modal = document.getElementById('modalCarteirinha');
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-fixed');
+            recriarIcones();
+            
+            // Gerar QR Code quando o modal for aberto
+            setTimeout(() => {
+                gerarQRCode();
+            }, 100);
+            
+            // Atualizar tempo se estiver treinando
+            if (statusFrequencia === 'treinando') {
+                calcularTempoDecorrido();
+            }
+        }
+        
+        function fecharCarteirinha() {
+            const modal = document.getElementById('modalCarteirinha');
+            modal.classList.remove('modal-fixed');
+            modal.classList.add('modal-hidden');
+            // Remover parâmetro da URL
+            const url = new URL(window.location);
+            url.searchParams.delete('open_qr');
+            window.history.pushState({}, '', url);
+        }
+        
+        // FUNÇÕES DO CARRINHO (CORRIGIDAS - sem tremedeira)
+        function atualizarQuantidadeCarrinho(produtoId, valor) {
+            const input = document.getElementById(`quantidade-${produtoId}`);
+            if (!input) return;
+            
+            let novaQuantidade = parseInt(input.value) + valor;
+            const max = parseInt(input.max);
+            
+            if (novaQuantidade < 1) novaQuantidade = 1;
+            if (novaQuantidade > max) novaQuantidade = max;
+            
+            input.value = novaQuantidade;
+            
+            // Enviar formulário automaticamente após pequeno delay
+            setTimeout(() => {
+                enviarAtualizacaoCarrinho(produtoId, novaQuantidade);
+            }, 300);
+        }
+        
+        function atualizarInputCarrinho(produtoId, estoque) {
+            const input = document.getElementById(`quantidade-${produtoId}`);
+            if (!input) return;
+            
+            let novaQuantidade = parseInt(input.value);
+            
+            if (isNaN(novaQuantidade) || novaQuantidade < 1) novaQuantidade = 1;
+            if (novaQuantidade > estoque) novaQuantidade = estoque;
+            
+            input.value = novaQuantidade;
+            
+            // Enviar formulário automaticamente
+            setTimeout(() => {
+                enviarAtualizacaoCarrinho(produtoId, novaQuantidade);
+            }, 500);
+        }
+        
+        function enviarAtualizacaoCarrinho(produtoId, quantidade) {
+            // Criar formulário dinâmico
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            const acaoInput = document.createElement('input');
+            acaoInput.type = 'hidden';
+            acaoInput.name = 'acao';
+            acaoInput.value = 'atualizar_carrinho';
+            form.appendChild(acaoInput);
+            
+            const produtoInput = document.createElement('input');
+            produtoInput.type = 'hidden';
+            produtoInput.name = 'produto_id';
+            produtoInput.value = produtoId;
+            form.appendChild(produtoInput);
+            
+            const quantidadeInput = document.createElement('input');
+            quantidadeInput.type = 'hidden';
+            quantidadeInput.name = 'quantidade';
+            quantidadeInput.value = quantidade;
+            form.appendChild(quantidadeInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        // Função para exibir mensagens toast
+        function exibirToast(msg, tipo) { 
+            const div = document.createElement('div'); 
+            const cor = tipo === 'erro' ? 'border-red-500 text-red-400' : 'border-green-500 text-white'; 
+            div.className = `fixed top-5 right-5 z-50 bg-[#1e293b] border-l-4 ${cor} p-4 rounded-lg shadow-2xl flex items-center gap-3 animate-fadeIn`; 
+            div.innerHTML = `<i data-lucide="${tipo === 'erro' ? 'alert-circle' : 'check-circle'}"></i> ${msg}`; 
+            document.body.appendChild(div); 
+            recriarIcones(); 
+            setTimeout(() => div.remove(), 4000); 
+        }
+        
         // Função para alternar entre abas principais
         function switchTab(tabId) {
             // Verificar se pode acessar treinos
@@ -2410,54 +2514,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
             recriarIcones(); 
         }
 
-        // Funções dos modais
-        function abrirModalConclusao() { 
-            document.getElementById('modalConclusao').classList.remove('hidden'); 
-            recriarIcones();
-            // Atualizar tempo no modal
-            if (statusFrequencia === 'treinando') {
-                calcularTempoDecorrido();
-            }
-        }
-        
-        function abrirCarteirinha() { 
-            const modal = document.getElementById('modalCarteirinha');
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-fixed');
-            recriarIcones();
-            
-            // Gerar QR Code quando o modal for aberto
-            setTimeout(() => {
-                gerarQRCode();
-            }, 100);
-            
-            // Atualizar tempo se estiver treinando
-            if (statusFrequencia === 'treinando') {
-                calcularTempoDecorrido();
-            }
-        }
-        
-        function fecharCarteirinha() {
-            const modal = document.getElementById('modalCarteirinha');
-            modal.classList.remove('modal-fixed');
-            modal.classList.add('modal-hidden');
-            // Remover parâmetro da URL
-            const url = new URL(window.location);
-            url.searchParams.delete('open_qr');
-            window.history.pushState({}, '', url);
-        }
-        
-        // Função para exibir mensagens toast
-        function exibirToast(msg, tipo) { 
-            const div = document.createElement('div'); 
-            const cor = tipo === 'erro' ? 'border-red-500 text-red-400' : 'border-green-500 text-white'; 
-            div.className = `fixed top-5 right-5 z-50 bg-[#1e293b] border-l-4 ${cor} p-4 rounded-lg shadow-2xl flex items-center gap-3 animate-fadeIn`; 
-            div.innerHTML = `<i data-lucide="${tipo === 'erro' ? 'alert-circle' : 'check-circle'}"></i> ${msg}`; 
-            document.body.appendChild(div); 
-            recriarIcones(); 
-            setTimeout(() => div.remove(), 4000); 
-        }
-        
         // Inicializar página
         document.addEventListener('DOMContentLoaded', () => { 
             // Carregar parâmetros da URL
@@ -2473,7 +2529,10 @@ $subTab = $_GET['sub'] ?? 'produtos';
             }
             
             // Inicializar validação do nome
-            validarNome(document.getElementById('nomeInput'));
+            const nomeInput = document.getElementById('nomeInput');
+            if (nomeInput) {
+                validarNome(nomeInput);
+            }
             
             // Inicializar treino A (se necessário)
             if (tab === 'treinos' && statusFrequencia === 'treinando') {
@@ -2513,33 +2572,6 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     abrirCarteirinha();
                 }, 600);
             <?php endif; ?>
-            
-            // Configurar drag and drop para upload de foto
-            const previewContainer = document.getElementById('previewContainer');
-            if (previewContainer) {
-                previewContainer.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    previewContainer.classList.add('border-tech-primary', 'bg-gray-700/50');
-                });
-                
-                previewContainer.addEventListener('dragleave', () => {
-                    previewContainer.classList.remove('border-tech-primary', 'bg-gray-700/50');
-                });
-                
-                previewContainer.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    previewContainer.classList.remove('border-tech-primary', 'bg-gray-700/50');
-                    
-                    const file = e.dataTransfer.files[0];
-                    if (file && file.type.startsWith('image/')) {
-                        const input = document.getElementById('fotoInput');
-                        const dataTransfer = new DataTransfer();
-                        dataTransfer.items.add(file);
-                        input.files = dataTransfer.files;
-                        previewImagem(input);
-                    }
-                });
-            }
         });
     </script>
 </body>

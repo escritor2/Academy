@@ -1,373 +1,163 @@
+<?php
+session_start();
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/TreinoDAO.php';
+require_once __DIR__ . '/../Model/ProfessorDAO.php';
+
+// SEGURANÇA - Verifica se é professor logado
+if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] !== 'professor') { 
+    header('Location: ../index.php'); 
+    exit; 
+}
+
+$dao = new AlunoDAO();
+$treinoDao = new TreinoDAO();
+$professorDao = new ProfessorDAO();
+
+// Carrega dados do professor logado
+$professor = $professorDao->buscarPorId($_SESSION['usuario_id']);
+if (!$professor) {
+    session_destroy();
+    header('Location: ../index.php');
+    exit;
+}
+
+$msg = ''; $tipoMsg = '';
+
+// AJAX (Mesmo do Admin)
+if (isset($_GET['acao_ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['acao_ajax'] === 'buscar_treino') echo json_encode($treinoDao->buscarPorAluno($_GET['id']));
+    if ($_GET['acao_ajax'] === 'buscar_modelo') echo json_encode($treinoDao->buscarModeloPorId($_GET['id']));
+    exit;
+}
+
+// POST (Salvar Treino)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['acao']) && $_POST['acao'] === 'salvar_treino') {
+        if ($treinoDao->salvarTreino($_POST['aluno_id_treino'], $_POST['treino'] ?? [])) {
+            $msg = "Treino atualizado com sucesso!";
+            $tipoMsg = 'sucesso';
+        } else {
+            $msg = "Erro ao salvar.";
+            $tipoMsg = 'erro';
+        }
+    }
+}
+
+// Dados
+$listaAlunos = $dao->buscarRecentes(100);
+$listaModelos = $treinoDao->listarModelos();
+?>
 <!DOCTYPE html>
-<html lang="pt-br" class="scroll-smooth">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechFit - Área do Professor</title>
-    
-    <!-- Importando Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Configurando a Paleta de Cores -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        tech: {
-                            900: '#111827', 
-                            800: '#1f2937', 
-                            700: '#374151', 
-                            primary: '#ea580c', 
-                            primaryHover: '#c2410c',
-                            text: '#f3f4f6', 
-                            muted: '#9ca3af' 
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'gradient-x': 'gradient-x 3s ease infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        },
-                        'gradient-x': {
-                            '0%, 100%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'left center'
-                            },
-                            '50%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'right center'
-                            },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- Ícones Lucide -->
+    <link rel="icon" href="icons/halter.png">
+    <title>Professor - TechFit</title>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Fonte Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-
-    <style>
-        /* Estilos Globais */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            color: white;
-            overflow-x: hidden;
-        }
-
-        /* Hero Background com Parallax Suave */
-        .hero-bg {
-            background-image: linear-gradient(to right, rgba(17, 24, 39, 0.95), rgba(17, 24, 39, 0.6)), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-
-        /* Animação de Scroll (Reveal) */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
-        }
-
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Stagger Delay para elementos filhos */
-        .reveal-delay-100 { transition-delay: 100ms; }
-        .reveal-delay-200 { transition-delay: 200ms; }
-        .reveal-delay-300 { transition-delay: 300ms; }
-
-        /* Botões com Glow Intenso */
-        .btn-glow {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-        .btn-glow:hover {
-            box-shadow: 0 0 20px rgba(234, 88, 12, 0.6);
-            transform: translateY(-2px);
-        }
-        .btn-glow::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.5s;
-        }
-        .btn-glow:hover::after {
-            left: 100%;
-        }
-
-        /* Card Hover Effect Premium */
-        .card-premium {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(55, 65, 81, 0.5);
-        }
-        .card-premium:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 40px -5px rgba(0,0,0,0.4), 0 0 15px rgba(234, 88, 12, 0.3);
-            border-color: #ea580c;
-        }
-        .card-premium:hover img {
-            transform: scale(1.1);
-        }
-
-        /* CORREÇÃO DA ANIMAÇÃO DE DIGITAÇÃO 
-           - Ciclo infinito
-           - Sem barra laranja
-        */
-        .typing-container {
-            display: inline-flex;
-            justify-content: center; /* Centraliza se necessário */
-            width: fit-content;
-        }
-
-        .typing-effect {
-            white-space: nowrap;
-            overflow: hidden;
-            display: inline-block;
-            max-width: 0; /* Começa fechado */
-            /* Animação ciclica infinita: 6 segundos total */
-            animation: typing-cycle 6s steps(40, end) infinite, gradient-x 3s ease infinite;
-            
-            /* Mantendo o gradiente no texto */
-            border-right: none !important; /* Garante que não tenha barra */
-        }
-
-        @keyframes typing-cycle {
-            0% { max-width: 0; }
-            30% { max-width: 100%; } /* Digita até 30% do tempo */
-            70% { max-width: 100%; } /* Fica parado lendo até 70% */
-            90% { max-width: 0; }    /* Apaga rápido */
-            100% { max-width: 0; }   /* Pausa antes de recomeçar */
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { tech: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', primary: '#f97316' } }, boxShadow: { 'glow': '0 0 15px rgba(249, 115, 22, 0.3)' } } } }</script>
+    <style>.no-scrollbar::-webkit-scrollbar { display: none; } input, select { background-color: #0f172a !important; color: white !important; border-color: #334155 !important; }</style>
 </head>
-<body class="antialiased selection:bg-tech-primary selection:text-white">
+<body class="bg-[#0b1120] text-gray-100 font-sans h-screen flex overflow-hidden">
 
-    <!-- Navbar Glassmorphism -->
-    <nav class="fixed w-full z-50 transition-all duration-300 bg-tech-900/90 backdrop-blur-md shadow-xl border-b border-tech-700/50" id="navbar">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-20">
-                <div class="flex items-center gap-2 group cursor-pointer">
-                    <i data-lucide="dumbbell" class="h-8 w-8 text-tech-primary transition-transform group-hover:rotate-45 duration-500"></i>
-                    <span class="font-bold text-2xl tracking-tighter text-white">TECH<span class="text-tech-primary">FIT</span></span>
-                </div>
-                
-                <!-- Desktop Menu -->
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-8">
-                        <a href="index.html" class="relative group px-3 py-2 text-sm font-medium hover:text-white transition-colors">
-                            Site Principal
-                            <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-tech-primary transition-all group-hover:w-full"></span>
-                        </a>
-                        <a href="#" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-6 py-2 rounded-full font-bold transition-all btn-glow ml-4">
-                            Sair
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Mobile Menu Button -->
-                <div class="-mr-2 flex md:hidden">
-                    <button onclick="toggleMobileMenu()" class="text-gray-400 hover:text-white p-2">
-                        <i data-lucide="menu" class="h-8 w-8"></i>
-                    </button>
-                </div>
-            </div>
+    <aside class="w-64 bg-[#111827] border-r border-white/5 flex flex-col justify-between hidden md:flex">
+        <div>
+            <div class="h-20 flex items-center px-6 border-b border-white/5"><div class="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg shrink-0"><i data-lucide="dumbbell" class="w-6 h-6 text-white"></i></div><span class="text-xl font-bold ml-3 tracking-wide">TECH<span class="text-tech-primary">FIT</span></span></div>
+            <nav class="mt-8 px-4 space-y-2">
+                <button class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-tech-primary/10 text-tech-primary"><i data-lucide="biceps-flexed" class="w-5 h-5"></i> Gerenciar Treinos</button>
+                <button class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white"><i data-lucide="calendar" class="w-5 h-5"></i> Minha Agenda</button>
+            </nav>
         </div>
+        <div class="p-4 border-t border-white/5"><a href="index.php" class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-xl"><i data-lucide="log-out" class="w-5 h-5"></i> Sair</a></div>
+    </aside>
 
-        <!-- Mobile Menu -->
-        <div class="md:hidden hidden bg-tech-900/95 backdrop-blur-xl border-t border-tech-700 absolute w-full" id="mobile-menu">
-            <div class="px-4 pt-2 pb-6 space-y-2">
-                <a href="index.html" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Site Principal</a>
-                <a href="#" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Sair</a>
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-[#0b1120]">
+        <div class="text-right">
+    <p class="text-sm font-bold text-white"><?= htmlspecialchars($professor['nome']) ?></p>
+    <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+        <?= htmlspecialchars($professor['especialidade']) ?>
+    </span>
+</div>
+
+        <div class="flex-1 overflow-y-auto p-8 no-scrollbar">
+            
+            <div class="bg-[#1e293b] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="edit" class="w-5 h-5 text-tech-primary"></i> Prescrever Treino</h3>
+                    <button onclick="gerarTreinoAutomatico()" class="text-xs font-bold text-purple-400 hover:text-white border border-purple-500/30 px-3 py-2 rounded-lg transition-colors">Usar Modelo Padrão</button>
+                </div>
+
+                <form method="POST" id="formTreino">
+                    <input type="hidden" name="acao" value="salvar_treino">
+                    
+                    <div class="mb-8">
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Selecione o Aluno</label>
+                        <div class="flex gap-4">
+                            <select name="aluno_id_treino" onchange="carregarTreino(this.value)" class="w-full bg-[#0f172a] border border-white/10 rounded-xl p-4 text-white focus:border-tech-primary outline-none">
+                                <option value="">-- Buscar Aluno --</option>
+                                <?php foreach($listaAlunos as $a): ?>
+                                    <option value="<?= $a['id'] ?>"><?= $a['nome'] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-bold flex gap-2 items-center shadow-lg"><i data-lucide="save" class="w-5 h-5"></i> Salvar</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <?php foreach(['A','B','C'] as $div): ?>
+                        <div class="bg-[#0f172a] rounded-xl border border-white/5 flex flex-col h-full">
+                            <div class="p-4 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="font-bold text-white">Treino <?= $div ?></h3>
+                                <button type="button" onclick="addExercicio('container-<?= $div ?>')" class="text-tech-primary hover:text-white text-xs font-bold">+ Adicionar</button>
+                            </div>
+                            <div id="container-<?= $div ?>" class="p-4 space-y-2 min-h-[300px]"></div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </form>
             </div>
-        </div>
-    </nav>
 
-    <!-- Main Content - Dashboard Professor -->
-    <main class="pt-24 pb-16 min-h-screen">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <header class="mb-12 reveal">
-                <h1 class="text-4xl font-extrabold text-white tracking-tight sm:text-5xl">
-                    <span class="text-tech-primary">Área</span> do Professor
-                </h1>
-                <p class="mt-3 text-xl text-tech-muted">Gerencie seus alunos, treinos e horários.</p>
-            </header>
-
-            <!-- Cards de Estatísticas -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-100">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Alunos Ativos</p>
-                        <i data-lucide="users" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">42</p>
-                </div>
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-200">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Treinos Criados</p>
-                        <i data-lucide="clipboard-list" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">187</p>
-                </div>
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-300">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Próxima Aula</p>
-                        <i data-lucide="calendar" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">14:00</p>
-                </div>
-            </div>
-
-            <!-- Seção de Alunos Recentes -->
-            <section class="bg-tech-800 p-8 rounded-xl shadow-lg border border-tech-700 reveal mb-12">
-                <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <i data-lucide="user-check" class="w-6 h-6 text-tech-primary"></i> Meus Alunos
-                </h2>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-tech-700">
-                        <thead>
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Nome</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Plano</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Último Treino</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-tech-700">
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Ana Silva</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-green-400">VIP</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-tech-muted">Hoje, 10:00</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-tech-primary hover:text-tech-primaryHover">Ver Perfil</a>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Bruno Costa</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-400">Pro</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-tech-muted">Ontem, 18:30</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-tech-primary hover:text-tech-primaryHover">Ver Perfil</a>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Carla Mendes</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-400">Basic</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-tech-muted">2 dias atrás</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-tech-primary hover:text-tech-primaryHover">Ver Perfil</a>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Seção de Ações Rápidas -->
-            <section class="reveal">
-                <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <i data-lucide="zap" class="w-6 h-6 text-tech-primary"></i> Ações Rápidas
-                </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="plus-circle" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Criar Novo Treino</h3>
-                        <p class="text-sm text-tech-muted mt-1">Monte uma ficha personalizada.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="message-square" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Enviar Mensagem</h3>
-                        <p class="text-sm text-tech-muted mt-1">Comunique-se com seus alunos.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="clock" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Ver Horários</h3>
-                        <p class="text-sm text-tech-muted mt-1">Consulte sua agenda de aulas.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Relatórios</h3>
-                        <p class="text-sm text-tech-muted mt-1">Acompanhe a evolução dos alunos.</p>
-                    </a>
-                </div>
-            </section>
         </div>
     </main>
 
-    <!-- Footer (Simplificado) -->
-    <footer class="bg-black text-gray-400 py-8 border-t border-tech-700 relative">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
-            <p>&copy; 2023 TechFit. Área Restrita do Professor.</p>
-        </div>
-    </footer>
-
-    <!-- JavaScript -->
     <script>
-        // Inicializar ícones Lucide
         lucide.createIcons();
-
-        // Menu Mobile Toggle
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobile-menu');
-            if (menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden');
-                setTimeout(() => {
-                    menu.style.opacity = '1';
-                    menu.style.transform = 'translateY(0)';
-                }, 10);
-            } else {
-                menu.classList.add('hidden');
-            }
+        
+        async function carregarTreino(id) {
+            if(!id) return;
+            ['A','B','C'].forEach(d => document.getElementById('container-'+d).innerHTML = '');
+            try {
+                const response = await fetch(`professor.php?acao_ajax=buscar_treino&id=${id}`);
+                const data = await response.json();
+                ['A','B','C'].forEach(div => { if(data[div]) data[div].forEach(t => addExercicio('container-'+div, t.exercicio, t.series)); });
+                exibirToast("Treino carregado!", "sucesso");
+            } catch (error) { console.error(error); }
         }
 
-        // Scroll Animations
-        const observerOptions = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 0.15
-        };
+        function addExercicio(containerId, nome = '', series = '3x12') {
+            const container = document.getElementById(containerId);
+            const cleanId = containerId.replace('container-', '');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center animate-fadeIn group';
+            div.innerHTML = `<div class="grid grid-cols-[1fr_80px] gap-2 w-full"><input type="text" name="treino[${cleanId}][][nome]" value="${nome}" placeholder="Exercício" class="bg-[#1e293b] border border-white/10 rounded-lg p-2 text-sm text-white focus:border-tech-primary outline-none"><input type="text" name="treino[${cleanId}][][series]" value="${series}" placeholder="Reps" class="bg-[#1e293b] border border-white/10 rounded-lg p-2 text-sm text-center text-gray-400 focus:border-tech-primary outline-none"></div><button type="button" onclick="this.parentElement.remove()" class="text-red-500 p-1 hover:bg-red-500/10 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+            container.appendChild(div);
+            lucide.createIcons();
+        }
 
-        const observer = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                    // Não desobservar para que a animação possa ocorrer em cada carregamento de página
-                    // observer.unobserve(entry.target); 
-                }
-            });
-        }, observerOptions);
+        function gerarTreinoAutomatico() {
+            ['A','B','C'].forEach(d => document.getElementById('container-'+d).innerHTML = '');
+            const tA = [{n:'Supino Reto',s:'3x12'},{n:'Supino Inclinado',s:'3x12'},{n:'Tríceps Corda',s:'3x12'}];
+            const tB = [{n:'Puxada Alta',s:'3x12'},{n:'Remada Baixa',s:'3x12'},{n:'Rosca Direta',s:'3x12'}];
+            const tC = [{n:'Agachamento',s:'3x12'},{n:'Leg Press',s:'3x12'},{n:'Extensora',s:'3x15'}];
+            tA.forEach(e => addExercicio('container-A', e.n, e.s)); tB.forEach(e => addExercicio('container-B', e.n, e.s)); tC.forEach(e => addExercicio('container-C', e.n, e.s));
+        }
 
-        document.querySelectorAll('.reveal').forEach((el) => {
-            observer.observe(el);
-        });
+        function exibirToast(msg, tipo) {
+            const div = document.createElement('div'); div.className = `fixed top-5 right-5 z-50 bg-[#1e293b] border-l-4 ${tipo==='erro'?'border-red-500 text-red-400':'border-green-500 text-white'} p-4 rounded shadow-2xl flex items-center gap-3 animate-bounce`; div.innerHTML = `<i data-lucide="check-circle"></i> ${msg}`; document.body.appendChild(div); lucide.createIcons(); setTimeout(() => div.remove(), 4000);
+        }
+        <?php if ($msg): ?>exibirToast("<?= $msg ?>", "<?= $tipoMsg ?>");<?php endif; ?>
     </script>
 </body>
 </html>

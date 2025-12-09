@@ -5,6 +5,9 @@ require_once __DIR__ . '/../Model/TreinoDAO.php';
 require_once __DIR__ . '/../Model/ProdutoDAO.php';
 require_once __DIR__ . '/../Model/VendaDAO.php';
 require_once __DIR__ . '/../Controller/AlunoController.php';
+// DAOs para equipe
+require_once __DIR__ . '/../Model/ProfessorDAO.php';
+require_once __DIR__ . '/../Model/RecepcionistaDAO.php';
 
 // API AJAX
 if (isset($_GET['acao_ajax'])) {
@@ -32,8 +35,16 @@ $dao = new AlunoDAO();
 $treinoDao = new TreinoDAO();
 $produtoDao = new ProdutoDAO();
 $vendaDao = new VendaDAO();
+$professorDao = new ProfessorDAO();
+$recepcionistaDao = new RecepcionistaDAO();
 $msgAdm = ''; 
 $tipoMsgAdm = '';
+
+// Dados para as novas abas
+$listaProfessores = $professorDao->listar();
+$listaRecepcionistas = $recepcionistaDao->listar();
+$totalProfessores = count($listaProfessores);
+$totalRecepcionistas = count($listaRecepcionistas);
 
 // --- PROCESSAMENTO POST ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -83,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($ids as $id) {
                 $dao->excluirAluno($id);
             }
+            $msgAdm = count($ids) . " aluno(s) excluído(s) com sucesso!";
+            $tipoMsgAdm = 'sucesso';
         }
         header("Location: adm.php?tab=alunos&msg=del_sucesso"); 
         exit;
@@ -144,6 +157,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: adm.php?tab=loja&msg=prod_del_massa"); 
         exit;
     }
+
+    // PROFESSORES
+    if ($acao === 'cadastrar_professor') {
+        try {
+            $professorDao->cadastrar($_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['cref'], $_POST['especialidade'], $_POST['senha']);
+            header("Location: adm.php?tab=professor&msg=prof_cad_sucesso"); 
+            exit;
+        } catch (Exception $e) { 
+            $msgAdm = "Erro: " . $e->getMessage(); 
+            $tipoMsgAdm = 'erro'; 
+        }
+    }
+
+    if ($acao === 'editar_professor') {
+        try {
+            $senha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
+            $professorDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['cref'], $_POST['especialidade'], $senha);
+            header("Location: adm.php?tab=professor&msg=prof_edit_sucesso"); 
+            exit;
+        } catch (Exception $e) { 
+            $msgAdm = "Erro: " . $e->getMessage(); 
+            $tipoMsgAdm = 'erro'; 
+        }
+    }
+
+    if ($acao === 'excluir_professor') {
+        $professorDao->excluir($_POST['id_exclusao']);
+        header("Location: adm.php?tab=professor&msg=prof_del_sucesso"); 
+        exit;
+    }
+
+    // RECEPCIONISTAS
+    if ($acao === 'cadastrar_recepcionista') {
+        try {
+            $recepcionistaDao->cadastrar($_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['senha']);
+            header("Location: adm.php?tab=recepcionista&msg=rec_cad_sucesso"); 
+            exit;
+        } catch (Exception $e) { 
+            $msgAdm = "Erro: " . $e->getMessage(); 
+            $tipoMsgAdm = 'erro'; 
+        }
+    }
+
+    if ($acao === 'editar_recepcionista') {
+        try {
+            $senha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
+            $recepcionistaDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $senha);
+            header("Location: adm.php?tab=recepcionista&msg=rec_edit_sucesso"); 
+            exit;
+        } catch (Exception $e) { 
+            $msgAdm = "Erro: " . $e->getMessage(); 
+            $tipoMsgAdm = 'erro'; 
+        }
+    }
+
+    if ($acao === 'excluir_recepcionista') {
+        $recepcionistaDao->excluir($_POST['id_exclusao']);
+        header("Location: adm.php?tab=recepcionista&msg=rec_del_sucesso"); 
+        exit;
+    }
 }
 
 // DADOS
@@ -188,7 +261,13 @@ if (isset($_GET['msg'])) {
         'prod_del'=>'Produto excluído!', 
         'prod_kit'=>'Kit inicial gerado!', 
         'prod_del_massa'=>'Produtos selecionados excluídos!',
-        'prod_edit'=>'Produto editado!'
+        'prod_edit'=>'Produto editado!',
+        'prof_cad_sucesso' => 'Professor cadastrado!',
+        'prof_edit_sucesso' => 'Professor atualizado!',
+        'prof_del_sucesso' => 'Professor excluído!',
+        'rec_cad_sucesso' => 'Recepcionista cadastrado!',
+        'rec_edit_sucesso' => 'Recepcionista atualizado!',
+        'rec_del_sucesso' => 'Recepcionista excluído!'
     ];
     if(isset($m[$_GET['msg']])) { 
         $msgAdm = $m[$_GET['msg']]; 
@@ -471,6 +550,42 @@ if (isset($_GET['msg'])) {
         .modal-overlay {
             z-index: 9999;
         }
+        
+        /* Estilos para força da senha */
+        .password-strength-meter {
+            height: 4px;
+            width: 100%;
+            margin-top: 4px;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .password-strength-0 { background-color: #dc2626; width: 20%; }
+        .password-strength-1 { background-color: #ea580c; width: 40%; }
+        .password-strength-2 { background-color: #f59e0b; width: 60%; }
+        .password-strength-3 { background-color: #10b981; width: 80%; }
+        .password-strength-4 { background-color: #22c55e; width: 100%; }
+        
+        .password-requirement {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        
+        .requirement-met {
+            color: #10b981;
+        }
+        
+        .requirement-not-met {
+            color: #6b7280;
+        }
+        
+        .requirement-icon {
+            width: 0.75rem;
+            height: 0.75rem;
+        }
     </style>
 </head>
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">
@@ -512,6 +627,17 @@ if (isset($_GET['msg'])) {
                         <button onclick="switchTab('financeiro')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
                             <i data-lucide="dollar-sign" class="w-5 h-5"></i>
                             <span class="nav-text">Financeiro</span>
+                        </button>
+                        
+                        <!-- Adicione esta seção na sidebar, após a seção "Gestão" -->
+                        <p class="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mt-6 mb-2 section-title">Equipe</p>
+                        <button onclick="switchTab('professor')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                            <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                            <span class="nav-text">Professores</span>
+                        </button>
+                        <button onclick="switchTab('recepcionista')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                            <i data-lucide="user-check" class="w-5 h-5"></i>
+                            <span class="nav-text">Recepcionistas</span>
                         </button>
                         
                         <p class="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider mt-6 mb-2 section-title">Suporte</p>
@@ -649,7 +775,7 @@ if (isset($_GET['msg'])) {
                                         <thead class="bg-[#0f172a] uppercase text-xs font-bold text-gray-500">
                                             <tr>
                                                 <th class="px-4 py-3 w-12">
-                                                    <input type="checkbox" id="selectAllAlunos" class="w-4 h-4 rounded border-gray-600 bg-[#0f172a] text-tech-primary">
+                                                    <input type="checkbox" id="selectAllAlunos" class="w-4 h-4 rounded border-gray-600 bg-[#0f172a] text-tech-primary cursor-pointer" onclick="selecionarTodosAlunos()">
                                                 </th>
                                                 <th class="px-4 py-3">Aluno</th>
                                                 <th class="px-4 py-3">Plano</th>
@@ -661,7 +787,7 @@ if (isset($_GET['msg'])) {
                                             <?php foreach($listaAlunos as $aluno): ?>
                                             <tr class="hover:bg-white/5 transition-colors">
                                                 <td class="px-4 py-3">
-                                                    <input type="checkbox" name="ids_exclusao[]" value="<?= $aluno['id'] ?>" class="w-4 h-4 rounded border-gray-600 bg-[#0f172a] text-tech-primary check-aluno">
+                                                    <input type="checkbox" name="ids_exclusao[]" value="<?= $aluno['id'] ?>" class="w-4 h-4 rounded border-gray-600 bg-[#0f172a] text-tech-primary cursor-pointer check-aluno" onchange="atualizarBotaoExcluirAlunos()">
                                                 </td>
                                                 <td class="px-4 py-3 font-medium text-white"><?= htmlspecialchars($aluno['nome']) ?></td>
                                                 <td class="px-4 py-3"><?= htmlspecialchars($aluno['plano']) ?></td>
@@ -907,7 +1033,7 @@ if (isset($_GET['msg'])) {
                                         ?>
                                         <div class="card <?= $prod['estoque'] < 10 ? 'border-red-500/30' : '' ?>">
                                             <div class="flex items-center gap-3">
-                                                <input type="checkbox" name="ids_exclusao[]" value="<?= $prod['id'] ?>" class="w-5 h-5 rounded border-gray-600 bg-[#0f172a] text-orange-500 check-item">
+                                                <input type="checkbox" name="ids_exclusao[]" value="<?= $prod['id'] ?>" class="w-5 h-5 rounded border-gray-600 bg-[#0f172a] text-orange-500 check-item" onchange="atualizarBotaoExcluir()">
                                                 <div class="w-10 h-10 rounded-lg flex items-center justify-center <?= $bg ?> flex-shrink-0">
                                                     <i data-lucide="<?= $icone ?>" class="w-5 h-5 <?= $cor ?>"></i>
                                                 </div>
@@ -998,12 +1124,167 @@ if (isset($_GET['msg'])) {
                         </div>
                     </div>
 
-                    <!-- Recepcionista -->
+                    <!-- Aba Professores -->
+                    <div id="tab-professor" class="tab-content hidden fade-in">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-white">Gerenciar Professores</h2>
+                            <div class="flex gap-3">
+                                <button onclick="abrirModalProfessor()" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-glow transition-all">
+                                    <i data-lucide="user-plus" class="w-5 h-5"></i> Novo Professor
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Total Professores</p>
+                                <h3 class="text-2xl font-bold text-white"><?= $totalProfessores ?></h3>
+                            </div>
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Ativos</p>
+                                <h3 class="text-2xl font-bold text-green-400"><?= $professorDao->contarAtivos() ?></h3>
+                            </div>
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Inativos</p>
+                                <h3 class="text-2xl font-bold text-red-400"><?= $totalProfessores - $professorDao->contarAtivos() ?></h3>
+                            </div>
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Especialidades</p>
+                                <h3 class="text-2xl font-bold text-blue-400"><?= $professorDao->contarEspecialidades() ?></h3>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="table-container">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-[#0f172a] uppercase text-xs font-bold text-gray-500">
+                                        <tr>
+                                            <th class="px-4 py-3">ID</th>
+                                            <th class="px-4 py-3">Nome</th>
+                                            <th class="px-4 py-3">Email</th>
+                                            <th class="px-4 py-3">CREF</th>
+                                            <th class="px-4 py-3">Especialidade</th>
+                                            <th class="px-4 py-3">Status</th>
+                                            <th class="px-4 py-3 text-right">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-white/5">
+                                        <?php foreach($listaProfessores as $prof): ?>
+                                        <tr class="hover:bg-white/5 transition-colors">
+                                            <td class="px-4 py-3 font-medium text-white">#<?= $prof['id'] ?></td>
+                                            <td class="px-4 py-3 font-medium text-white"><?= htmlspecialchars($prof['nome']) ?></td>
+                                            <td class="px-4 py-3"><?= htmlspecialchars($prof['email']) ?></td>
+                                            <td class="px-4 py-3"><?= htmlspecialchars($prof['cref']) ?></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400">
+                                                    <?= htmlspecialchars($prof['especialidade']) ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2.5 py-1 rounded-full text-xs font-bold <?= $prof['status'] == 'Ativo' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400' ?>">
+                                                    <?= $prof['status'] ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <button type="button" onclick='abrirModalEditarProfessor(<?= json_encode($prof) ?>)' class="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors">
+                                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                                    </button>
+                                                    <form method="POST" class="inline">
+                                                        <input type="hidden" name="acao" value="alterar_status_professor">
+                                                        <input type="hidden" name="id" value="<?= $prof['id'] ?>">
+                                                        <input type="hidden" name="novo_status" value="<?= $prof['status'] == 'Ativo' ? 'Inativo' : 'Ativo' ?>">
+                                                        <button type="submit" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                                                            <i data-lucide="<?= $prof['status'] == 'Ativo' ? 'lock' : 'unlock' ?>" class="w-4 h-4 <?= $prof['status'] == 'Ativo' ? 'text-red-400' : 'text-green-400' ?>"></i>
+                                                        </button>
+                                                    </form>
+                                                    <button type="button" onclick="abrirModalExcluir(<?= $prof['id'] ?>, 'professor')" class="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aba Recepcionistas -->
                     <div id="tab-recepcionista" class="tab-content hidden fade-in">
-                        <div class="card text-center py-12">
-                            <i data-lucide="headset" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
-                            <h3 class="text-xl font-bold text-gray-400 mb-2">Módulo de Recepção</h3>
-                            <p class="text-gray-500">Em desenvolvimento</p>
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-white">Gerenciar Recepcionistas</h2>
+                            <div class="flex gap-3">
+                                <button onclick="abrirModalRecepcionista()" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-glow transition-all">
+                                    <i data-lucide="user-plus" class="w-5 h-5"></i> Novo Recepcionista
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Total Recepcionistas</p>
+                                <h3 class="text-2xl font-bold text-white"><?= $totalRecepcionistas ?></h3>
+                            </div>
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Ativos</p>
+                                <h3 class="text-2xl font-bold text-green-400"><?= $recepcionistaDao->contarAtivos() ?></h3>
+                            </div>
+                            <div class="card">
+                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Inativos</p>
+                                <h3 class="text-2xl font-bold text-red-400"><?= $totalRecepcionistas - $recepcionistaDao->contarAtivos() ?></h3>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="table-container">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-[#0f172a] uppercase text-xs font-bold text-gray-500">
+                                        <tr>
+                                            <th class="px-4 py-3">ID</th>
+                                            <th class="px-4 py-3">Nome</th>
+                                            <th class="px-4 py-3">Email</th>
+                                            <th class="px-4 py-3">Telefone</th>
+                                            <th class="px-4 py-3">Status</th>
+                                            <th class="px-4 py-3 text-right">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-white/5">
+                                        <?php foreach($listaRecepcionistas as $rec): ?>
+                                        <tr class="hover:bg-white/5 transition-colors">
+                                            <td class="px-4 py-3 font-medium text-white">#<?= $rec['id'] ?></td>
+                                            <td class="px-4 py-3 font-medium text-white"><?= htmlspecialchars($rec['nome']) ?></td>
+                                            <td class="px-4 py-3"><?= htmlspecialchars($rec['email']) ?></td>
+                                            <td class="px-4 py-3"><?= htmlspecialchars($rec['telefone']) ?></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2.5 py-1 rounded-full text-xs font-bold <?= $rec['status'] == 'Ativo' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400' ?>">
+                                                    <?= $rec['status'] ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <button type="button" onclick='abrirModalEditarRecepcionista(<?= json_encode($rec) ?>)' class="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors">
+                                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                                    </button>
+                                                    <form method="POST" class="inline">
+                                                        <input type="hidden" name="acao" value="alterar_status_recepcionista">
+                                                        <input type="hidden" name="id" value="<?= $rec['id'] ?>">
+                                                        <input type="hidden" name="novo_status" value="<?= $rec['status'] == 'Ativo' ? 'Inativo' : 'Ativo' ?>">
+                                                        <button type="submit" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                                                            <i data-lucide="<?= $rec['status'] == 'Ativo' ? 'lock' : 'unlock' ?>" class="w-4 h-4 <?= $rec['status'] == 'Ativo' ? 'text-red-400' : 'text-green-400' ?>"></i>
+                                                        </button>
+                                                    </form>
+                                                    <button type="button" onclick="abrirModalExcluir(<?= $rec['id'] ?>, 'recepcionista')" class="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1018,7 +1299,7 @@ if (isset($_GET['msg'])) {
                 <i data-lucide="alert-triangle" class="w-8 h-8"></i>
             </div>
             <h2 class="text-xl font-bold text-white mb-2">Excluir Alunos Selecionados?</h2>
-            <p class="text-gray-400 mb-6">Esta ação excluirá permanentemente todos os alunos selecionados.</p>
+            <p id="contagemAlunosExclusao" class="text-gray-400 mb-6">Esta ação excluirá permanentemente todos os alunos selecionados.</p>
             <div class="flex gap-3">
                 <button type="button" onclick="fecharModalExcluirAlunosMassa()" class="flex-1 py-3 rounded-xl border border-white/10 text-gray-300 font-bold hover:bg-white/5 transition-colors">
                     Cancelar
@@ -1120,14 +1401,18 @@ if (isset($_GET['msg'])) {
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             <h2 class="text-xl font-bold mb-6 text-white">Novo Aluno</h2>
-            <form method="POST" class="space-y-4">
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioAluno()">
                 <input type="hidden" name="acao" value="cadastrar_aluno">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
                     </div>
                     <div>
-                        <input type="text" name="cpf" placeholder="CPF" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                        <input type="text" name="cpf" id="cpfAluno" placeholder="CPF (000.000.000-00)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="14" required
+                               oninput="aplicarMascaraCPF(this)">
+                        <div id="cpfFeedback" class="text-xs mt-1 text-gray-500"></div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1135,7 +1420,11 @@ if (isset($_GET['msg'])) {
                         <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
                     </div>
                     <div>
-                        <input type="text" name="telefone" placeholder="Telefone" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                        <input type="text" name="telefone" id="telefoneAluno" placeholder="Telefone ((00) 00000-0000)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefone(this)">
+                        <div id="telefoneFeedback" class="text-xs mt-1 text-gray-500"></div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1157,7 +1446,34 @@ if (isset($_GET['msg'])) {
                     </div>
                 </div>
                 <div>
-                    <input type="text" name="senha" value="techfit123" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    <input type="text" name="senha" id="senhaAluno" placeholder="Senha (mínimo 8 caracteres)" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                           required oninput="validarSenha(this.value)">
+                    <!-- Indicador de força da senha -->
+                    <div class="password-strength-meter mt-2" id="passwordStrengthMeter"></div>
+                    <!-- Requisitos da senha -->
+                    <div class="mt-2 space-y-1" id="passwordRequirements">
+                        <div class="password-requirement requirement-not-met" id="reqLength">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqUppercase">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqLowercase">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqNumber">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqSpecial">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
                 </div>
                 <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
                     Cadastrar Aluno
@@ -1166,34 +1482,47 @@ if (isset($_GET['msg'])) {
         </div>
     </div>
     
-    <!-- MODAL EDITAR -->
+    <!-- MODAL EDITAR ALUNO (CORRIGIDO) -->
     <div id="modalEditar" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
         <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
             <button type="button" onclick="fecharModalEditar()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             <h2 class="text-xl font-bold mb-6 text-white">Editar Aluno</h2>
-            <form method="POST" class="space-y-4">
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarAluno()">
                 <input type="hidden" name="acao" value="editar_aluno">
                 <input type="hidden" name="id" id="edit_id">
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
                         <input type="text" name="nome" id="edit_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
                     </div>
                     <div>
-                        <input type="text" id="edit_cpf" disabled class="w-full bg-[#0f172a] p-3 text-gray-500 rounded-lg">
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
+                        <input type="text" id="edit_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
                     </div>
                 </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
                         <input type="email" name="email" id="edit_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
                     </div>
                     <div>
-                        <input type="text" name="telefone" id="edit_telefone" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="edit_telefone" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefone(this)"
+                               placeholder="(00) 00000-0000">
+                        <div id="editTelefoneFeedback" class="text-xs mt-1 text-gray-500"></div>
                     </div>
                 </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Plano</label>
                         <select name="plano" id="edit_plano" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
                             <option value="Start">Start</option>
                             <option value="Pro">Pro</option>
@@ -1201,12 +1530,44 @@ if (isset($_GET['msg'])) {
                         </select>
                     </div>
                     <div>
-                        <input type="text" name="objetivo" id="edit_objetivo" placeholder="Objetivo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg">
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Objetivo</label>
+                        <input type="text" name="objetivo" id="edit_objetivo" placeholder="Ex: Emagrecimento, Hipertrofia" class="w-full bg-[#0f172a] p-3 text-white rounded-lg">
                     </div>
                 </div>
+                
                 <div>
-                    <input type="text" name="nova_senha_adm" placeholder="Nova senha (opcional)" class="w-full bg-[#0f172a] p-3 text-white rounded-lg">
+                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
+                    <input type="text" name="nova_senha_adm" id="edit_senha" 
+                           placeholder="Deixe em branco para manter a senha atual" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
+                           oninput="validarSenhaEditar(this.value)">
+                    <!-- Indicador de força da senha -->
+                    <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeter"></div>
+                    <!-- Requisitos da senha -->
+                    <div class="mt-2 space-y-1 hidden" id="editPasswordRequirements">
+                        <div class="password-requirement requirement-not-met" id="editReqLength">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqUppercase">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqLowercase">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqNumber">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqSpecial">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
                 </div>
+                
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
                     Salvar Alterações
                 </button>
@@ -1259,6 +1620,14 @@ if (isset($_GET['msg'])) {
         }
         
         function abrirModalExcluirAlunosMassa() {
+            const checkboxes = document.querySelectorAll('input[name="ids_exclusao[]"]:checked');
+            const qtd = checkboxes.length;
+            const contagemElement = document.getElementById('contagemAlunosExclusao');
+            
+            if (contagemElement) {
+                contagemElement.textContent = `Esta ação excluirá permanentemente ${qtd} aluno(s) selecionado(s).`;
+            }
+            
             document.getElementById('modalExcluirAlunosMassa').classList.remove('hidden');
             recriarIcones();
         }
@@ -1274,6 +1643,9 @@ if (isset($_GET['msg'])) {
         function abrirModalAluno() { 
             document.getElementById('modalAluno').classList.remove('hidden'); 
             recriarIcones();
+            // Limpar validações anteriores
+            document.getElementById('senhaAluno').value = '';
+            validarSenha('');
         }
         
         function fecharModalAluno() { 
@@ -1285,11 +1657,41 @@ if (isset($_GET['msg'])) {
             document.getElementById('edit_nome').value = aluno.nome; 
             document.getElementById('edit_cpf').value = aluno.cpf; 
             document.getElementById('edit_email').value = aluno.email; 
-            document.getElementById('edit_telefone').value = aluno.telefone; 
+            
+            // Formatar telefone para máscara
+            let telefoneFormatado = aluno.telefone;
+            if (telefoneFormatado && !telefoneFormatado.includes('(')) {
+                // Se não tem máscara, aplicar
+                telefoneFormatado = aplicarMascaraTelefoneString(telefoneFormatado);
+            }
+            document.getElementById('edit_telefone').value = telefoneFormatado;
+            
             document.getElementById('edit_plano').value = aluno.plano; 
             document.getElementById('edit_objetivo').value = aluno.objetivo || ''; 
             document.getElementById('modalEditar').classList.remove('hidden'); 
             recriarIcones();
+            // Limpar senha e validações
+            document.getElementById('edit_senha').value = '';
+            validarSenhaEditar('');
+        }
+        
+        function aplicarMascaraTelefoneString(telefone) {
+            let value = telefone.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            return value;
         }
         
         function fecharModalEditar() {
@@ -1320,10 +1722,6 @@ if (isset($_GET['msg'])) {
             document.getElementById('modalExcluirMassa').classList.add('hidden');
         }
         
-        function confirmarExcluirMassa() {
-            document.getElementById('formMassa').submit();
-        }
-        
         function abrirModalExcluir(id, tipo) {
             document.getElementById('id_exclusao').value = id;
             const inputAcao = document.getElementById('acao_exclusao');
@@ -1339,6 +1737,12 @@ if (isset($_GET['msg'])) {
                 inputAcao.value = 'excluir_modelo'; 
                 document.getElementById('id_exclusao').value = id;
                 titulo.innerText = 'Excluir Modelo?'; 
+            } else if (tipo === 'professor') { 
+                inputAcao.value = 'excluir_professor'; 
+                titulo.innerText = 'Excluir Professor?'; 
+            } else if (tipo === 'recepcionista') { 
+                inputAcao.value = 'excluir_recepcionista'; 
+                titulo.innerText = 'Excluir Recepcionista?'; 
             }
             
             document.getElementById('modalExcluir').classList.remove('hidden');
@@ -1349,6 +1753,267 @@ if (isset($_GET['msg'])) {
             document.getElementById('modalExcluir').classList.add('hidden');
         }
 
+        // FUNÇÕES DE MÁSCARAS E VALIDAÇÃO
+        function aplicarMascaraCPF(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 3 && value.length <= 6) {
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            } else if (value.length > 6 && value.length <= 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d)/, '$1.$2.$3');
+            } else if (value.length > 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d{3})(\d)/, '$1.$2.$3-$4');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('cpfFeedback');
+            if (feedback) {
+                if (value.length === 14) {
+                    feedback.textContent = "✓ CPF válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/14 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: 000.000.000-00";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function aplicarMascaraTelefone(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            let feedbackId = 'telefoneFeedback';
+            if (input.id === 'edit_telefone') {
+                feedbackId = 'editTelefoneFeedback';
+            }
+            
+            const feedback = document.getElementById(feedbackId);
+            if (feedback) {
+                if (value.length === 15) {
+                    feedback.textContent = "✓ Telefone válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/15 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: (00) 00000-0000";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function validarSenha(senha) {
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisito('reqLength', temMinLength);
+            atualizarRequisito('reqUppercase', temUppercase);
+            atualizarRequisito('reqLowercase', temLowercase);
+            atualizarRequisito('reqNumber', temNumber);
+            atualizarRequisito('reqSpecial', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            const meter = document.getElementById('passwordStrengthMeter');
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                
+                // Cor do medidor
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function validarSenhaEditar(senha) {
+            if (!senha) {
+                // Se a senha estiver vazia, esconder validações
+                const meter = document.getElementById('editPasswordStrengthMeter');
+                if (meter) meter.classList.add('hidden');
+                
+                // Esconder todos os requisitos
+                ['editReqLength', 'editReqUppercase', 'editReqLowercase', 'editReqNumber', 'editReqSpecial'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
+                return;
+            }
+            
+            // Mostrar validações
+            const meter = document.getElementById('editPasswordStrengthMeter');
+            if (meter) meter.classList.remove('hidden');
+            
+            // Mostrar todos os requisitos
+            ['editReqLength', 'editReqUppercase', 'editReqLowercase', 'editReqNumber', 'editReqSpecial'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
+            
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisito('editReqLength', temMinLength);
+            atualizarRequisito('editReqUppercase', temUppercase);
+            atualizarRequisito('editReqLowercase', temLowercase);
+            atualizarRequisito('editReqNumber', temNumber);
+            atualizarRequisito('editReqSpecial', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                
+                // Cor do medidor
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function atualizarRequisito(id, atendido) {
+            const element = document.getElementById(id);
+            if (element) {
+                if (atendido) {
+                    element.classList.remove('requirement-not-met');
+                    element.classList.add('requirement-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'check-circle');
+                        recriarIcones();
+                    }
+                } else {
+                    element.classList.remove('requirement-met');
+                    element.classList.add('requirement-not-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'circle');
+                        recriarIcones();
+                    }
+                }
+            }
+        }
+        
+        function validarFormularioAluno() {
+            // Valida CPF
+            const cpf = document.getElementById('cpfAluno').value;
+            if (cpf.length !== 14) {
+                alert('CPF incompleto! Formato correto: 000.000.000-00');
+                document.getElementById('cpfAluno').focus();
+                return false;
+            }
+            
+            // Valida telefone
+            const telefone = document.getElementById('telefoneAluno').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('telefoneAluno').focus();
+                return false;
+            }
+            
+            // Valida senha
+            const senha = document.getElementById('senhaAluno').value;
+            if (senha.length < 8) {
+                alert('A senha deve ter pelo menos 8 caracteres!');
+                document.getElementById('senhaAluno').focus();
+                return false;
+            }
+            
+            // Verifica requisitos da senha
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                document.getElementById('senhaAluno').focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function validarFormularioEditarAluno() {
+            // Valida telefone
+            const telefone = document.getElementById('edit_telefone').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('edit_telefone').focus();
+                return false;
+            }
+            
+            // Valida senha se for preenchida
+            const senha = document.getElementById('edit_senha').value;
+            if (senha) {
+                if (senha.length < 8) {
+                    alert('A senha deve ter pelo menos 8 caracteres!');
+                    document.getElementById('edit_senha').focus();
+                    return false;
+                }
+                
+                // Verifica requisitos da senha
+                const temUppercase = /[A-Z]/.test(senha);
+                const temLowercase = /[a-z]/.test(senha);
+                const temNumber = /[0-9]/.test(senha);
+                const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+                
+                if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                    alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                    document.getElementById('edit_senha').focus();
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
         function mascaraMoeda(input) {
             let valor = input.value.replace(/\D/g, '');
             if (valor === '') {
@@ -1655,6 +2320,1023 @@ if (isset($_GET['msg'])) {
                 e.target.classList.remove('fade-in');
             }
         });
+    </script>
+
+    <!-- MODAL PROFESSOR (CORRIGIDO) -->
+    <div id="modalProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Novo Professor</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioProfessor()">
+                <input type="hidden" name="acao" value="cadastrar_professor">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
+                        <input type="text" name="cpf" id="cpfProfessor" placeholder="CPF (000.000.000-00)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="14" required
+                               oninput="aplicarMascaraCPFProfessor(this)">
+                        <div id="cpfFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="telefoneProfessor" placeholder="Telefone ((00) 00000-0000)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneProfessor(this)">
+                        <div id="telefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
+                        <input type="text" name="cref" placeholder="CREF" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
+                        <select name="especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                            <option value="Musculação">Musculação</option>
+                            <option value="Crossfit">Crossfit</option>
+                            <option value="Funcional">Funcional</option>
+                            <option value="Pilates">Pilates</option>
+                            <option value="Yoga">Yoga</option>
+                            <option value="Nutrição">Nutrição</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
+                    <input type="text" name="senha" id="senhaProfessor" placeholder="Senha (mínimo 8 caracteres)" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                           required oninput="validarSenhaProfessor(this.value)">
+                    <!-- Indicador de força da senha -->
+                    <div class="password-strength-meter mt-2" id="passwordStrengthMeterProfessor"></div>
+                    <!-- Requisitos da senha -->
+                    <div class="mt-2 space-y-1" id="passwordRequirementsProfessor">
+                        <div class="password-requirement requirement-not-met" id="reqLengthProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqUppercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqLowercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqNumberProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqSpecialProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
+                    Cadastrar Professor
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR PROFESSOR (CORRIGIDO) -->
+    <div id="modalEditarProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalEditarProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Editar Professor</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarProfessor()">
+                <input type="hidden" name="acao" value="editar_professor">
+                <input type="hidden" name="id" id="edit_prof_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" id="edit_prof_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
+                        <input type="text" id="edit_prof_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" id="edit_prof_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="edit_prof_telefone" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneProfessorEditar(this)"
+                               placeholder="(00) 00000-0000">
+                        <div id="editTelefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" id="edit_prof_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
+                        <input type="text" name="cref" id="edit_prof_cref" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
+                        <select name="especialidade" id="edit_prof_especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                            <option value="Musculação">Musculação</option>
+                            <option value="Crossfit">Crossfit</option>
+                            <option value="Funcional">Funcional</option>
+                            <option value="Pilates">Pilates</option>
+                            <option value="Yoga">Yoga</option>
+                            <option value="Nutrição">Nutrição</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
+                    <input type="text" name="nova_senha" id="edit_prof_senha" 
+                           placeholder="Deixe em branco para manter a senha atual" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
+                           oninput="validarSenhaProfessorEditar(this.value)">
+                    <!-- Indicador de força da senha -->
+                    <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterProfessor"></div>
+                    <!-- Requisitos da senha -->
+                    <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsProfessor">
+                        <div class="password-requirement requirement-not-met" id="editReqLengthProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqUppercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqLowercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqNumberProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqSpecialProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL RECEPCIONISTA (CORRIGIDO) -->
+    <div id="modalRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Novo Recepcionista</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioRecepcionista()">
+                <input type="hidden" name="acao" value="cadastrar_recepcionista">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
+                        <input type="text" name="cpf" id="cpfRecepcionista" placeholder="CPF (000.000.000-00)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="14" required
+                               oninput="aplicarMascaraCPFRecepcionista(this)">
+                        <div id="cpfFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="telefoneRecepcionista" placeholder="Telefone ((00) 00000-0000)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneRecepcionista(this)">
+                        <div id="telefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
+                        <input type="text" name="senha" id="senhaRecepcionista" placeholder="Senha (mínimo 8 caracteres)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               required oninput="validarSenhaRecepcionista(this.value)">
+                        <!-- Indicador de força da senha -->
+                        <div class="password-strength-meter mt-2" id="passwordStrengthMeterRecepcionista"></div>
+                        <!-- Requisitos da senha -->
+                        <div class="mt-2 space-y-1" id="passwordRequirementsRecepcionista">
+                            <div class="password-requirement requirement-not-met" id="reqLengthRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Mínimo 8 caracteres</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqUppercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra maiúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqLowercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra minúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqNumberRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 número</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqSpecialRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
+                    Cadastrar Recepcionista
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR RECEPCIONISTA (CORRIGIDO) -->
+    <div id="modalEditarRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalEditarRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Editar Recepcionista</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarRecepcionista()">
+                <input type="hidden" name="acao" value="editar_recepcionista">
+                <input type="hidden" name="id" id="edit_rec_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" id="edit_rec_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
+                        <input type="text" id="edit_rec_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" id="edit_rec_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="edit_rec_telefone" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneRecepcionistaEditar(this)"
+                               placeholder="(00) 00000-0000">
+                        <div id="editTelefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" id="edit_rec_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
+                        <input type="text" name="nova_senha" id="edit_rec_senha" 
+                               placeholder="Deixe em branco para manter a senha atual" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
+                               oninput="validarSenhaRecepcionistaEditar(this.value)">
+                        <!-- Indicador de força da senha -->
+                        <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterRecepcionista"></div>
+                        <!-- Requisitos da senha -->
+                        <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsRecepcionista">
+                            <div class="password-requirement requirement-not-met" id="editReqLengthRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Mínimo 8 caracteres</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqUppercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra maiúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqLowercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra minúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqNumberRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 número</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqSpecialRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Funções de validação específicas para professores
+        function aplicarMascaraCPFProfessor(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 3 && value.length <= 6) {
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            } else if (value.length > 6 && value.length <= 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d)/, '$1.$2.$3');
+            } else if (value.length > 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d{3})(\d)/, '$1.$2.$3-$4');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('cpfFeedbackProfessor');
+            if (feedback) {
+                if (value.length === 14) {
+                    feedback.textContent = "✓ CPF válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/14 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: 000.000.000-00";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function aplicarMascaraTelefoneProfessor(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('telefoneFeedbackProfessor');
+            if (feedback) {
+                if (value.length === 15) {
+                    feedback.textContent = "✓ Telefone válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/15 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: (00) 00000-0000";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function aplicarMascaraTelefoneProfessorEditar(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('editTelefoneFeedbackProfessor');
+            if (feedback) {
+                if (value.length === 15) {
+                    feedback.textContent = "✓ Telefone válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/15 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: (00) 00000-0000";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function validarSenhaProfessor(senha) {
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisitoProfessor('reqLengthProfessor', temMinLength);
+            atualizarRequisitoProfessor('reqUppercaseProfessor', temUppercase);
+            atualizarRequisitoProfessor('reqLowercaseProfessor', temLowercase);
+            atualizarRequisitoProfessor('reqNumberProfessor', temNumber);
+            atualizarRequisitoProfessor('reqSpecialProfessor', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            const meter = document.getElementById('passwordStrengthMeterProfessor');
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function validarSenhaProfessorEditar(senha) {
+            if (!senha) {
+                // Se a senha estiver vazia, esconder validações
+                const meter = document.getElementById('editPasswordStrengthMeterProfessor');
+                if (meter) meter.classList.add('hidden');
+                
+                // Esconder todos os requisitos
+                ['editReqLengthProfessor', 'editReqUppercaseProfessor', 'editReqLowercaseProfessor', 'editReqNumberProfessor', 'editReqSpecialProfessor'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
+                return;
+            }
+            
+            // Mostrar validações
+            const meter = document.getElementById('editPasswordStrengthMeterProfessor');
+            if (meter) meter.classList.remove('hidden');
+            
+            // Mostrar todos os requisitos
+            ['editReqLengthProfessor', 'editReqUppercaseProfessor', 'editReqLowercaseProfessor', 'editReqNumberProfessor', 'editReqSpecialProfessor'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
+            
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisitoProfessor('editReqLengthProfessor', temMinLength);
+            atualizarRequisitoProfessor('editReqUppercaseProfessor', temUppercase);
+            atualizarRequisitoProfessor('editReqLowercaseProfessor', temLowercase);
+            atualizarRequisitoProfessor('editReqNumberProfessor', temNumber);
+            atualizarRequisitoProfessor('editReqSpecialProfessor', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function atualizarRequisitoProfessor(id, atendido) {
+            const element = document.getElementById(id);
+            if (element) {
+                if (atendido) {
+                    element.classList.remove('requirement-not-met');
+                    element.classList.add('requirement-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'check-circle');
+                        recriarIcones();
+                    }
+                } else {
+                    element.classList.remove('requirement-met');
+                    element.classList.add('requirement-not-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'circle');
+                        recriarIcones();
+                    }
+                }
+            }
+        }
+        
+        function validarFormularioProfessor() {
+            // Valida CPF
+            const cpf = document.getElementById('cpfProfessor').value;
+            if (cpf.length !== 14) {
+                alert('CPF incompleto! Formato correto: 000.000.000-00');
+                document.getElementById('cpfProfessor').focus();
+                return false;
+            }
+            
+            // Valida telefone
+            const telefone = document.getElementById('telefoneProfessor').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('telefoneProfessor').focus();
+                return false;
+            }
+            
+            // Valida senha
+            const senha = document.getElementById('senhaProfessor').value;
+            if (senha.length < 8) {
+                alert('A senha deve ter pelo menos 8 caracteres!');
+                document.getElementById('senhaProfessor').focus();
+                return false;
+            }
+            
+            // Verifica requisitos da senha
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                document.getElementById('senhaProfessor').focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function validarFormularioEditarProfessor() {
+            // Valida telefone
+            const telefone = document.getElementById('edit_prof_telefone').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('edit_prof_telefone').focus();
+                return false;
+            }
+            
+            // Valida senha se for preenchida
+            const senha = document.getElementById('edit_prof_senha').value;
+            if (senha) {
+                if (senha.length < 8) {
+                    alert('A senha deve ter pelo menos 8 caracteres!');
+                    document.getElementById('edit_prof_senha').focus();
+                    return false;
+                }
+                
+                // Verifica requisitos da senha
+                const temUppercase = /[A-Z]/.test(senha);
+                const temLowercase = /[a-z]/.test(senha);
+                const temNumber = /[0-9]/.test(senha);
+                const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+                
+                if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                    alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                    document.getElementById('edit_prof_senha').focus();
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Funções para Recepcionistas
+        function aplicarMascaraCPFRecepcionista(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 3 && value.length <= 6) {
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            } else if (value.length > 6 && value.length <= 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d)/, '$1.$2.$3');
+            } else if (value.length > 9) {
+                value = value.replace(/(\d{3})(\d{3})(\d{3})(\d)/, '$1.$2.$3-$4');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('cpfFeedbackRecepcionista');
+            if (feedback) {
+                if (value.length === 14) {
+                    feedback.textContent = "✓ CPF válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/14 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: 000.000.000-00";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function aplicarMascaraTelefoneRecepcionista(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('telefoneFeedbackRecepcionista');
+            if (feedback) {
+                if (value.length === 15) {
+                    feedback.textContent = "✓ Telefone válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/15 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: (00) 00000-0000";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function aplicarMascaraTelefoneRecepcionistaEditar(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica a máscara
+            if (value.length > 0 && value.length <= 2) {
+                value = value.replace(/(\d{0,2})/, '($1');
+            } else if (value.length > 2 && value.length <= 7) {
+                value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            } else if (value.length > 7) {
+                value = value.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3');
+            }
+            
+            input.value = value;
+            
+            // Atualiza feedback
+            const feedback = document.getElementById('editTelefoneFeedbackRecepcionista');
+            if (feedback) {
+                if (value.length === 15) {
+                    feedback.textContent = "✓ Telefone válido";
+                    feedback.className = "text-xs mt-1 text-green-500";
+                } else if (value.length > 0) {
+                    feedback.textContent = `${value.length}/15 caracteres`;
+                    feedback.className = "text-xs mt-1 text-yellow-500";
+                } else {
+                    feedback.textContent = "Formato: (00) 00000-0000";
+                    feedback.className = "text-xs mt-1 text-gray-500";
+                }
+            }
+        }
+        
+        function validarSenhaRecepcionista(senha) {
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisitoRecepcionista('reqLengthRecepcionista', temMinLength);
+            atualizarRequisitoRecepcionista('reqUppercaseRecepcionista', temUppercase);
+            atualizarRequisitoRecepcionista('reqLowercaseRecepcionista', temLowercase);
+            atualizarRequisitoRecepcionista('reqNumberRecepcionista', temNumber);
+            atualizarRequisitoRecepcionista('reqSpecialRecepcionista', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            const meter = document.getElementById('passwordStrengthMeterRecepcionista');
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function validarSenhaRecepcionistaEditar(senha) {
+            if (!senha) {
+                // Se a senha estiver vazia, esconder validações
+                const meter = document.getElementById('editPasswordStrengthMeterRecepcionista');
+                if (meter) meter.classList.add('hidden');
+                
+                // Esconder todos os requisitos
+                ['editReqLengthRecepcionista', 'editReqUppercaseRecepcionista', 'editReqLowercaseRecepcionista', 'editReqNumberRecepcionista', 'editReqSpecialRecepcionista'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
+                return;
+            }
+            
+            // Mostrar validações
+            const meter = document.getElementById('editPasswordStrengthMeterRecepcionista');
+            if (meter) meter.classList.remove('hidden');
+            
+            // Mostrar todos os requisitos
+            ['editReqLengthRecepcionista', 'editReqUppercaseRecepcionista', 'editReqLowercaseRecepcionista', 'editReqNumberRecepcionista', 'editReqSpecialRecepcionista'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
+            
+            // Verifica requisitos
+            const temMinLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            // Atualiza ícones dos requisitos
+            atualizarRequisitoRecepcionista('editReqLengthRecepcionista', temMinLength);
+            atualizarRequisitoRecepcionista('editReqUppercaseRecepcionista', temUppercase);
+            atualizarRequisitoRecepcionista('editReqLowercaseRecepcionista', temLowercase);
+            atualizarRequisitoRecepcionista('editReqNumberRecepcionista', temNumber);
+            atualizarRequisitoRecepcionista('editReqSpecialRecepcionista', temSpecial);
+            
+            // Calcula força da senha
+            let strength = 0;
+            if (temMinLength) strength++;
+            if (temUppercase) strength++;
+            if (temLowercase) strength++;
+            if (temNumber) strength++;
+            if (temSpecial) strength++;
+            
+            // Atualiza medidor visual
+            if (meter) {
+                meter.className = 'password-strength-meter mt-2 password-strength-' + strength;
+                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+                meter.className += ' ' + (colors[strength - 1] || 'bg-red-500');
+            }
+        }
+        
+        function atualizarRequisitoRecepcionista(id, atendido) {
+            const element = document.getElementById(id);
+            if (element) {
+                if (atendido) {
+                    element.classList.remove('requirement-not-met');
+                    element.classList.add('requirement-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'check-circle');
+                        recriarIcones();
+                    }
+                } else {
+                    element.classList.remove('requirement-met');
+                    element.classList.add('requirement-not-met');
+                    const icon = element.querySelector('i');
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'circle');
+                        recriarIcones();
+                    }
+                }
+            }
+        }
+        
+        function validarFormularioRecepcionista() {
+            // Valida CPF
+            const cpf = document.getElementById('cpfRecepcionista').value;
+            if (cpf.length !== 14) {
+                alert('CPF incompleto! Formato correto: 000.000.000-00');
+                document.getElementById('cpfRecepcionista').focus();
+                return false;
+            }
+            
+            // Valida telefone
+            const telefone = document.getElementById('telefoneRecepcionista').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('telefoneRecepcionista').focus();
+                return false;
+            }
+            
+            // Valida senha
+            const senha = document.getElementById('senhaRecepcionista').value;
+            if (senha.length < 8) {
+                alert('A senha deve ter pelo menos 8 caracteres!');
+                document.getElementById('senhaRecepcionista').focus();
+                return false;
+            }
+            
+            // Verifica requisitos da senha
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /[0-9]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+            
+            if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                document.getElementById('senhaRecepcionista').focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function validarFormularioEditarRecepcionista() {
+            // Valida telefone
+            const telefone = document.getElementById('edit_rec_telefone').value;
+            if (telefone.length < 14) {
+                alert('Telefone incompleto! Formato correto: (00) 00000-0000');
+                document.getElementById('edit_rec_telefone').focus();
+                return false;
+            }
+            
+            // Valida senha se for preenchida
+            const senha = document.getElementById('edit_rec_senha').value;
+            if (senha) {
+                if (senha.length < 8) {
+                    alert('A senha deve ter pelo menos 8 caracteres!');
+                    document.getElementById('edit_rec_senha').focus();
+                    return false;
+                }
+                
+                // Verifica requisitos da senha
+                const temUppercase = /[A-Z]/.test(senha);
+                const temLowercase = /[a-z]/.test(senha);
+                const temNumber = /[0-9]/.test(senha);
+                const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+                
+                if (!temUppercase || !temLowercase || !temNumber || !temSpecial) {
+                    alert('A senha deve conter pelo menos:\n- Uma letra maiúscula\n- Uma letra minúscula\n- Um número\n- Um caractere especial (@#$%&!)');
+                    document.getElementById('edit_rec_senha').focus();
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Funções para abrir modais de edição específicos
+        function abrirModalEditarProfessor(prof) { 
+            document.getElementById('edit_prof_id').value = prof.id; 
+            document.getElementById('edit_prof_nome').value = prof.nome; 
+            document.getElementById('edit_prof_cpf').value = prof.cpf; 
+            document.getElementById('edit_prof_email').value = prof.email; 
+            
+            // Formatar telefone para máscara
+            let telefoneFormatado = prof.telefone;
+            if (telefoneFormatado && !telefoneFormatado.includes('(')) {
+                // Se não tem máscara, aplicar
+                telefoneFormatado = aplicarMascaraTelefoneString(telefoneFormatado);
+            }
+            document.getElementById('edit_prof_telefone').value = telefoneFormatado;
+            
+            document.getElementById('edit_prof_data_nascimento').value = prof.data_nascimento; 
+            document.getElementById('edit_prof_cref').value = prof.cref; 
+            document.getElementById('edit_prof_especialidade').value = prof.especialidade; 
+            document.getElementById('modalEditarProfessor').classList.remove('hidden'); 
+            recriarIcones();
+            // Limpar senha e validações
+            document.getElementById('edit_prof_senha').value = '';
+            validarSenhaProfessorEditar('');
+        }
+
+        function abrirModalEditarRecepcionista(rec) { 
+            document.getElementById('edit_rec_id').value = rec.id; 
+            document.getElementById('edit_rec_nome').value = rec.nome; 
+            document.getElementById('edit_rec_cpf').value = rec.cpf; 
+            document.getElementById('edit_rec_email').value = rec.email; 
+            
+            // Formatar telefone para máscara
+            let telefoneFormatado = rec.telefone;
+            if (telefoneFormatado && !telefoneFormatado.includes('(')) {
+                // Se não tem máscara, aplicar
+                telefoneFormatado = aplicarMascaraTelefoneString(telefoneFormatado);
+            }
+            document.getElementById('edit_rec_telefone').value = telefoneFormatado;
+            
+            document.getElementById('edit_rec_data_nascimento').value = rec.data_nascimento; 
+            document.getElementById('modalEditarRecepcionista').classList.remove('hidden'); 
+            recriarIcones();
+            // Limpar senha e validações
+            document.getElementById('edit_rec_senha').value = '';
+            validarSenhaRecepcionistaEditar('');
+        }
+        
+        function fecharModalEditarProfessor() {
+            document.getElementById('modalEditarProfessor').classList.add('hidden');
+        }
+        
+        function fecharModalEditarRecepcionista() {
+            document.getElementById('modalEditarRecepcionista').classList.add('hidden');
+        }
+        
+        function fecharModalProfessor() { 
+            document.getElementById('modalProfessor').classList.add('hidden'); 
+        }
+        
+        function fecharModalRecepcionista() { 
+            document.getElementById('modalRecepcionista').classList.add('hidden'); 
+        }
+        
+        function abrirModalProfessor() { 
+            document.getElementById('modalProfessor').classList.remove('hidden'); 
+            recriarIcones();
+        }
+
+        function abrirModalRecepcionista() { 
+            document.getElementById('modalRecepcionista').classList.remove('hidden'); 
+            recriarIcones();
+        }
     </script>
 </body>
 </html>

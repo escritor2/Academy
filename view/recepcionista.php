@@ -1,373 +1,146 @@
+<?php
+session_start();
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/RecepcionistaDAO.php';
+
+// Verifica se é recepcionista logado
+if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] !== 'recepcionista') { 
+    header('Location: ../index.php'); 
+    exit; 
+}
+
+$dao = new AlunoDAO();
+$recepcionistaDao = new RecepcionistaDAO();
+
+// Carrega dados do recepcionista logado
+$recepcionista = $recepcionistaDao->buscarPorId($_SESSION['usuario_id']);
+if (!$recepcionista) {
+    session_destroy();
+    header('Location: ../index.php');
+    exit;
+}
+
+$msg = ''; 
+$tipoMsg = '';
+$alunoInfo = null;
+
+// ... restante do código continua igual ...
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // 1. LIBERAR ACESSO (CATRACA)
+    if (isset($_POST['acao']) && $_POST['acao'] === 'liberar_acesso') {
+        $id = $_POST['identificacao'];
+        $aluno = $dao->buscarPorId($id); // Busca pelo ID digitado
+
+        if ($aluno) {
+            if ($aluno['status'] === 'Ativo') {
+                $statusFreq = $dao->getStatusFrequenciaHoje($aluno['id']);
+                
+                if ($statusFreq == 'nao_entrou') {
+                    if($dao->registrarEntrada($aluno['id'])) {
+                        $msg = "ENTRADA LIBERADA";
+                        $tipoMsg = 'entrada';
+                    }
+                } elseif ($statusFreq == 'treinando') {
+                    if($dao->registrarSaida($aluno['id'])) {
+                        $msg = "SAÍDA REGISTRADA";
+                        $tipoMsg = 'saida';
+                    }
+                } else {
+                    $msg = "ACESSO JÁ FINALIZADO HOJE";
+                    $tipoMsg = 'erro';
+                }
+                $alunoInfo = $aluno;
+            } else {
+                $msg = "BLOQUEADO: PLANO " . strtoupper($aluno['status']);
+                $tipoMsg = 'erro';
+                $alunoInfo = $aluno;
+            }
+        } else {
+            $msg = "ALUNO NÃO ENCONTRADO";
+            $tipoMsg = 'erro';
+        }
+    }
+
+    // 2. CADASTRAR ALUNO NA RECEPÇÃO
+    if (isset($_POST['acao']) && $_POST['acao'] === 'cadastrar_aluno') {
+        $dao->cadastrarUsuario($_POST['nome'], $_POST['data_nascimento'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['genero'], $_POST['senha'], 'Indefinido', $_POST['plano'], 'Aluno');
+        $msg = "Aluno cadastrado com sucesso!";
+        $tipoMsg = 'sucesso';
+    }
+}
+
+$ativos = $dao->contarPorStatus('Ativo');
+$recentes = $dao->buscarRecentes(10);
+?>
 <!DOCTYPE html>
-<html lang="pt-br" class="scroll-smooth">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechFit - Área do Recepcionista</title>
-    
-    <!-- Importando Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Configurando a Paleta de Cores -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        tech: {
-                            900: '#111827', 
-                            800: '#1f2937', 
-                            700: '#374151', 
-                            primary: '#ea580c', 
-                            primaryHover: '#c2410c',
-                            text: '#f3f4f6', 
-                            muted: '#9ca3af' 
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'gradient-x': 'gradient-x 3s ease infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        },
-                        'gradient-x': {
-                            '0%, 100%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'left center'
-                            },
-                            '50%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'right center'
-                            },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- Ícones Lucide -->
+    <title>Recepção - TechFit</title>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Fonte Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-
-    <style>
-        /* Estilos Globais */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            color: white;
-            overflow-x: hidden;
-        }
-
-        /* Hero Background com Parallax Suave */
-        .hero-bg {
-            background-image: linear-gradient(to right, rgba(17, 24, 39, 0.95), rgba(17, 24, 39, 0.6)), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-
-        /* Animação de Scroll (Reveal) */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
-        }
-
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Stagger Delay para elementos filhos */
-        .reveal-delay-100 { transition-delay: 100ms; }
-        .reveal-delay-200 { transition-delay: 200ms; }
-        .reveal-delay-300 { transition-delay: 300ms; }
-
-        /* Botões com Glow Intenso */
-        .btn-glow {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-        .btn-glow:hover {
-            box-shadow: 0 0 20px rgba(234, 88, 12, 0.6);
-            transform: translateY(-2px);
-        }
-        .btn-glow::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.5s;
-        }
-        .btn-glow:hover::after {
-            left: 100%;
-        }
-
-        /* Card Hover Effect Premium */
-        .card-premium {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(55, 65, 81, 0.5);
-        }
-        .card-premium:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 40px -5px rgba(0,0,0,0.4), 0 0 15px rgba(234, 88, 12, 0.3);
-            border-color: #ea580c;
-        }
-        .card-premium:hover img {
-            transform: scale(1.1);
-        }
-
-        /* CORREÇÃO DA ANIMAÇÃO DE DIGITAÇÃO 
-           - Ciclo infinito
-           - Sem barra laranja
-        */
-        .typing-container {
-            display: inline-flex;
-            justify-content: center; /* Centraliza se necessário */
-            width: fit-content;
-        }
-
-        .typing-effect {
-            white-space: nowrap;
-            overflow: hidden;
-            display: inline-block;
-            max-width: 0; /* Começa fechado */
-            /* Animação ciclica infinita: 6 segundos total */
-            animation: typing-cycle 6s steps(40, end) infinite, gradient-x 3s ease infinite;
-            
-            /* Mantendo o gradiente no texto */
-            border-right: none !important; /* Garante que não tenha barra */
-        }
-
-        @keyframes typing-cycle {
-            0% { max-width: 0; }
-            30% { max-width: 100%; } /* Digita até 30% do tempo */
-            70% { max-width: 100%; } /* Fica parado lendo até 70% */
-            90% { max-width: 0; }    /* Apaga rápido */
-            100% { max-width: 0; }   /* Pausa antes de recomeçar */
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { tech: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', primary: '#f97316' } } } } }</script>
+    <style>.no-scrollbar::-webkit-scrollbar { display: none; } input:focus { border-color: #f97316 !important; box-shadow: 0 0 0 1px #f97316 !important; }</style>
 </head>
-<body class="antialiased selection:bg-tech-primary selection:text-white">
+<body class="bg-[#0b1120] text-gray-100 font-sans h-screen flex overflow-hidden">
+    <aside class="w-64 bg-[#111827] border-r border-white/5 flex flex-col justify-between hidden md:flex">
+        <div>
+            <div class="h-20 flex items-center px-6 border-b border-white/5"><span class="text-xl font-bold ml-3 tracking-wide">TECH<span class="text-tech-primary">FIT</span></span></div>
+            <nav class="mt-8 px-4 space-y-2">
+                <button onclick="switchTab('balcao')" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl bg-tech-primary/10 text-tech-primary"><i data-lucide="monitor" class="w-5 h-5"></i> Balcão</button>
+                <button onclick="switchTab('alunos')" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl text-gray-400 hover:text-white"><i data-lucide="users" class="w-5 h-5"></i> Alunos</button>
+                <button onclick="abrirModalAluno()" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl text-green-400 hover:bg-green-500/10"><i data-lucide="user-plus" class="w-5 h-5"></i> Novo Aluno</button>
+            </nav>
+        </div>
+        <div class="p-4"><a href="index.php?sair=true" class="flex items-center gap-3 text-red-400 text-sm font-bold px-4"><i data-lucide="log-out" class="w-5 h-5"></i> Sair</a></div>
+    </aside>
 
-    <!-- Navbar Glassmorphism -->
-    <nav class="fixed w-full z-50 transition-all duration-300 bg-tech-900/90 backdrop-blur-md shadow-xl border-b border-tech-700/50" id="navbar">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-20">
-                <div class="flex items-center gap-2 group cursor-pointer">
-                    <i data-lucide="dumbbell" class="h-8 w-8 text-tech-primary transition-transform group-hover:rotate-45 duration-500"></i>
-                    <span class="font-bold text-2xl tracking-tighter text-white">TECH<span class="text-tech-primary">FIT</span></span>
-                </div>
+    <main class="flex-1 p-8 overflow-y-auto no-scrollbar relative">
+        <div id="tab-balcao">
+            <div class="bg-[#1e293b] p-10 rounded-2xl border border-white/5 text-center shadow-2xl max-w-2xl mx-auto mt-10">
+                <h2 class="text-3xl font-bold text-white mb-2">Controle de Acesso</h2>
+                <p class="text-gray-400 mb-8">Digite o ID do aluno (ex: 1, 2, 15) para registrar.</p>
                 
-                <!-- Desktop Menu -->
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-8">
-                        <a href="index.html" class="relative group px-3 py-2 text-sm font-medium hover:text-white transition-colors">
-                            Site Principal
-                            <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-tech-primary transition-all group-hover:w-full"></span>
-                        </a>
-                        <a href="#" class="bg-tech-primary hover:bg-tech-primaryHover text-white px-6 py-2 rounded-full font-bold transition-all btn-glow ml-4">
-                            Sair
-                        </a>
+                <form method="POST" class="relative max-w-md mx-auto">
+                    <input type="hidden" name="acao" value="liberar_acesso">
+                    <input type="text" name="identificacao" id="inputCatraca" class="w-full bg-[#0f172a] border-2 border-white/10 rounded-2xl p-5 pl-14 text-2xl text-center text-white outline-none focus:border-tech-primary transition-all" placeholder="ID do Aluno" autofocus autocomplete="off">
+                    <i data-lucide="scan-barcode" class="absolute left-5 top-6 w-8 h-8 text-gray-500"></i>
+                    <button type="submit" class="hidden">Enviar</button>
+                </form>
+
+                <?php if($msg): ?>
+                <div class="mt-8 p-6 rounded-xl border flex items-center justify-center gap-4 animate-bounce <?= $tipoMsg=='erro'?'bg-red-500/10 border-red-500 text-red-400':($tipoMsg=='saida'?'bg-blue-500/10 border-blue-500 text-blue-400':'bg-green-500/10 border-green-500 text-green-400') ?>">
+                    <i data-lucide="<?= $tipoMsg=='erro'?'x-circle':($tipoMsg=='saida'?'log-out':'check-circle') ?>" class="w-10 h-10"></i>
+                    <div class="text-left">
+                        <h3 class="text-2xl font-black uppercase"><?= $msg ?></h3>
+                        <?php if($alunoInfo): ?><p class="text-lg"><?= $alunoInfo['nome'] ?> (ID: <?= $alunoInfo['id'] ?>)</p><?php endif; ?>
                     </div>
                 </div>
-
-                <!-- Mobile Menu Button -->
-                <div class="-mr-2 flex md:hidden">
-                    <button onclick="toggleMobileMenu()" class="text-gray-400 hover:text-white p-2">
-                        <i data-lucide="menu" class="h-8 w-8"></i>
-                    </button>
-                </div>
+                <?php endif; ?>
+                
+                <div class="mt-8 text-gray-500 text-sm">Alunos Ativos Total: <?= $ativos ?></div>
             </div>
         </div>
 
-        <!-- Mobile Menu -->
-        <div class="md:hidden hidden bg-tech-900/95 backdrop-blur-xl border-t border-tech-700 absolute w-full" id="mobile-menu">
-            <div class="px-4 pt-2 pb-6 space-y-2">
-                <a href="index.html" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Site Principal</a>
-                <a href="#" class="block px-3 py-3 rounded-md text-base font-medium hover:bg-tech-800 hover:text-tech-primary transition-colors">Sair</a>
+        <div id="tab-alunos" class="hidden">
+            <h2 class="text-2xl font-bold text-white mb-6">Últimos Cadastros</h2>
+            <div class="bg-[#1e293b] rounded-xl border border-white/5 overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-300">
+                    <thead class="bg-[#0f172a] uppercase font-bold"><tr><th class="p-4">ID</th><th class="p-4">Nome</th><th class="p-4">Plano</th><th class="p-4">Status</th></tr></thead>
+                    <tbody class="divide-y divide-white/5"><?php foreach($recentes as $a): ?><tr><td class="p-4">#<?= $a['id'] ?></td><td class="p-4"><?= $a['nome'] ?></td><td class="p-4"><?= $a['plano'] ?></td><td class="p-4"><?= $a['status'] ?></td></tr><?php endforeach; ?></tbody>
+                </table>
             </div>
-        </div>
-    </nav>
-
-    <!-- Main Content - Dashboard Recepcionista -->
-    <main class="pt-24 pb-16 min-h-screen">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <header class="mb-12 reveal">
-                <h1 class="text-4xl font-extrabold text-white tracking-tight sm:text-5xl">
-                    <span class="text-tech-primary">Área</span> do Recepcionista
-                </h1>
-                <p class="mt-3 text-xl text-tech-muted">Gerencie check-ins, novos cadastros e finanças.</p>
-            </header>
-
-            <!-- Cards de Estatísticas -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-100">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Check-ins Hoje</p>
-                        <i data-lucide="scan" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">127</p>
-                </div>
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-200">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Novos Cadastros</p>
-                        <i data-lucide="user-plus" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">5</p>
-                </div>
-                <div class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 reveal reveal-delay-300">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-tech-muted">Próximo Vencimento</p>
-                        <i data-lucide="credit-card" class="w-6 h-6 text-tech-primary"></i>
-                    </div>
-                    <p class="mt-1 text-3xl font-bold text-white">Amanhã</p>
-                </div>
-            </div>
-
-            <!-- Seção de Alunos Aguardando Check-in -->
-            <section class="bg-tech-800 p-8 rounded-xl shadow-lg border border-tech-700 reveal mb-12">
-                <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <i data-lucide="user-x" class="w-6 h-6 text-tech-primary"></i> Alunos Aguardando Check-in
-                </h2>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-tech-700">
-                        <thead>
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Nome</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Plano</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-tech-muted uppercase tracking-wider">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-tech-700">
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">João Pedro</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-400">Basic</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-400">Aguardando</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-green-400 hover:text-green-300">Fazer Check-in</a>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Mariana Lima</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-400">Pro</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-red-400">Atrasado</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-tech-primary hover:text-tech-primaryHover">Ver Perfil</a>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-tech-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">Ricardo Alves</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-green-400">VIP</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-400">Aguardando</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="#" class="text-green-400 hover:text-green-300">Fazer Check-in</a>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Seção de Ações Rápidas -->
-            <section class="reveal">
-                <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <i data-lucide="zap" class="w-6 h-6 text-tech-primary"></i> Ações Rápidas
-                </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="user-plus" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Novo Cadastro</h3>
-                        <p class="text-sm text-tech-muted mt-1">Cadastre um novo aluno.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="search" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Consultar Aluno</h3>
-                        <p class="text-sm text-tech-muted mt-1">Busque por nome ou matrícula.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="dollar-sign" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Relatório Financeiro</h3>
-                        <p class="text-sm text-tech-muted mt-1">Visualize o fluxo de caixa.</p>
-                    </a>
-                    <a href="#" class="bg-tech-800 p-6 rounded-xl shadow-lg border border-tech-700 hover:border-tech-primary transition-all group">
-                        <i data-lucide="package" class="w-8 h-8 text-tech-primary mb-3 group-hover:scale-110 transition-transform"></i>
-                        <h3 class="text-lg font-semibold text-white">Gerenciar Estoque</h3>
-                        <p class="text-sm text-tech-muted mt-1">Controle de produtos da loja.</p>
-                    </a>
-                </div>
-            </section>
         </div>
     </main>
+    
+    <div id="modalAluno" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4"><div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 p-8 relative"><button onclick="document.getElementById('modalAluno').classList.add('hidden')" class="absolute top-4 right-4 text-white">X</button><h2 class="text-2xl font-bold mb-6 text-white">Novo Aluno</h2><form method="POST" class="space-y-4"><input type="hidden" name="acao" value="cadastrar_aluno"><div class="grid grid-cols-2 gap-4"><input type="text" name="nome" placeholder="Nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><input type="text" name="cpf" placeholder="CPF" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"></div><div class="grid grid-cols-2 gap-4"><input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><input type="text" name="telefone" placeholder="Telefone" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"></div><div class="grid grid-cols-3 gap-4"><input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><select name="genero" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><option value="M">Masculino</option><option value="F">Feminino</option></select><select name="plano" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><option value="Start">Start</option><option value="Pro">Pro</option><option value="VIP">VIP</option></select></div><input type="text" name="senha" value="123456" class="w-full bg-[#0f172a] p-3 text-white rounded-lg"><button type="submit" class="w-full bg-tech-primary py-3 rounded-lg text-white font-bold hover:bg-orange-600">CADASTRAR</button></form></div></div>
 
-    <!-- Footer (Simplificado) -->
-    <footer class="bg-black text-gray-400 py-8 border-t border-tech-700 relative">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
-            <p>&copy; 2023 TechFit. Área Restrita do Recepcionista.</p>
-        </div>
-    </footer>
-
-    <!-- JavaScript -->
     <script>
-        // Inicializar ícones Lucide
         lucide.createIcons();
-
-        // Menu Mobile Toggle
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobile-menu');
-            if (menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden');
-                setTimeout(() => {
-                    menu.style.opacity = '1';
-                    menu.style.transform = 'translateY(0)';
-                }, 10);
-            } else {
-                menu.classList.add('hidden');
-            }
-        }
-
-        // Scroll Animations
-        const observerOptions = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 0.15
-        };
-
-        const observer = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                    // Não desobservar para que a animação possa ocorrer em cada carregamento de página
-                    // observer.unobserve(entry.target); 
-                }
-            });
-        }, observerOptions);
-
-        document.querySelectorAll('.reveal').forEach((el) => {
-            observer.observe(el);
-        });
+        function switchTab(id) { document.getElementById('tab-balcao').classList.add('hidden'); document.getElementById('tab-alunos').classList.add('hidden'); document.getElementById('tab-'+id).classList.remove('hidden'); }
+        function abrirModalAluno() { document.getElementById('modalAluno').classList.remove('hidden'); }
+        document.getElementById('inputCatraca').focus();
     </script>
 </body>
 </html>

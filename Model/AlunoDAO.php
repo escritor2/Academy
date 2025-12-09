@@ -12,37 +12,32 @@ class AlunoDAO {
 
     // --- VALIDAÇÃO DE SENHA FORTE ---
     public function validarSenhaForte($senha) {
-        // Verifica se tem pelo menos 8 caracteres
         if (strlen($senha) < 8) {
             return "A senha deve ter pelo menos 8 caracteres.";
         }
         
-        // Verifica se tem pelo menos uma letra maiúscula
         if (!preg_match('/[A-Z]/', $senha)) {
             return "A senha deve conter pelo menos uma letra maiúscula.";
         }
         
-        // Verifica se tem pelo menos uma letra minúscula
         if (!preg_match('/[a-z]/', $senha)) {
             return "A senha deve conter pelo menos uma letra minúscula.";
         }
         
-        // Verifica se tem pelo menos um número
         if (!preg_match('/[0-9]/', $senha)) {
             return "A senha deve conter pelo menos um número.";
         }
         
-        // Verifica se tem pelo menos um caractere especial
         if (!preg_match('/[!@#$%^&*()\-_=+{};:,<.>]/', $senha)) {
             return "A senha deve conter pelo menos um caractere especial (!@#$%^&* etc).";
         }
         
-        return true; // Senha válida
+        return true;
     }
 
     // --- CRIAÇÃO E ATUALIZAÇÃO AUTOMÁTICA DO BANCO ---
     private function inicializarTabela() {
-        // 1. Tabela de Alunos
+        // Tabela de Alunos
         $sqlAlunos = "CREATE TABLE IF NOT EXISTS alunos (
             id INT AUTO_INCREMENT PRIMARY KEY,
             nome VARCHAR(100) NOT NULL,
@@ -55,12 +50,12 @@ class AlunoDAO {
             objetivo VARCHAR(50),
             plano VARCHAR(20),
             status VARCHAR(20) DEFAULT 'Ativo',
-            foto_perfil VARCHAR(255) DEFAULT NULL,
+            foto_perfil VARCHAR(50) DEFAULT NULL,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )";
         $this->conn->exec($sqlAlunos);
 
-        // 2. Tabela de Frequência (TURBINADA)
+        // Tabela de Frequência
         $sqlFreq = "CREATE TABLE IF NOT EXISTS frequencia (
             id INT AUTO_INCREMENT PRIMARY KEY,
             aluno_id INT NOT NULL,
@@ -71,27 +66,23 @@ class AlunoDAO {
         )";
         $this->conn->exec($sqlFreq);
 
-        // --- MIGRATIONS (Correções para bancos já existentes) ---
+        // Migrations
         try { $this->conn->exec("ALTER TABLE alunos ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'"); } catch (Exception $e) {}
         try { $this->conn->exec("ALTER TABLE alunos ADD COLUMN criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
-        try { $this->conn->exec("ALTER TABLE alunos ADD COLUMN foto_perfil VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $this->conn->exec("ALTER TABLE alunos MODIFY COLUMN foto_perfil VARCHAR(50) DEFAULT NULL"); } catch (Exception $e) {}
         
-        // Adiciona colunas de hora se a tabela frequência já existia na versão antiga
         try { $this->conn->exec("ALTER TABLE frequencia ADD COLUMN hora_entrada DATETIME DEFAULT NULL"); } catch (Exception $e) {}
         try { $this->conn->exec("ALTER TABLE frequencia ADD COLUMN hora_saida DATETIME DEFAULT NULL"); } catch (Exception $e) {}
     }
 
     // --- CADASTRO ---
-    public function criarAluno(Aluno $aluno, $foto_perfil = null) {
-        // Validação da senha antes de criar
+    public function criarAluno(Aluno $aluno, $icone_perfil = null) {
         $validacaoSenha = $this->validarSenhaForte($aluno->getSenha());
         if ($validacaoSenha !== true) {
             throw new Exception($validacaoSenha);
         }
         
-        // Limpar nome antes de salvar
         $nomeLimpo = trim(preg_replace('/\s+/', ' ', $aluno->getNome()));
-        
         $senhaHash = password_hash($aluno->getSenha(), PASSWORD_DEFAULT);
         
         $sql = "INSERT INTO alunos (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status";
@@ -108,10 +99,10 @@ class AlunoDAO {
             ':plano' => $aluno->getPlano()
         ];
         
-        if ($foto_perfil) {
+        if ($icone_perfil) {
             $sql .= ", foto_perfil";
             $sqlValues .= ", :foto_perfil";
-            $params[':foto_perfil'] = $foto_perfil;
+            $params[':foto_perfil'] = $icone_perfil;
         }
         
         $sql .= ") " . $sqlValues . ")";
@@ -139,7 +130,6 @@ class AlunoDAO {
     }
 
     public function atualizarSenha($id, $novaSenha) {
-        // Validação da nova senha
         $validacaoSenha = $this->validarSenhaForte($novaSenha);
         if ($validacaoSenha !== true) {
             throw new Exception($validacaoSenha);
@@ -180,8 +170,7 @@ class AlunoDAO {
         $stmt->execute([':status' => $novoStatus, ':id' => $id]);
     }
 
-    public function atualizarDadosAdmin($id, $nome, $email, $telefone, $plano, $objetivo, $novaSenha = null, $foto_perfil = null) {
-        // Limpar nome antes de atualizar
+    public function atualizarDadosAdmin($id, $nome, $email, $telefone, $plano, $objetivo, $novaSenha = null, $icone_perfil = null) {
         $nomeLimpo = trim(preg_replace('/\s+/', ' ', $nome));
         
         $sql = "UPDATE alunos SET nome = :nome, email = :email, telefone = :telefone, plano = :plano, objetivo = :objetivo";
@@ -195,7 +184,6 @@ class AlunoDAO {
         ];
         
         if (!empty($novaSenha)) { 
-            // Validação da nova senha
             $validacaoSenha = $this->validarSenhaForte($novaSenha);
             if ($validacaoSenha !== true) {
                 throw new Exception($validacaoSenha);
@@ -205,9 +193,9 @@ class AlunoDAO {
             $params[':senha'] = password_hash($novaSenha, PASSWORD_DEFAULT); 
         }
         
-        if (!empty($foto_perfil)) {
+        if (!empty($icone_perfil)) {
             $sql .= ", foto_perfil = :foto_perfil";
-            $params[':foto_perfil'] = $foto_perfil;
+            $params[':foto_perfil'] = $icone_perfil;
         }
         
         $sql .= " WHERE id = :id";
@@ -220,9 +208,8 @@ class AlunoDAO {
         return $stmt->execute([':id' => $id]);
     }
 
-    // --- ÁREA DO ALUNO (FREQUÊNCIA, HORÁRIOS E PERFIL) ---
+    // --- ÁREA DO ALUNO ---
 
-    // 1. Verifica status (Entrou? Saiu? Não foi?)
     public function getStatusFrequenciaHoje($alunoId) {
         $hoje = date('Y-m-d');
         $stmt = $this->conn->prepare("SELECT * FROM frequencia WHERE aluno_id = :id AND data_treino = :data");
@@ -238,7 +225,6 @@ class AlunoDAO {
         }
     }
 
-    // 2. Registrar Entrada (Check-in)
     public function registrarEntrada($alunoId) {
         $hoje = date('Y-m-d');
         $agora = date('Y-m-d H:i:s');
@@ -250,7 +236,6 @@ class AlunoDAO {
         return false;
     }
 
-    // 3. Registrar Saída (Check-out)
     public function registrarSaida($alunoId) {
         $hoje = date('Y-m-d');
         $agora = date('Y-m-d H:i:s');
@@ -259,14 +244,12 @@ class AlunoDAO {
         return $stmt->execute([':hora' => $agora, ':id' => $alunoId, ':data' => $hoje]);
     }
 
-    // 4. Calcular tempo de treino
     public function getTempoTreinoHoje($alunoId) {
         $hoje = date('Y-m-d');
         $stmt = $this->conn->prepare("SELECT TIMEDIFF(hora_saida, hora_entrada) as tempo FROM frequencia WHERE aluno_id = :id AND data_treino = :data");
         $stmt->execute([':id' => $alunoId, ':data' => $hoje]);
         $result = $stmt->fetchColumn();
         
-        // Formatar o tempo para exibição mais amigável
         if ($result) {
             list($horas, $minutos, $segundos) = explode(':', $result);
             return "$horas:$minutos:$segundos";
@@ -275,7 +258,6 @@ class AlunoDAO {
         return '00:00:00';
     }
 
-    // 5. Obter hora de entrada hoje
     public function getHoraEntradaHoje($alunoId) {
         $hoje = date('Y-m-d');
         $stmt = $this->conn->prepare("SELECT hora_entrada FROM frequencia WHERE aluno_id = :id AND data_treino = :data");
@@ -283,19 +265,15 @@ class AlunoDAO {
         return $stmt->fetchColumn();
     }
 
-    // 6. Histórico para o Calendário
     public function getFrequenciaMes($alunoId, $mes, $ano) {
         $stmt = $this->conn->prepare("SELECT DAY(data_treino) as dia FROM frequencia WHERE aluno_id = :id AND MONTH(data_treino) = :mes AND YEAR(data_treino) = :ano");
         $stmt->execute([':id' => $alunoId, ':mes' => $mes, ':ano' => $ano]);
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
-    // 7. Editar Perfil (Aba Perfil) - ATUALIZADA COM FOTO
-    public function atualizarPerfilAluno($id, $nome, $email, $telefone, $senha = null, $foto_perfil = null) {
-        // Limpar nome - remover espaços extras e normalizar
+    public function atualizarPerfilAluno($id, $nome, $email, $telefone, $senha = null, $icone_perfil = null) {
         $nomeLimpo = trim(preg_replace('/\s+/', ' ', $nome));
         
-        // Validar que o nome não está vazio após limpeza
         if (empty($nomeLimpo)) {
             return false;
         }
@@ -309,7 +287,6 @@ class AlunoDAO {
         ];
         
         if (!empty($senha)) { 
-            // Validação da nova senha
             $validacaoSenha = $this->validarSenhaForte($senha);
             if ($validacaoSenha !== true) {
                 throw new Exception($validacaoSenha);
@@ -319,9 +296,9 @@ class AlunoDAO {
             $params[':senha'] = password_hash($senha, PASSWORD_DEFAULT); 
         }
         
-        if (!empty($foto_perfil)) {
+        if (!empty($icone_perfil)) {
             $sql .= ", foto_perfil = :foto_perfil";
-            $params[':foto_perfil'] = $foto_perfil;
+            $params[':foto_perfil'] = $icone_perfil;
         }
         
         $sql .= " WHERE id = :id";
@@ -329,36 +306,25 @@ class AlunoDAO {
         return $stmt->execute($params);
     }
     
-    // 8. Atualizar apenas a foto de perfil
-    public function atualizarFotoPerfil($id, $foto_perfil) {
+    public function atualizarFotoPerfil($id, $icone_perfil) {
         $stmt = $this->conn->prepare("UPDATE alunos SET foto_perfil = :foto WHERE id = :id");
-        return $stmt->execute([':foto' => $foto_perfil, ':id' => $id]);
+        return $stmt->execute([':foto' => $icone_perfil, ':id' => $id]);
     }
     
-    // 9. Método auxiliar para formatar tempo
-    public function formatarTempo($tempo) {
-        if (!$tempo) return '00:00:00';
-        
-        // Se já está no formato HH:MM:SS
-        if (strpos($tempo, ':') !== false) {
-            $partes = explode(':', $tempo);
-            if (count($partes) === 3) {
-                return sprintf('%02d:%02d:%02d', $partes[0], $partes[1], $partes[2]);
-            }
-        }
-        
-        // Se é em segundos
-        if (is_numeric($tempo)) {
-            $horas = floor($tempo / 3600);
-            $minutos = floor(($tempo % 3600) / 60);
-            $segundos = $tempo % 60;
-            return sprintf('%02d:%02d:%02d', $horas, $minutos, $segundos);
-        }
-        
-        return '00:00:00';
+    // NOVO: Método para deletar foto antiga (removido o upload físico)
+    public function deletarFotoAntiga($fotoCaminho) {
+        // Como agora usamos apenas ícones, não há mais arquivos físicos para deletar
+        // Este método é mantido apenas para compatibilidade, mas não faz nada
+        return true;
     }
     
-    // 10. Obter estatísticas do mês
+    // NOVO: Método para processar upload de foto (removido)
+    public function processarUploadFoto($arquivo, $alunoId) {
+        // Método removido pois agora usamos apenas ícones
+        // Retorna um valor padrão para compatibilidade
+        return 'user'; // Ícone padrão
+    }
+    
     public function getEstatisticasMes($alunoId, $mes = null, $ano = null) {
         if (!$mes) $mes = date('n');
         if (!$ano) $ano = date('Y');
@@ -379,148 +345,33 @@ class AlunoDAO {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    // 11. Limpar nome (método público para uso externo)
     public function limparNome($nome) {
         return trim(preg_replace('/\s+/', ' ', $nome));
     }
     
-    // 12. Processar upload de foto
-    public function processarUploadFoto($arquivo, $alunoId) {
-        // Configurações
-        $diretorio = __DIR__ . '/../uploads/perfis/';
-        $extensoesPermitidas = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        $tamanhoMaximo = 5 * 1024 * 1024; // 5MB
-        
-        // Criar diretório se não existir
-        if (!file_exists($diretorio)) {
-            mkdir($diretorio, 0777, true);
-        }
-        
-        // Verificar erros
-        if ($arquivo['error'] !== UPLOAD_ERR_OK) {
-            throw new Exception("Erro no upload: " . $arquivo['error']);
-        }
-        
-        // Verificar tamanho
-        if ($arquivo['size'] > $tamanhoMaximo) {
-            throw new Exception("Arquivo muito grande. Máximo: 5MB");
-        }
-        
-        // Verificar extensão
-        $extensao = strtolower(pathinfo($arquivo['name'], PATHINFO_EXTENSION));
-        if (!in_array($extensao, $extensoesPermitidas)) {
-            throw new Exception("Extensão não permitida. Use: " . implode(', ', $extensoesPermitidas));
-        }
-        
-        // Verificar se é realmente uma imagem
-        $infoImagem = getimagesize($arquivo['tmp_name']);
-        if (!$infoImagem) {
-            throw new Exception("Arquivo não é uma imagem válida");
-        }
-        
-        // Gerar nome único para o arquivo
-        $nomeArquivo = 'aluno_' . $alunoId . '_' . time() . '_' . uniqid() . '.' . $extensao;
-        $caminhoCompleto = $diretorio . $nomeArquivo;
-        
-        // Mover arquivo
-        if (!move_uploaded_file($arquivo['tmp_name'], $caminhoCompleto)) {
-            throw new Exception("Falha ao salvar a imagem");
-        }
-        
-        // Redimensionar imagem para tamanho padrão (200x200)
-        $this->redimensionarImagem($caminhoCompleto, 200, 200);
-        
-        // Retornar caminho relativo para salvar no banco
-        return 'uploads/perfis/' . $nomeArquivo;
-    }
-    
-    // 13. Redimensionar imagem
-    private function redimensionarImagem($caminho, $largura, $altura) {
-        $info = getimagesize($caminho);
-        if (!$info) return false;
-        
-        list($larguraOrig, $alturaOrig, $tipo) = $info;
-        
-        // Criar imagem a partir do tipo
-        switch ($tipo) {
-            case IMAGETYPE_JPEG:
-                $origem = imagecreatefromjpeg($caminho);
-                break;
-            case IMAGETYPE_PNG:
-                $origem = imagecreatefrompng($caminho);
-                break;
-            case IMAGETYPE_GIF:
-                $origem = imagecreatefromgif($caminho);
-                break;
-            case IMAGETYPE_WEBP:
-                $origem = imagecreatefromwebp($caminho);
-                break;
-            default:
-                return false;
-        }
-        
-        // Calcular proporção
-        $proporcaoOrig = $larguraOrig / $alturaOrig;
-        $proporcaoDest = $largura / $altura;
-        
-        if ($proporcaoOrig > $proporcaoDest) {
-            $novaAltura = $altura;
-            $novaLargura = $altura * $proporcaoOrig;
-        } else {
-            $novaLargura = $largura;
-            $novaAltura = $largura / $proporcaoOrig;
-        }
-        
-        // Criar nova imagem
-        $destino = imagecreatetruecolor($largura, $altura);
-        
-        // Fundo transparente para PNG/GIF
-        if ($tipo == IMAGETYPE_PNG || $tipo == IMAGETYPE_GIF) {
-            imagealphablending($destino, false);
-            imagesavealpha($destino, true);
-            $transparente = imagecolorallocatealpha($destino, 0, 0, 0, 127);
-            imagefill($destino, 0, 0, $transparente);
-        } else {
-            // Fundo branco para JPEG
-            $branco = imagecolorallocate($destino, 255, 255, 255);
-            imagefill($destino, 0, 0, $branco);
-        }
-        
-        // Calcular posição para centralizar
-        $x = ($largura - $novaLargura) / 2;
-        $y = ($altura - $novaAltura) / 2;
-        
-        // Redimensionar com alta qualidade
-        imagecopyresampled($destino, $origem, $x, $y, 0, 0, 
-                          $novaLargura, $novaAltura, $larguraOrig, $alturaOrig);
-        
-        // Salvar imagem
-        switch ($tipo) {
-            case IMAGETYPE_JPEG:
-                imagejpeg($destino, $caminho, 90);
-                break;
-            case IMAGETYPE_PNG:
-                imagepng($destino, $caminho, 9);
-                break;
-            case IMAGETYPE_GIF:
-                imagegif($destino, $caminho);
-                break;
-            case IMAGETYPE_WEBP:
-                imagewebp($destino, $caminho, 90);
-                break;
-        }
-        
-        // Liberar memória
-        imagedestroy($origem);
-        imagedestroy($destino);
-        
-        return true;
-    }
-    
-    // 14. Deletar foto antiga
-    public function deletarFotoAntiga($caminhoFoto) {
-        if ($caminhoFoto && file_exists(__DIR__ . '/../' . $caminhoFoto)) {
-            unlink(__DIR__ . '/../' . $caminhoFoto);
-        }
+    // NOVO: Método para obter lista de ícones disponíveis
+    public function getIconesDisponiveis() {
+        return [
+            'user' => ['nome' => 'Usuário', 'cor' => '#3b82f6'],
+            'user-circle' => ['nome' => 'Círculo', 'cor' => '#8b5cf6'],
+            'user-square' => ['nome' => 'Quadrado', 'cor' => '#10b981'],
+            'user-check' => ['nome' => 'Verificado', 'cor' => '#059669'],
+            'user-cog' => ['nome' => 'Configuração', 'cor' => '#6366f1'],
+            'user-plus' => ['nome' => 'Adicionar', 'cor' => '#ec4899'],
+            'crown' => ['nome' => 'Rei', 'cor' => '#f59e0b'],
+            'star' => ['nome' => 'Estrela', 'cor' => '#fbbf24'],
+            'award' => ['nome' => 'Prêmio', 'cor' => '#ef4444'],
+            'trophy' => ['nome' => 'Troféu', 'cor' => '#d97706'],
+            'shield' => ['nome' => 'Escudo', 'cor' => '#0ea5e9'],
+            'heart' => ['nome' => 'Coração', 'cor' => '#dc2626'],
+            'target' => ['nome' => 'Alvo', 'cor' => '#7c3aed'],
+            'zap' => ['nome' => 'Raio', 'cor' => '#eab308'],
+            'flame' => ['nome' => 'Fogo', 'cor' => '#ea580c'],
+            'dumbbell' => ['nome' => 'Haltere', 'cor' => '#06b6d4'],
+            'activity' => ['nome' => 'Atividade', 'cor' => '#22c55e'],
+            'brain' => ['nome' => 'Cérebro', 'cor' => '#8b5cf6'],
+            'mountain' => ['nome' => 'Montanha', 'cor' => '#0d9488'],
+            'rocket' => ['nome' => 'Foguete', 'cor' => '#db2777']
+        ];
     }
 }
