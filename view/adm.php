@@ -5,17 +5,27 @@ require_once __DIR__ . '/../Model/TreinoDAO.php';
 require_once __DIR__ . '/../Model/ProdutoDAO.php';
 require_once __DIR__ . '/../Model/VendaDAO.php';
 require_once __DIR__ . '/../Controller/AlunoController.php';
-// DAOs para equipe
 require_once __DIR__ . '/../Model/ProfessorDAO.php';
 require_once __DIR__ . '/../Model/RecepcionistaDAO.php';
+
+// Ativar debug para desenvolvimento
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // API AJAX
 if (isset($_GET['acao_ajax'])) {
     header('Content-Type: application/json');
-    if (!isset($_SESSION['admin_logado'])) { echo json_encode([]); exit; }
+    if (!isset($_SESSION['admin_logado'])) { 
+        echo json_encode(['error' => 'Não autenticado']); 
+        exit; 
+    }
     $treinoDao = new TreinoDAO();
-    if ($_GET['acao_ajax'] === 'buscar_treino') echo json_encode($treinoDao->buscarPorAluno($_GET['id']));
-    if ($_GET['acao_ajax'] === 'buscar_modelo') echo json_encode($treinoDao->buscarModeloPorId($_GET['id']));
+    if ($_GET['acao_ajax'] === 'buscar_treino') {
+        echo json_encode($treinoDao->buscarPorAluno($_GET['id']));
+    }
+    if ($_GET['acao_ajax'] === 'buscar_modelo') {
+        echo json_encode($treinoDao->buscarModeloPorId($_GET['id']));
+    }
     exit;
 }
 
@@ -54,7 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acao === 'cadastrar_aluno') {
         try {
             $c = new AlunoController();
-            $c->cadastrar($_POST['nome'], $_POST['data_nascimento'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['genero'], $_POST['senha'], 'Indefinido', $_POST['plano']);
+            $c->cadastrar(
+                $_POST['nome'], 
+                $_POST['data_nascimento'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $_POST['cpf'], 
+                $_POST['genero'], 
+                $_POST['senha'], 
+                $_POST['objetivo'] ?? 'Indefinido', 
+                $_POST['plano']
+            );
             header("Location: adm.php?tab=alunos&msg=cad_sucesso"); 
             exit;
         } catch (Exception $e) { 
@@ -62,10 +82,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipoMsgAdm = 'erro'; 
         }
     }
+    
     if ($acao === 'editar_aluno') {
         try {
             $senha = !empty($_POST['nova_senha_adm']) ? $_POST['nova_senha_adm'] : null;
-            $dao->atualizarDadosAdmin($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['plano'], $_POST['objetivo'], $senha);
+            $dao->atualizarDadosAdmin(
+                $_POST['id'], 
+                $_POST['nome'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $_POST['plano'], 
+                $_POST['objetivo'] ?? 'Indefinido', 
+                $senha
+            );
             header("Location: adm.php?tab=alunos&msg=edit_sucesso"); 
             exit;
         } catch (Exception $e) { 
@@ -73,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipoMsgAdm = 'erro'; 
         }
     }
+    
     if ($acao === 'alterar_status') {
         $dao->atualizarStatus($_POST['id_aluno'], $_POST['novo_status']);
         $origem = $_POST['origem'] ?? 'alunos';
@@ -80,11 +110,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: adm.php?tab=$origem$busca"); 
         exit;
     }
+    
     if ($acao === 'excluir_aluno') {
         $dao->excluirAluno($_POST['id_exclusao']);
         header("Location: adm.php?tab=alunos&msg=del_sucesso"); 
         exit;
     }
+    
     if ($acao === 'excluir_alunos_massa') {
         if (!empty($_POST['ids_exclusao'])) {
             $ids = $_POST['ids_exclusao'];
@@ -94,8 +126,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($ids as $id) {
                 $dao->excluirAluno($id);
             }
-            $msgAdm = count($ids) . " aluno(s) excluído(s) com sucesso!";
-            $tipoMsgAdm = 'sucesso';
         }
         header("Location: adm.php?tab=alunos&msg=del_sucesso"); 
         exit;
@@ -108,12 +138,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     }
+    
     if ($acao === 'salvar_modelo') {
         if ($treinoDao->salvarModelo($_POST['nome_modelo'], $_POST['treino'] ?? [])) {
             header("Location: adm.php?tab=treinos&sub=padrao&msg=modelo_salvo"); 
             exit;
         }
     }
+    
     if ($acao === 'excluir_modelo') {
         $treinoDao->excluirModelo($_POST['id_exclusao']);
         header("Location: adm.php?tab=treinos&sub=padrao&msg=modelo_del"); 
@@ -131,12 +163,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipoMsgAdm = 'erro';
         }
     }
+    
     if ($acao === 'editar_produto') {
         $precoLimpo = str_replace(['R$', ' ', '.', ','], ['', '', '', '.'], $_POST['preco']);
         $produtoDao->atualizar($_POST['id_produto'], $_POST['nome'], $precoLimpo, $_POST['estoque'], $_POST['categoria'], $_POST['descricao']);
         header("Location: adm.php?tab=loja&msg=prod_edit"); 
         exit;
     }
+    
     if ($acao === 'gerar_kit_produtos') {
         $produtoDao->cadastrar("Whey Protein Gold", 149.90, 50, "Suplemento", "900g Baunilha");
         $produtoDao->cadastrar("Energético Power", 12.50, 100, "Bebida", "Lata 473ml");
@@ -145,11 +179,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: adm.php?tab=loja&msg=prod_kit"); 
         exit;
     }
+    
     if ($acao === 'excluir_produto') {
         $produtoDao->excluir($_POST['id_exclusao']);
         header("Location: adm.php?tab=loja&msg=prod_del"); 
         exit;
     }
+    
     if ($acao === 'excluir_massa_produtos') {
         if (!empty($_POST['ids_exclusao'])) {
             $produtoDao->excluirLista($_POST['ids_exclusao']);
@@ -158,10 +194,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // PROFESSORES
+    // PROFESSORES - CORREÇÃO AQUI
     if ($acao === 'cadastrar_professor') {
         try {
-            $professorDao->cadastrar($_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['cref'], $_POST['especialidade'], $_POST['senha']);
+            $professorDao->cadastrar(
+                $_POST['nome'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $_POST['cpf'], 
+                $_POST['data_nascimento'], 
+                $_POST['cref'], 
+                $_POST['especialidade'], 
+                $_POST['senha']
+            );
             header("Location: adm.php?tab=professor&msg=prof_cad_sucesso"); 
             exit;
         } catch (Exception $e) { 
@@ -174,24 +219,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $senha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
             
-            // Buscar professor atual para verificar se o CPF mudou
+            // Buscar professor atual
             $professorAtual = $professorDao->buscarPorId($_POST['id']);
             
-            // Verificar se o CPF foi alterado
-            $cpfAtual = $professorAtual['cpf'] ?? '';
-            $cpfNovo = $_POST['cpf'] ?? '';
+            // Usar o CPF do banco se não foi enviado (evita erro de array key)
+            $cpf = $_POST['cpf'] ?? ($professorAtual['cpf'] ?? '');
             
-            // Se o CPF não foi alterado, não validar duplicidade
-            if ($cpfAtual === $cpfNovo) {
-                // Usar um CPF temporário para evitar validação de duplicidade
-                $_POST['cpf'] = $cpfAtual . '_temp';
-                $professorDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $cpfAtual . '_temp', $_POST['data_nascimento'], $_POST['cref'], $_POST['especialidade'], $senha);
-                // Restaurar CPF original
-                $professorDao->restaurarCPF($_POST['id'], $cpfAtual);
-            } else {
-                // CPF foi alterado, fazer validação normal
-                $professorDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['cref'], $_POST['especialidade'], $senha);
-            }
+            $professorDao->atualizar(
+                $_POST['id'], 
+                $_POST['nome'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $cpf, 
+                $_POST['data_nascimento'], 
+                $_POST['cref'], 
+                $_POST['especialidade'], 
+                $senha
+            );
             
             header("Location: adm.php?tab=professor&msg=prof_edit_sucesso"); 
             exit;
@@ -201,7 +245,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Alterar status do professor
     if ($acao === 'alterar_status_professor') {
         try {
             $professorDao->atualizarStatus($_POST['id'], $_POST['novo_status']);
@@ -219,10 +262,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // RECEPCIONISTAS
+    // RECEPCIONISTAS - CORREÇÃO AQUI
     if ($acao === 'cadastrar_recepcionista') {
         try {
-            $recepcionistaDao->cadastrar($_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $_POST['senha']);
+            $recepcionistaDao->cadastrar(
+                $_POST['nome'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $_POST['cpf'], 
+                $_POST['data_nascimento'], 
+                $_POST['senha']
+            );
             header("Location: adm.php?tab=recepcionista&msg=rec_cad_sucesso"); 
             exit;
         } catch (Exception $e) { 
@@ -235,24 +285,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $senha = !empty($_POST['nova_senha']) ? $_POST['nova_senha'] : null;
             
-            // Buscar recepcionista atual para verificar se o CPF mudou
+            // Buscar recepcionista atual
             $recepcionistaAtual = $recepcionistaDao->buscarPorId($_POST['id']);
             
-            // Verificar se o CPF foi alterado
-            $cpfAtual = $recepcionistaAtual['cpf'] ?? '';
-            $cpfNovo = $_POST['cpf'] ?? '';
+            // Usar o CPF do banco se não foi enviado (evita erro de array key)
+            $cpf = $_POST['cpf'] ?? ($recepcionistaAtual['cpf'] ?? '');
             
-            // Se o CPF não foi alterado, não validar duplicidade
-            if ($cpfAtual === $cpfNovo) {
-                // Usar um CPF temporário para evitar validação de duplicidade
-                $_POST['cpf'] = $cpfAtual . '_temp';
-                $recepcionistaDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $cpfAtual . '_temp', $_POST['data_nascimento'], $senha);
-                // Restaurar CPF original
-                $recepcionistaDao->restaurarCPF($_POST['id'], $cpfAtual);
-            } else {
-                // CPF foi alterado, fazer validação normal
-                $recepcionistaDao->atualizar($_POST['id'], $_POST['nome'], $_POST['email'], $_POST['telefone'], $_POST['cpf'], $_POST['data_nascimento'], $senha);
-            }
+            $recepcionistaDao->atualizar(
+                $_POST['id'], 
+                $_POST['nome'], 
+                $_POST['email'], 
+                $_POST['telefone'], 
+                $cpf, 
+                $_POST['data_nascimento'], 
+                $senha
+            );
             
             header("Location: adm.php?tab=recepcionista&msg=rec_edit_sucesso"); 
             exit;
@@ -262,7 +309,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Alterar status do recepcionista
     if ($acao === 'alterar_status_recepcionista') {
         try {
             $recepcionistaDao->atualizarStatus($_POST['id'], $_POST['novo_status']);
@@ -1032,8 +1078,8 @@ if (isset($_GET['msg'])) {
                                 <h3 class="text-2xl font-bold text-green-400">R$ <?= number_format($statsLoja['valor'], 2, ',', '.') ?></h3>
                             </div>
                             <button onclick="abrirModalExcluirMassa()" id="btnExcluirMassa" class="card bg-red-900/20 border border-red-500/50 hover:bg-red-900/40 text-red-400 flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir Selecionados
-                            </button>
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir Selecionados
+                                </button>
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1555,8 +1601,10 @@ if (isset($_GET['msg'])) {
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             <h2 class="text-xl font-bold mb-6 text-white">Novo Aluno</h2>
-            <form method="POST" class="space-y-4" onsubmit="return validarFormularioAluno()">
+            <form action="adm.php" method="POST" class="space-y-4" onsubmit="return validarFormularioAluno()">
                 <input type="hidden" name="acao" value="cadastrar_aluno">
+                <input type="hidden" name="objetivo" value="Indefinido">
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
@@ -1714,6 +1762,368 @@ if (isset($_GET['msg'])) {
                         <div class="password-requirement requirement-not-met" id="editReqSpecial">
                             <i data-lucide="circle" class="requirement-icon"></i>
                             <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PROFESSOR -->
+    <div id="modalProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Novo Professor</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioProfessor()">
+                <input type="hidden" name="acao" value="cadastrar_professor">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
+                        <input type="text" name="cpf" id="cpfProfessor" placeholder="CPF (000.000.000-00)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="14" required
+                               oninput="aplicarMascaraCPFProfessor(this)">
+                        <div id="cpfFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="telefoneProfessor" placeholder="Telefone ((00) 00000-0000)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneProfessor(this)">
+                        <div id="telefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
+                        <input type="text" name="cref" placeholder="CREF" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
+                        <select name="especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                            <option value="Musculação">Musculação</option>
+                            <option value="Crossfit">Crossfit</option>
+                            <option value="Funcional">Funcional</option>
+                            <option value="Pilates">Pilates</option>
+                            <option value="Yoga">Yoga</option>
+                            <option value="Nutrição">Nutrição</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
+                    <input type="text" name="senha" id="senhaProfessor" placeholder="Senha (mínimo 8 caracteres)" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                           required oninput="validarSenhaProfessor(this.value)">
+                    <div class="password-strength-meter mt-2" id="passwordStrengthMeterProfessor"></div>
+                    <div class="mt-2 space-y-1" id="passwordRequirementsProfessor">
+                        <div class="password-requirement requirement-not-met" id="reqLengthProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqUppercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqLowercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqNumberProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="reqSpecialProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
+                    Cadastrar Professor
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR PROFESSOR -->
+    <div id="modalEditarProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalEditarProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Editar Professor</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarProfessor()">
+                <input type="hidden" name="acao" value="editar_professor">
+                <input type="hidden" name="id" id="edit_prof_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" id="edit_prof_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
+                        <input type="text" id="edit_prof_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" id="edit_prof_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="edit_prof_telefone" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneProfessorEditar(this)"
+                               placeholder="(00) 00000-0000">
+                        <div id="editTelefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" id="edit_prof_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
+                        <input type="text" name="cref" id="edit_prof_cref" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
+                        <select name="especialidade" id="edit_prof_especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                            <option value="Musculação">Musculação</option>
+                            <option value="Crossfit">Crossfit</option>
+                            <option value="Funcional">Funcional</option>
+                            <option value="Pilates">Pilates</option>
+                            <option value="Yoga">Yoga</option>
+                            <option value="Nutrição">Nutrição</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
+                    <input type="text" name="nova_senha" id="edit_prof_senha" 
+                           placeholder="Deixe em branco para manter a senha atual" 
+                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
+                           oninput="validarSenhaProfessorEditar(this.value)">
+                    <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterProfessor"></div>
+                    <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsProfessor">
+                        <div class="password-requirement requirement-not-met" id="editReqLengthProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqUppercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra maiúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqLowercaseProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 letra minúscula</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqNumberProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 número</span>
+                        </div>
+                        <div class="password-requirement requirement-not-met" id="editReqSpecialProfessor">
+                            <i data-lucide="circle" class="requirement-icon"></i>
+                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL RECEPCIONISTA -->
+    <div id="modalRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Novo Recepcionista</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioRecepcionista()">
+                <input type="hidden" name="acao" value="cadastrar_recepcionista">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
+                        <input type="text" name="cpf" id="cpfRecepcionista" placeholder="CPF (000.000.000-00)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="14" required
+                               oninput="aplicarMascaraCPFRecepcionista(this)">
+                        <div id="cpfFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="telefoneRecepcionista" placeholder="Telefone ((00) 00000-0000)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneRecepcionista(this)">
+                        <div id="telefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
+                        <input type="text" name="senha" id="senhaRecepcionista" placeholder="Senha (mínimo 8 caracteres)" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               required oninput="validarSenhaRecepcionista(this.value)">
+                        <div class="password-strength-meter mt-2" id="passwordStrengthMeterRecepcionista"></div>
+                        <div class="mt-2 space-y-1" id="passwordRequirementsRecepcionista">
+                            <div class="password-requirement requirement-not-met" id="reqLengthRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Mínimo 8 caracteres</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqUppercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra maiúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqLowercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra minúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqNumberRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 número</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="reqSpecialRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
+                    Cadastrar Recepcionista
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR RECEPCIONISTA -->
+    <div id="modalEditarRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
+            <button type="button" onclick="fecharModalEditarRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h2 class="text-xl font-bold mb-6 text-white">Editar Recepcionista</h2>
+            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarRecepcionista()">
+                <input type="hidden" name="acao" value="editar_recepcionista">
+                <input type="hidden" name="id" id="edit_rec_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
+                        <input type="text" name="nome" id="edit_rec_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
+                        <input type="text" id="edit_rec_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
+                        <input type="email" name="email" id="edit_rec_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
+                        <input type="text" name="telefone" id="edit_rec_telefone" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
+                               maxlength="15" required
+                               oninput="aplicarMascaraTelefoneRecepcionistaEditar(this)"
+                               placeholder="(00) 00000-0000">
+                        <div id="editTelefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
+                        <input type="date" name="data_nascimento" id="edit_rec_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
+                        <input type="text" name="nova_senha" id="edit_rec_senha" 
+                               placeholder="Deixe em branco para manter a senha atual" 
+                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
+                               oninput="validarSenhaRecepcionistaEditar(this.value)">
+                        <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterRecepcionista"></div>
+                        <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsRecepcionista">
+                            <div class="password-requirement requirement-not-met" id="editReqLengthRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Mínimo 8 caracteres</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqUppercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra maiúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqLowercaseRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 letra minúscula</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqNumberRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 número</span>
+                            </div>
+                            <div class="password-requirement requirement-not-met" id="editReqSpecialRecepcionista">
+                                <i data-lucide="circle" class="requirement-icon"></i>
+                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2759,371 +3169,7 @@ if (isset($_GET['msg'])) {
                 e.target.classList.remove('fade-in');
             }
         });
-    </script>
 
-    <!-- MODAL PROFESSOR -->
-    <div id="modalProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button type="button" onclick="fecharModalProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold mb-6 text-white">Novo Professor</h2>
-            <form method="POST" class="space-y-4" onsubmit="return validarFormularioProfessor()">
-                <input type="hidden" name="acao" value="cadastrar_professor">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
-                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
-                        <input type="text" name="cpf" id="cpfProfessor" placeholder="CPF (000.000.000-00)" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="14" required
-                               oninput="aplicarMascaraCPFProfessor(this)">
-                        <div id="cpfFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
-                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
-                        <input type="text" name="telefone" id="telefoneProfessor" placeholder="Telefone ((00) 00000-0000)" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="15" required
-                               oninput="aplicarMascaraTelefoneProfessor(this)">
-                        <div id="telefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
-                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
-                        <input type="text" name="cref" placeholder="CREF" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
-                        <select name="especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                            <option value="Musculação">Musculação</option>
-                            <option value="Crossfit">Crossfit</option>
-                            <option value="Funcional">Funcional</option>
-                            <option value="Pilates">Pilates</option>
-                            <option value="Yoga">Yoga</option>
-                            <option value="Nutrição">Nutrição</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
-                    <input type="text" name="senha" id="senhaProfessor" placeholder="Senha (mínimo 8 caracteres)" 
-                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                           required oninput="validarSenhaProfessor(this.value)">
-                    <div class="password-strength-meter mt-2" id="passwordStrengthMeterProfessor"></div>
-                    <div class="mt-2 space-y-1" id="passwordRequirementsProfessor">
-                        <div class="password-requirement requirement-not-met" id="reqLengthProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Mínimo 8 caracteres</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="reqUppercaseProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 letra maiúscula</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="reqLowercaseProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 letra minúscula</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="reqNumberProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 número</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="reqSpecialProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
-                    Cadastrar Professor
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL EDITAR PROFESSOR -->
-    <div id="modalEditarProfessor" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button type="button" onclick="fecharModalEditarProfessor()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold mb-6 text-white">Editar Professor</h2>
-            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarProfessor()">
-                <input type="hidden" name="acao" value="editar_professor">
-                <input type="hidden" name="id" id="edit_prof_id">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
-                        <input type="text" name="nome" id="edit_prof_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
-                        <input type="text" id="edit_prof_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
-                        <input type="email" name="email" id="edit_prof_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
-                        <input type="text" name="telefone" id="edit_prof_telefone" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="15" required
-                               oninput="aplicarMascaraTelefoneProfessorEditar(this)"
-                               placeholder="(00) 00000-0000">
-                        <div id="editTelefoneFeedbackProfessor" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
-                        <input type="date" name="data_nascimento" id="edit_prof_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CREF</label>
-                        <input type="text" name="cref" id="edit_prof_cref" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Especialidade</label>
-                        <select name="especialidade" id="edit_prof_especialidade" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                            <option value="Musculação">Musculação</option>
-                            <option value="Crossfit">Crossfit</option>
-                            <option value="Funcional">Funcional</option>
-                            <option value="Pilates">Pilates</option>
-                            <option value="Yoga">Yoga</option>
-                            <option value="Nutrição">Nutrição</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
-                    <input type="text" name="nova_senha" id="edit_prof_senha" 
-                           placeholder="Deixe em branco para manter a senha atual" 
-                           class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
-                           oninput="validarSenhaProfessorEditar(this.value)">
-                    <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterProfessor"></div>
-                    <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsProfessor">
-                        <div class="password-requirement requirement-not-met" id="editReqLengthProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Mínimo 8 caracteres</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="editReqUppercaseProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 letra maiúscula</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="editReqLowercaseProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 letra minúscula</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="editReqNumberProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 número</span>
-                        </div>
-                        <div class="password-requirement requirement-not-met" id="editReqSpecialProfessor">
-                            <i data-lucide="circle" class="requirement-icon"></i>
-                            <span>Pelo menos 1 caractere especial (@#$%&!)</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
-                    Salvar Alterações
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL RECEPCIONISTA -->
-    <div id="modalRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button type="button" onclick="fecharModalRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold mb-6 text-white">Novo Recepcionista</h2>
-            <form method="POST" class="space-y-4" onsubmit="return validarFormularioRecepcionista()">
-                <input type="hidden" name="acao" value="cadastrar_recepcionista">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
-                        <input type="text" name="nome" placeholder="Nome Completo" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF</label>
-                        <input type="text" name="cpf" id="cpfRecepcionista" placeholder="CPF (000.000.000-00)" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="14" required
-                               oninput="aplicarMascaraCPFRecepcionista(this)">
-                        <div id="cpfFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
-                        <input type="email" name="email" placeholder="Email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
-                        <input type="text" name="telefone" id="telefoneRecepcionista" placeholder="Telefone ((00) 00000-0000)" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="15" required
-                               oninput="aplicarMascaraTelefoneRecepcionista(this)">
-                        <div id="telefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
-                        <input type="date" name="data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Senha</label>
-                        <input type="text" name="senha" id="senhaRecepcionista" placeholder="Senha (mínimo 8 caracteres)" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               required oninput="validarSenhaRecepcionista(this.value)">
-                        <div class="password-strength-meter mt-2" id="passwordStrengthMeterRecepcionista"></div>
-                        <div class="mt-2 space-y-1" id="passwordRequirementsRecepcionista">
-                            <div class="password-requirement requirement-not-met" id="reqLengthRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Mínimo 8 caracteres</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="reqUppercaseRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 letra maiúscula</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="reqLowercaseRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 letra minúscula</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="reqNumberRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 número</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="reqSpecialRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" class="w-full bg-tech-primary hover:bg-orange-600 py-3 rounded-lg text-white font-bold transition-all">
-                    Cadastrar Recepcionista
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL EDITAR RECEPCIONISTA -->
-    <div id="modalEditarRecepcionista" class="fixed inset-0 z-50 hidden bg-black/90 flex items-center justify-center p-4">
-        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl p-8 relative">
-            <button type="button" onclick="fecharModalEditarRecepcionista()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h2 class="text-xl font-bold mb-6 text-white">Editar Recepcionista</h2>
-            <form method="POST" class="space-y-4" onsubmit="return validarFormularioEditarRecepcionista()">
-                <input type="hidden" name="acao" value="editar_recepcionista">
-                <input type="hidden" name="id" id="edit_rec_id">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nome Completo</label>
-                        <input type="text" name="nome" id="edit_rec_nome" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">CPF (somente visualização)</label>
-                        <input type="text" id="edit_rec_cpf" class="w-full bg-[#0f172a] p-3 text-gray-400 rounded-lg" disabled>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Email</label>
-                        <input type="email" name="email" id="edit_rec_email" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Telefone</label>
-                        <input type="text" name="telefone" id="edit_rec_telefone" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg" 
-                               maxlength="15" required
-                               oninput="aplicarMascaraTelefoneRecepcionistaEditar(this)"
-                               placeholder="(00) 00000-0000">
-                        <div id="editTelefoneFeedbackRecepcionista" class="text-xs mt-1 text-gray-500"></div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Data de Nascimento</label>
-                        <input type="date" name="data_nascimento" id="edit_rec_data_nascimento" class="w-full bg-[#0f172a] p-3 text-white rounded-lg" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase font-bold mb-1">Nova Senha (opcional)</label>
-                        <input type="text" name="nova_senha" id="edit_rec_senha" 
-                               placeholder="Deixe em branco para manter a senha atual" 
-                               class="w-full bg-[#0f172a] p-3 text-white rounded-lg"
-                               oninput="validarSenhaRecepcionistaEditar(this.value)">
-                        <div class="password-strength-meter mt-2 hidden" id="editPasswordStrengthMeterRecepcionista"></div>
-                        <div class="mt-2 space-y-1 hidden" id="editPasswordRequirementsRecepcionista">
-                            <div class="password-requirement requirement-not-met" id="editReqLengthRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Mínimo 8 caracteres</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="editReqUppercaseRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 letra maiúscula</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="editReqLowercaseRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 letra minúscula</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="editReqNumberRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 número</span>
-                            </div>
-                            <div class="password-requirement requirement-not-met" id="editReqSpecialRecepcionista">
-                                <i data-lucide="circle" class="requirement-icon"></i>
-                                <span>Pelo menos 1 caractere especial (@#$%&!)</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-white font-bold transition-all">
-                    Salvar Alterações
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <script>
         // Funções de validação específicas para professores
         function aplicarMascaraCPFProfessor(input) {
             let value = input.value.replace(/\D/g, '');
@@ -3698,46 +3744,52 @@ if (isset($_GET['msg'])) {
         
         // Funções para abrir modais de edição específicos
         function abrirModalEditarProfessor(prof) { 
-            document.getElementById('edit_prof_id').value = prof.id; 
-            document.getElementById('edit_prof_nome').value = prof.nome; 
-            document.getElementById('edit_prof_cpf').value = prof.cpf; 
-            document.getElementById('edit_prof_email').value = prof.email; 
+            console.log('Dados do professor:', prof);
+            
+            document.getElementById('edit_prof_id').value = prof.id || ''; 
+            document.getElementById('edit_prof_nome').value = prof.nome || ''; 
+            document.getElementById('edit_prof_cpf').value = prof.cpf || ''; 
+            document.getElementById('edit_prof_email').value = prof.email || ''; 
             
             // Formatar telefone para máscara
-            let telefoneFormatado = prof.telefone;
+            let telefoneFormatado = prof.telefone || '';
             if (telefoneFormatado && !telefoneFormatado.includes('(')) {
-                // Se não tem máscara, aplicar
                 telefoneFormatado = aplicarMascaraTelefoneString(telefoneFormatado);
             }
             document.getElementById('edit_prof_telefone').value = telefoneFormatado;
             
-            document.getElementById('edit_prof_data_nascimento').value = prof.data_nascimento; 
-            document.getElementById('edit_prof_cref').value = prof.cref; 
-            document.getElementById('edit_prof_especialidade').value = prof.especialidade; 
+            document.getElementById('edit_prof_data_nascimento').value = prof.data_nascimento || ''; 
+            document.getElementById('edit_prof_cref').value = prof.cref || ''; 
+            document.getElementById('edit_prof_especialidade').value = prof.especialidade || 'Musculação'; 
+            
             document.getElementById('modalEditarProfessor').classList.remove('hidden'); 
             recriarIcones();
+            
             // Limpar senha e validações
             document.getElementById('edit_prof_senha').value = '';
             validarSenhaProfessorEditar('');
         }
 
         function abrirModalEditarRecepcionista(rec) { 
-            document.getElementById('edit_rec_id').value = rec.id; 
-            document.getElementById('edit_rec_nome').value = rec.nome; 
-            document.getElementById('edit_rec_cpf').value = rec.cpf; 
-            document.getElementById('edit_rec_email').value = rec.email; 
+            console.log('Dados do recepcionista:', rec);
+            
+            document.getElementById('edit_rec_id').value = rec.id || ''; 
+            document.getElementById('edit_rec_nome').value = rec.nome || ''; 
+            document.getElementById('edit_rec_cpf').value = rec.cpf || ''; 
+            document.getElementById('edit_rec_email').value = rec.email || ''; 
             
             // Formatar telefone para máscara
-            let telefoneFormatado = rec.telefone;
+            let telefoneFormatado = rec.telefone || '';
             if (telefoneFormatado && !telefoneFormatado.includes('(')) {
-                // Se não tem máscara, aplicar
                 telefoneFormatado = aplicarMascaraTelefoneString(telefoneFormatado);
             }
             document.getElementById('edit_rec_telefone').value = telefoneFormatado;
             
-            document.getElementById('edit_rec_data_nascimento').value = rec.data_nascimento; 
+            document.getElementById('edit_rec_data_nascimento').value = rec.data_nascimento || ''; 
+            
             document.getElementById('modalEditarRecepcionista').classList.remove('hidden'); 
             recriarIcones();
+            
             // Limpar senha e validações
             document.getElementById('edit_rec_senha').value = '';
             validarSenhaRecepcionistaEditar('');

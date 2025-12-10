@@ -1961,7 +1961,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
     <script>
         // Dados dos treinos
         const treinosData = <?php echo json_encode($meusTreinos); ?>;
-        const horaEntrada = "<?= $horaEntrada ?>";
+        const horaEntradaServidor = "<?= $horaEntrada ?>";
         const statusFrequencia = "<?= $statusFrequencia ?>";
         const alunoId = <?= $idAluno ?>;
         const alunoNome = "<?= addslashes($nomeCompleto) ?>";
@@ -1969,6 +1969,11 @@ $subTab = $_GET['sub'] ?? 'produtos';
         const iniciais = "<?= $iniciais ?>";
         let tempoInterval;
         let qrCodeInstance = null;
+        
+        // Variáveis para sincronização do cronômetro
+        let tempoInicio = null;
+        let tempoDecorridoTotal = 0;
+        let cronometroAtivo = false;
 
         // GERAR QR CODE DINÂMICO
         function gerarQRCode() {
@@ -2059,19 +2064,20 @@ $subTab = $_GET['sub'] ?? 'produtos';
             }
         }
 
-        // CORREÇÃO DO CRONÔMETRO
-        function calcularTempoDecorrido() {
-            if (!horaEntrada || statusFrequencia !== 'treinando') {
+        // CORREÇÃO DO CRONÔMETRO - Sincronizado em todos os dispositivos
+        function iniciarCronometro() {
+            if (statusFrequencia !== 'treinando' || !horaEntradaServidor) {
                 if (tempoInterval) clearInterval(tempoInterval);
                 return;
             }
             
-            const entrada = new Date(horaEntrada);
+            // Calcular tempo decorrido desde a entrada
+            const entrada = new Date(horaEntradaServidor);
             const agora = new Date();
             
             // Verificar se a data/hora da entrada é válida
             if (isNaN(entrada.getTime())) {
-                console.error("Hora de entrada inválida:", horaEntrada);
+                console.error("Hora de entrada inválida:", horaEntradaServidor);
                 return;
             }
             
@@ -2080,12 +2086,33 @@ $subTab = $_GET['sub'] ?? 'produtos';
             // Se diffMs for negativo, ajustar
             if (diffMs < 0) {
                 console.warn("Tempo negativo detectado, ajustando...");
-                return;
+                tempoDecorridoTotal = 0;
+                tempoInicio = new Date();
+            } else {
+                tempoDecorridoTotal = Math.floor(diffMs / 1000);
+                tempoInicio = new Date(agora.getTime() - diffMs);
             }
             
-            const horas = Math.floor(diffMs / (1000 * 60 * 60));
-            const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-            const segundos = Math.floor((diffMs % (1000 * 60)) / 1000);
+            cronometroAtivo = true;
+            
+            // Atualizar imediatamente
+            atualizarTempo();
+            
+            // Iniciar intervalo para atualização contínua
+            if (tempoInterval) clearInterval(tempoInterval);
+            tempoInterval = setInterval(atualizarTempo, 1000);
+        }
+        
+        function atualizarTempo() {
+            if (!cronometroAtivo || !tempoInicio) return;
+            
+            const agora = new Date();
+            const diffMs = agora - tempoInicio;
+            const segundosTotais = tempoDecorridoTotal + Math.floor(diffMs / 1000);
+            
+            const horas = Math.floor(segundosTotais / 3600);
+            const minutos = Math.floor((segundosTotais % 3600) / 60);
+            const segundos = segundosTotais % 60;
             
             const tempoFormatado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
             
@@ -2101,6 +2128,14 @@ $subTab = $_GET['sub'] ?? 'produtos';
             if (tempoFinal) tempoFinal.textContent = tempoFormatado;
             
             return tempoFormatado;
+        }
+        
+        function pararCronometro() {
+            cronometroAtivo = false;
+            if (tempoInterval) {
+                clearInterval(tempoInterval);
+                tempoInterval = null;
+            }
         }
 
         // Função para recriar ícones
@@ -2262,9 +2297,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             document.getElementById('modalConclusao').classList.remove('hidden'); 
             recriarIcones();
             // Atualizar tempo no modal
-            if (statusFrequencia === 'treinando') {
-                calcularTempoDecorrido();
-            }
+            atualizarTempo();
         }
         
         function fecharModalConclusao() {
@@ -2284,7 +2317,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             // Atualizar tempo se estiver treinando
             if (statusFrequencia === 'treinando') {
-                calcularTempoDecorrido();
+                atualizarTempo();
             }
         }
         
@@ -2635,12 +2668,9 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 setTimeout(() => mudarFicha('A'), 200);
             }
             
-            // Iniciar contador de tempo se estiver treinando
+            // Iniciar cronômetro se estiver treinando
             if (statusFrequencia === 'treinando') {
-                // Iniciar imediatamente
-                calcularTempoDecorrido();
-                // Atualizar a cada segundo
-                tempoInterval = setInterval(calcularTempoDecorrido, 1000);
+                iniciarCronometro();
             }
             
             // Gerar QR Code inicial se modal estiver aberto
@@ -2668,6 +2698,11 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     abrirCarteirinha();
                 }, 600);
             <?php endif; ?>
+        });
+        
+        // Limpar intervalo ao fechar a página
+        window.addEventListener('beforeunload', () => {
+            pararCronometro();
         });
     </script>
 </body>
