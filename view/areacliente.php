@@ -4,6 +4,8 @@ session_start();
 // --- IMPORTAÇÕES ---
 require_once __DIR__ . '/../Model/AlunoDAO.php';
 require_once __DIR__ . '/../Model/AdminDAO.php';
+require_once __DIR__ . '/../Model/RecepcionistaDAO.php'; // NOVA LINHA
+require_once __DIR__ . '/../Model/ProfessorDAO.php';    // NOVA LINHA
 require_once __DIR__ . '/../Controller/AlunoController.php'; 
 
 $cadastroMessage = null;
@@ -35,7 +37,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // 2. Admin
+        // 2. Recepcionista
+        $recepcionistaDao = new RecepcionistaDAO();
+        $recepcionista = $recepcionistaDao->validarLogin($email, $senha);
+        
+        if ($recepcionista) {
+            // Verifica status
+            if (isset($recepcionista['status']) && $recepcionista['status'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $recepcionista['status'] . ".";
+                header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
+                exit;
+            }
+            
+            // Salva dados temporários para verificação
+            $_SESSION['recepcionista_pre_login_id'] = $recepcionista['id'];
+            $_SESSION['recepcionista_pre_nome'] = $recepcionista['nome'];
+            header('Location: recepcionista_verificacao.php');
+            exit;
+        }
+
+        // 3. Professor
+        $professorDao = new ProfessorDAO();
+        $professor = $professorDao->validarLogin($email, $senha);
+        
+        if ($professor) {
+            // Verifica status
+            if (isset($professor['status']) && $professor['status'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $professor['status'] . ".";
+                header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
+                exit;
+            }
+            
+            // Salva dados temporários para verificação
+            $_SESSION['professor_pre_login_id'] = $professor['id'];
+            $_SESSION['professor_pre_nome'] = $professor['nome'];
+            header('Location: professor_verificacao.php');
+            exit;
+        }
+
+        // 4. Admin
         $adminDao = new AdminDAO();
         $admin = $adminDao->buscarPorEmail($email);
         if ($admin && password_verify($senha, $admin['senha'])) {

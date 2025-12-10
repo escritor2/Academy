@@ -1,7 +1,9 @@
 <?php
 session_start();
 require_once __DIR__ . '/../Model/AlunoDAO.php';
-require_once __DIR__ . '/../Model/AdminDAO.php'; // Adicione essa linha
+require_once __DIR__ . '/../Model/AdminDAO.php';
+require_once __DIR__ . '/../Model/RecepcionistaDAO.php'; // NOVA LINHA
+require_once __DIR__ . '/../Model/ProfessorDAO.php';    // NOVA LINHA
 
 // Lógica de Login Unificada
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -31,7 +33,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // 2. NÃO É ALUNO? TENTA LOGAR COMO ADMIN
+        // 2. TENTA LOGAR COMO RECEPCIONISTA
+        $recepcionistaDao = new RecepcionistaDAO();
+        $recepcionista = $recepcionistaDao->validarLogin($email, $senha);
+        
+        if ($recepcionista) {
+            // Verifica status
+            if (isset($recepcionista['status']) && $recepcionista['status'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $recepcionista['status'] . ".";
+                header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
+                exit;
+            }
+            
+            // Salva dados temporários para verificação
+            $_SESSION['recepcionista_pre_login_id'] = $recepcionista['id'];
+            $_SESSION['recepcionista_pre_nome'] = $recepcionista['nome'];
+            header('Location: recepcionista_verificacao.php');
+            exit;
+        }
+
+        // 3. TENTA LOGAR COMO PROFESSOR
+        $professorDao = new ProfessorDAO();
+        $professor = $professorDao->validarLogin($email, $senha);
+        
+        if ($professor) {
+            // Verifica status
+            if (isset($professor['status']) && $professor['status'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $professor['status'] . ".";
+                header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
+                exit;
+            }
+            
+            // Salva dados temporários para verificação
+            $_SESSION['professor_pre_login_id'] = $professor['id'];
+            $_SESSION['professor_pre_nome'] = $professor['nome'];
+            header('Location: professor_verificacao.php');
+            exit;
+        }
+
+        // 4. TENTA LOGAR COMO ADMIN
         $adminDao = new AdminDAO();
         $admin = $adminDao->buscarPorEmail($email);
 
@@ -47,12 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // 3. NÃO É NINGUÉM? ERRO.
+        // 5. NÃO É NINGUÉM? ERRO.
         // Pega a URL atual para voltar com erro
         $paginaAtual = basename($_SERVER['PHP_SELF']); 
         header("Location: $paginaAtual?login_erro=1&msg=" . urlencode("Credenciais incorretas"));
         exit;
-    }}
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth">
@@ -451,7 +492,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="bg-tech-800 rounded-2xl overflow-hidden card-premium reveal reveal-delay-100 group">
                     <div class="h-56 overflow-hidden relative">
                         <div class="absolute inset-0 bg-gradient-to-t from-tech-900 to-transparent z-10 opacity-60"></div>
-                        <img src="https://images.unsplash.com/photo-1534258936925-c48947387e3b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Cross Training" class="w-full h-full object-cover transition-transform duration-700">
+                        <img src="img/cross.jpg" alt="Cross Training" class="w-full h-full object-cover transition-transform duration-700">
                          <div class="absolute top-4 right-4 z-20 bg-tech-primary/90 backdrop-blur text-white p-2 rounded-lg">
                             <i data-lucide="flame" class="w-6 h-6"></i>
                         </div>
@@ -564,7 +605,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  <!-- Produto 4 -->
                  <div class="bg-tech-900 rounded-xl p-4 border border-tech-700 card-premium reveal reveal-delay-300">
                     <div class="bg-gray-100 rounded-lg h-48 flex items-center justify-center mb-4 overflow-hidden group">
-                        <img src="https://images.unsplash.com/photo-1591196720526-7f415354e601?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" alt="Shaker" class="h-32 object-contain group-hover:scale-110 transition-transform duration-500">
+                        <img src="img/smart.jpg" alt="Shaker" class="h-32 object-contain group-hover:scale-110 transition-transform duration-500">
                     </div>
                     <h4 class="font-bold text-lg mb-1">Smart Shaker</h4>
                     <p class="text-tech-muted text-xs mb-3">Coqueteleira com compartimentos.</p>

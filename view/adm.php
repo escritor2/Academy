@@ -248,6 +248,8 @@ $vendasRecentes = $vendaDao->buscarRecentes(10);
 $totalVendas = $vendaDao->getTotalVendas();
 $faturamentoTotal = $vendaDao->getFaturamentoTotal();
 
+
+
 // Mensagens
 if (isset($_GET['msg'])) {
     $m = [
@@ -284,6 +286,8 @@ if (isset($_GET['msg'])) {
     <title>Painel TechFit</title>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = { 
             theme: { 
@@ -620,7 +624,44 @@ if (isset($_GET['msg'])) {
         .requirement-icon {
             width: 0.75rem;
             height: 0.75rem;
-        }  
+        }
+        
+        /* Estilos para gráficos */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Estilos para toggle de gráficos */
+        .chart-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .chart-toggle-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #1e293b;
+            color: #9ca3af;
+            border: 1px solid #374151;
+        }
+
+        .chart-toggle-btn:hover {
+            background-color: #374151;
+            color: #ffffff;
+        }
+
+        .chart-toggle-btn.active {
+            background-color: #f97316;
+            color: white;
+            border-color: #f97316;
+        }
     </style>
 </head>
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">
@@ -730,6 +771,21 @@ if (isset($_GET['msg'])) {
                             <div class="card">
                                 <p class="text-gray-400 text-xs font-bold uppercase mb-2">Faturamento</p>
                                 <h3 class="text-2xl md:text-3xl font-bold text-white">R$ <?= number_format($faturamentoTotal, 2, ',', '.') ?></h3>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfico de Faturamento no Dashboard -->
+                        <div class="card mb-6">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/5">
+                                <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                                    <i data-lucide="trending-up" class="w-5 h-5 text-tech-primary"></i> Faturamento dos Últimos 7 Dias
+                                </h3>
+                                <button onclick="switchTab('financeiro')" class="text-sm font-bold text-tech-primary hover:text-white transition-colors">
+                                    Ver Detalhes →
+                                </button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="dashboardChart"></canvas>
                             </div>
                         </div>
                         
@@ -1115,6 +1171,55 @@ if (isset($_GET['msg'])) {
                             <div class="card">
                                 <p class="text-gray-400 text-xs font-bold uppercase mb-2">Ticket Médio</p>
                                 <h3 class="text-2xl md:text-3xl font-bold text-blue-400">R$ <?= $totalVendas > 0 ? number_format($faturamentoTotal / $totalVendas, 2, ',', '.') : '0,00' ?></h3>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráficos -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="card">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/5">
+                                    <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                                        <i data-lucide="trending-up" class="w-5 h-5 text-tech-primary"></i> Faturamento dos Últimos 7 Dias
+                                    </h3>
+                                    <div class="chart-toggle">
+                                        <button type="button" onclick="mudarTipoGrafico('dias', 'bar')" class="chart-toggle-btn active">Barras</button>
+                                        <button type="button" onclick="mudarTipoGrafico('dias', 'line')" class="chart-toggle-btn">Linhas</button>
+                                    </div>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="graficoDias"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/5">
+                                    <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                                        <i data-lucide="pie-chart" class="w-5 h-5 text-tech-primary"></i> Vendas por Categoria
+                                    </h3>
+                                    <div class="chart-toggle">
+                                        <button type="button" onclick="mudarTipoGrafico('categoria', 'doughnut')" class="chart-toggle-btn active">Rosca</button>
+                                        <button type="button" onclick="mudarTipoGrafico('categoria', 'pie')" class="chart-toggle-btn">Pizza</button>
+                                    </div>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="graficoCategoria"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico mensal -->
+                        <div class="card mb-6">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/5">
+                                <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                                    <i data-lucide="calendar" class="w-5 h-5 text-tech-primary"></i> Faturamento Mensal (Últimos 6 Meses)
+                                </h3>
+                                <div class="chart-toggle">
+                                    <button type="button" onclick="mudarTipoGrafico('meses', 'bar')" class="chart-toggle-btn active">Barras</button>
+                                    <button type="button" onclick="mudarTipoGrafico('meses', 'line')" class="chart-toggle-btn">Linhas</button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="graficoMeses"></canvas>
                             </div>
                         </div>
                         
@@ -2299,6 +2404,301 @@ if (isset($_GET['msg'])) {
             }, 50);
         }
         
+        // Funções para gráficos
+        let graficoDashboard = null;
+        let graficoDias = null;
+        let graficoCategoria = null;
+        let graficoMeses = null;
+        let tipoGraficoDias = 'bar';
+        let tipoGraficoCategoria = 'doughnut';
+        let tipoGraficoMeses = 'bar';
+        
+        function inicializarGraficos() {
+            // Gráfico do Dashboard
+            const dadosDashboard = <?= json_encode($dadosGraficoDias) ?>;
+            const labelsDashboard = dadosDashboard.map(item => item.dia);
+            const valoresDashboard = dadosDashboard.map(item => parseFloat(item.total));
+            
+            const ctxDashboard = document.getElementById('dashboardChart');
+            if (ctxDashboard) {
+                graficoDashboard = new Chart(ctxDashboard, {
+                    type: 'bar',
+                    data: {
+                        labels: labelsDashboard,
+                        datasets: [{
+                            label: 'Faturamento (R$)',
+                            data: valoresDashboard,
+                            backgroundColor: 'rgba(249, 115, 22, 0.5)',
+                            borderColor: 'rgba(249, 115, 22, 1)',
+                            borderWidth: 1,
+                            borderRadius: 5,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toFixed(2).replace('.', ',');
+                                    },
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de dias na aba Financeiro
+            const dadosDias = <?= json_encode($dadosGraficoDias) ?>;
+            const labelsDias = dadosDias.map(item => item.dia);
+            const valoresDias = dadosDias.map(item => parseFloat(item.total));
+            
+            const ctxDias = document.getElementById('graficoDias');
+            if (ctxDias) {
+                graficoDias = new Chart(ctxDias, {
+                    type: tipoGraficoDias,
+                    data: {
+                        labels: labelsDias,
+                        datasets: [{
+                            label: 'Faturamento (R$)',
+                            data: valoresDias,
+                            backgroundColor: tipoGraficoDias === 'bar' 
+                                ? 'rgba(249, 115, 22, 0.5)' 
+                                : ['rgba(249, 115, 22, 0.5)', 'rgba(59, 130, 246, 0.5)', 'rgba(16, 185, 129, 0.5)', 'rgba(139, 92, 246, 0.5)', 'rgba(236, 72, 153, 0.5)', 'rgba(245, 158, 11, 0.5)', 'rgba(6, 182, 212, 0.5)'],
+                            borderColor: tipoGraficoDias === 'bar' 
+                                ? 'rgba(249, 115, 22, 1)' 
+                                : ['rgba(249, 115, 22, 1)', 'rgba(59, 130, 246, 1)', 'rgba(16, 185, 129, 1)', 'rgba(139, 92, 246, 1)', 'rgba(236, 72, 153, 1)', 'rgba(245, 158, 11, 1)', 'rgba(6, 182, 212, 1)'],
+                            borderWidth: 1,
+                            borderRadius: 5,
+                            fill: tipoGraficoDias === 'line'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: tipoGraficoDias !== 'bar',
+                                labels: {
+                                    color: '#9ca3af'
+                                }
+                            }
+                        },
+                        scales: tipoGraficoDias === 'bar' ? {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toFixed(2).replace('.', ',');
+                                    },
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            }
+                        } : {
+                            x: {
+                                display: false
+                            },
+                            y: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de categoria
+            const dadosCategoria = <?= json_encode($dadosGraficoCategoria) ?>;
+            const labelsCategoria = dadosCategoria.map(item => item.categoria);
+            const valoresCategoria = dadosCategoria.map(item => parseFloat(item.total));
+            
+            const ctxCategoria = document.getElementById('graficoCategoria');
+            if (ctxCategoria) {
+                graficoCategoria = new Chart(ctxCategoria, {
+                    type: tipoGraficoCategoria,
+                    data: {
+                        labels: labelsCategoria,
+                        datasets: [{
+                            label: 'Vendas (R$)',
+                            data: valoresCategoria,
+                            backgroundColor: [
+                                'rgba(249, 115, 22, 0.5)',
+                                'rgba(59, 130, 246, 0.5)',
+                                'rgba(16, 185, 129, 0.5)',
+                                'rgba(139, 92, 246, 0.5)',
+                                'rgba(236, 72, 153, 0.5)',
+                                'rgba(245, 158, 11, 0.5)',
+                                'rgba(6, 182, 212, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(16, 185, 129, 1)',
+                                'rgba(139, 92, 246, 1)',
+                                'rgba(236, 72, 153, 1)',
+                                'rgba(245, 158, 11, 1)',
+                                'rgba(6, 182, 212, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#9ca3af'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de meses
+            const dadosMeses = <?= json_encode($dadosGraficoMeses) ?>;
+            const labelsMeses = dadosMeses.map(item => item.mes);
+            const valoresMeses = dadosMeses.map(item => parseFloat(item.total));
+            
+            const ctxMeses = document.getElementById('graficoMeses');
+            if (ctxMeses) {
+                graficoMeses = new Chart(ctxMeses, {
+                    type: tipoGraficoMeses,
+                    data: {
+                        labels: labelsMeses,
+                        datasets: [{
+                            label: 'Faturamento (R$)',
+                            data: valoresMeses,
+                            backgroundColor: tipoGraficoMeses === 'bar' 
+                                ? 'rgba(59, 130, 246, 0.5)' 
+                                : ['rgba(59, 130, 246, 0.5)', 'rgba(16, 185, 129, 0.5)', 'rgba(139, 92, 246, 0.5)', 'rgba(236, 72, 153, 0.5)', 'rgba(245, 158, 11, 0.5)', 'rgba(6, 182, 212, 0.5)'],
+                            borderColor: tipoGraficoMeses === 'bar' 
+                                ? 'rgba(59, 130, 246, 1)' 
+                                : ['rgba(59, 130, 246, 1)', 'rgba(16, 185, 129, 1)', 'rgba(139, 92, 246, 1)', 'rgba(236, 72, 153, 1)', 'rgba(245, 158, 11, 1)', 'rgba(6, 182, 212, 1)'],
+                            borderWidth: 1,
+                            borderRadius: 5,
+                            fill: tipoGraficoMeses === 'line'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: tipoGraficoMeses === 'bar' ? {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toFixed(2).replace('.', ',');
+                                    },
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            }
+                        } : {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toFixed(2).replace('.', ',');
+                                    },
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function mudarTipoGrafico(tipoGrafico, novoTipo) {
+            // Atualizar botões ativos
+            const botoes = document.querySelectorAll('.chart-toggle-btn');
+            botoes.forEach(botao => {
+                botao.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            
+            // Atualizar tipo do gráfico
+            if (tipoGrafico === 'dias') {
+                tipoGraficoDias = novoTipo;
+                if (graficoDias) {
+                    graficoDias.destroy();
+                }
+                inicializarGraficos();
+            } else if (tipoGrafico === 'categoria') {
+                tipoGraficoCategoria = novoTipo;
+                if (graficoCategoria) {
+                    graficoCategoria.destroy();
+                }
+                inicializarGraficos();
+            } else if (tipoGrafico === 'meses') {
+                tipoGraficoMeses = novoTipo;
+                if (graficoMeses) {
+                    graficoMeses.destroy();
+                }
+                inicializarGraficos();
+            }
+        }
+        
         // Atualizar financeiro automaticamente (simulação)
         function atualizarFinanceiro() {
             // Em produção, faria uma chamada AJAX para atualizar os dados
@@ -2340,6 +2740,11 @@ if (isset($_GET['msg'])) {
             setTimeout(() => {
                 recriarIcones();
             }, 100);
+            
+            // Inicializar gráficos
+            setTimeout(() => {
+                inicializarGraficos();
+            }, 500);
             
             // Iniciar atualização automática do financeiro
             setTimeout(atualizarFinanceiro, 10000);
