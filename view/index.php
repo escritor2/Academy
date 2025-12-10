@@ -34,8 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 2. TENTA LOGAR COMO RECEPCIONISTA
-        $recepcionistaDao = new RecepcionistaDAO();
-        $recepcionista = $recepcionistaDao->validarLogin($email, $senha);
+        
         
         if ($recepcionista) {
             // Verifica status

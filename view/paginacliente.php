@@ -163,6 +163,9 @@ $nomeCompleto = $dadosAluno['nome'];
 $primeiroNome = explode(' ', $nomeCompleto)[0];
 $planoAluno = $dadosAluno['plano'];
 
+// NOVO: Histórico de compras do aluno
+$historicoCompras = $vendaDao->getVendasPorAluno($idAluno);
+
 // Gerar iniciais do nome para avatar
 $nomes = explode(' ', $nomeCompleto);
 if (count($nomes) > 0) {
@@ -791,6 +794,30 @@ $subTab = $_GET['sub'] ?? 'produtos';
         .btn-carrinho:active {
             transform: scale(0.95);
         }
+        
+        /* Estilos para a tabela de histórico - SEM BARRA DE ROLAGEM */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        table th, table td {
+            padding: 12px 16px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        
+        @media (max-width: 768px) {
+            table {
+                display: block;
+                overflow-x: visible;
+            }
+            
+            table th, table td {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">
@@ -821,6 +848,11 @@ $subTab = $_GET['sub'] ?? 'produtos';
                         <button onclick="switchTab('loja')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
                             <i data-lucide="shopping-bag" class="w-5 h-5"></i>
                             <span class="nav-text">Loja</span>
+                        </button>
+                        <!-- NOVO BOTÃO DE HISTÓRICO DE COMPRAS -->
+                        <button onclick="switchTab('compras')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                            <i data-lucide="receipt" class="w-5 h-5"></i>
+                            <span class="nav-text">Minhas Compras</span>
                         </button>
                         <button onclick="switchTab('perfil')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
                             <i data-lucide="user-cog" class="w-5 h-5"></i>
@@ -890,7 +922,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                                                 <p class="text-gray-300 italic">"<?= htmlspecialchars($mensagensMotivacionais[$i % count($mensagensMotivacionais)]) ?>"</p>
                                             </div>
                                         <?php endfor; ?>
-                                    </div>
+                                        </div>
                                 </div>
                             </div>
                         </div>
@@ -1338,6 +1370,292 @@ $subTab = $_GET['sub'] ?? 'produtos';
                         </div>
                     </div>
 
+                    <!-- Histórico de Compras -->
+                    <div id="tab-compras" class="tab-content hidden fade-in">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <div>
+                                    <h3 class="text-xl md:text-2xl font-bold text-white">Minhas Compras</h3>
+                                    <p class="text-gray-400 text-sm">Histórico completo de suas compras na loja</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-tech-primary/10 text-tech-primary px-3 py-1 rounded-full text-xs font-bold border border-tech-primary/20">
+                                        <?= count($historicoCompras) ?> compra<?= count($historicoCompras) != 1 ? 's' : '' ?>
+                                    </div>
+                                    <button onclick="switchTab('loja')" class="bg-tech-primary hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                                        <i data-lucide="shopping-bag" class="w-4 h-4"></i> Ir para Loja
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <?php if(empty($historicoCompras)): ?>
+                                <div class="card text-center py-12 animate-fade-in">
+                                    <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                                        <i data-lucide="package" class="w-10 h-10 text-gray-500"></i>
+                                    </div>
+                                    <h3 class="text-xl font-bold text-gray-400 mb-2">Nenhuma compra realizada</h3>
+                                    <p class="text-gray-500 mb-6">Você ainda não fez nenhuma compra em nossa loja.</p>
+                                    <button onclick="switchTab('loja')" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold transition-all inline-flex items-center gap-2">
+                                        <i data-lucide="shopping-bag" class="w-4 h-4"></i> Explorar Produtos
+                                    </button>
+                                </div>
+                            <?php else: ?>
+                                <!-- Estatísticas rápidas -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-slide-up">
+                                    <div class="card">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Total Gasto</p>
+                                                <h3 class="text-xl md:text-2xl font-bold text-white">
+                                                    R$ <?php 
+                                                    $totalGasto = array_sum(array_column($historicoCompras, 'valor_total'));
+                                                    echo number_format($totalGasto, 2, ',', '.');
+                                                    ?>
+                                                </h3>
+                                            </div>
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-green-500/5 flex items-center justify-center">
+                                                <i data-lucide="dollar-sign" class="w-6 h-6 text-green-500"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Total de Itens</p>
+                                                <h3 class="text-xl md:text-2xl font-bold text-white">
+                                                    <?php 
+                                                    $totalItens = array_sum(array_column($historicoCompras, 'quantidade'));
+                                                    echo $totalItens;
+                                                    ?>
+                                                </h3>
+                                            </div>
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center">
+                                                <i data-lucide="package" class="w-6 h-6 text-blue-500"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Primeira Compra</p>
+                                                <h3 class="text-xl md:text-2xl font-bold text-white">
+                                                    <?php 
+                                                    $primeiraCompra = end($historicoCompras);
+                                                    if($primeiraCompra) {
+                                                        echo date('d/m/Y', strtotime($primeiraCompra['data_venda']));
+                                                    } else {
+                                                        echo '--/--/----';
+                                                    }
+                                                    ?>
+                                                </h3>
+                                            </div>
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-500/5 flex items-center justify-center">
+                                                <i data-lucide="calendar" class="w-6 h-6 text-purple-500"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Lista de compras -->
+                                <div class="card">
+                                    <div class="mb-6 pb-4 border-b border-white/5">
+                                        <h3 class="text-lg font-bold text-white">Histórico Detalhado</h3>
+                                        <p class="text-gray-400 text-sm">Todas as suas transações ordenadas por data</p>
+                                    </div>
+                                    
+                                    <!-- TABELA SEM BARRA DE ROLAGEM HORIZONTAL -->
+                                    <div>
+                                        <table class="w-full">
+                                            <thead>
+                                                <tr class="border-b border-white/10">
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Data</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Produto</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Qtd</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Valor Unit.</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Total</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Pagamento</th>
+                                                    <th class="text-left py-3 px-4 text-xs font-bold text-gray-400 uppercase">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php 
+                                                $contador = 0;
+                                                foreach($historicoCompras as $compra): 
+                                                    $contador++;
+                                                    $dataFormatada = date('d/m/Y H:i', strtotime($compra['data_venda']));
+                                                    $corStatus = $compra['status'] === 'Concluída' ? 'text-green-400' : 'text-yellow-400';
+                                                    $bgStatus = $compra['status'] === 'Concluída' ? 'bg-green-500/10' : 'bg-yellow-500/10';
+                                                    
+                                                    // ÍCONE ESPECÍFICO PARA PIX (MODIFICADO)
+                                                    if($compra['forma_pagamento'] === 'PIX') {
+                                                        $iconePagamento = 'sparkles'; // Ícone mais apropriado para PIX
+                                                        $corIconePagamento = 'text-purple-400';
+                                                    } else {
+                                                        $iconePagamento = 'credit-card';
+                                                        $corIconePagamento = 'text-gray-400';
+                                                    }
+                                                ?>
+                                                <tr class="border-b border-white/5 hover:bg-white/2 transition-colors animate-fade-in" style="animation-delay: <?= $contador * 50 ?>ms">
+                                                    <td class="py-4 px-4">
+                                                        <div class="flex flex-col">
+                                                            <span class="text-white font-medium"><?= $dataFormatada ?></span>
+                                                            <span class="text-xs text-gray-500">ID: #<?= str_pad($compra['id'], 5, '0', STR_PAD_LEFT) ?></span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <div class="flex items-center gap-3">
+                                                            <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                                <i data-lucide="package" class="w-5 h-5 text-gray-400"></i>
+                                                            </div>
+                                                            <div>
+                                                                <span class="text-white font-medium"><?= htmlspecialchars($compra['produto_nome']) ?></span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <span class="text-white font-medium"><?= $compra['quantidade'] ?></span>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <span class="text-gray-300">R$ <?= number_format($compra['valor_unitario'], 2, ',', '.') ?></span>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <span class="text-tech-primary font-bold">R$ <?= number_format($compra['valor_total'], 2, ',', '.') ?></span>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                                                                <i data-lucide="<?= $iconePagamento ?>" class="w-4 h-4 <?= $corIconePagamento ?>"></i>
+                                                            </div>
+                                                            <span class="text-gray-300"><?= htmlspecialchars($compra['forma_pagamento']) ?></span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="py-4 px-4">
+                                                        <span class="px-3 py-1 rounded-full text-xs font-bold <?= $bgStatus ?> <?= $corStatus ?> border <?= $compra['status'] === 'Concluída' ? 'border-green-500/30' : 'border-yellow-500/30' ?>">
+                                                            <?= htmlspecialchars($compra['status']) ?>
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- Resumo no final -->
+                                    <div class="mt-6 pt-6 border-t border-white/10">
+                                        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                                            <div class="text-gray-400 text-sm">
+                                                Mostrando <?= count($historicoCompras) ?> compra<?= count($historicoCompras) != 1 ? 's' : '' ?> no total
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-gray-400 text-sm">Valor total de todas as compras:</p>
+                                                <p class="text-2xl font-bold text-tech-primary">R$ <?= number_format($totalGasto, 2, ',', '.') ?></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Gráfico visual (simples) -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                                    <div class="card">
+                                        <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                            <i data-lucide="trending-up" class="w-5 h-5 text-tech-primary"></i> 
+                                            Resumo por Mês
+                                        </h3>
+                                        
+                                        <?php
+                                        // Agrupar compras por mês
+                                        $comprasPorMes = [];
+                                        foreach($historicoCompras as $compra) {
+                                            $mesAno = date('m/Y', strtotime($compra['data_venda']));
+                                            $mesNome = date('F Y', strtotime($compra['data_venda']));
+                                            
+                                            if(!isset($comprasPorMes[$mesAno])) {
+                                                $comprasPorMes[$mesAno] = [
+                                                    'mes' => $mesNome,
+                                                    'total' => 0,
+                                                    'quantidade' => 0,
+                                                    'compras' => 0
+                                                ];
+                                            }
+                                            
+                                            $comprasPorMes[$mesAno]['total'] += $compra['valor_total'];
+                                            $comprasPorMes[$mesAno]['quantidade'] += $compra['quantidade'];
+                                            $comprasPorMes[$mesAno]['compras']++;
+                                        }
+                                        
+                                        // Ordenar por data (mais recente primeiro)
+                                        krsort($comprasPorMes);
+                                        ?>
+                                        
+                                        <div class="space-y-4">
+                                            <?php foreach($comprasPorMes as $mes): ?>
+                                            <div class="p-4 bg-white/5 rounded-lg border border-white/10">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <span class="font-bold text-white"><?= $mes['mes'] ?></span>
+                                                    <span class="text-tech-primary font-bold">R$ <?= number_format($mes['total'], 2, ',', '.') ?></span>
+                                                </div>
+                                                <div class="flex justify-between text-sm text-gray-400">
+                                                    <span><?= $mes['compras'] ?> compra<?= $mes['compras'] != 1 ? 's' : '' ?></span>
+                                                    <span><?= $mes['quantidade'] ?> ite<?= $mes['quantidade'] > 1 ? 'ns' : 'm' ?></span>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card">
+                                        <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                            <i data-lucide="credit-card" class="w-5 h-5 text-tech-primary"></i> 
+                                            Métodos de Pagamento
+                                        </h3>
+                                        
+                                        <?php
+                                        // Contar por método de pagamento
+                                        $metodosPagamento = [];
+                                        foreach($historicoCompras as $compra) {
+                                            $metodo = $compra['forma_pagamento'];
+                                            if(!isset($metodosPagamento[$metodo])) {
+                                                $metodosPagamento[$metodo] = 0;
+                                            }
+                                            $metodosPagamento[$metodo]++;
+                                        }
+                                        ?>
+                                        
+                                        <div class="space-y-4">
+                                            <?php foreach($metodosPagamento as $metodo => $quantidade): 
+                                                // Ícone específico para PIX
+                                                if($metodo === 'PIX') {
+                                                    $iconeMetodo = 'sparkles';
+                                                    $corMetodo = 'text-purple-500';
+                                                } else {
+                                                    $iconeMetodo = 'credit-card';
+                                                    $corMetodo = 'text-tech-primary';
+                                                }
+                                            ?>
+                                            <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-full bg-tech-primary/10 flex items-center justify-center">
+                                                        <i data-lucide="<?= $iconeMetodo ?>" class="w-5 h-5 <?= $corMetodo ?>"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-bold text-white"><?= htmlspecialchars($metodo) ?></span>
+                                                        <p class="text-xs text-gray-500"><?= $quantidade ?> vez<?= $quantidade != 1 ? 'es' : '' ?></p>
+                                                    </div>
+                                                </div>
+                                                <span class="text-gray-300">
+                                                    <?= round(($quantidade / count($historicoCompras)) * 100) ?>%
+                                                </span>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
                     <!-- Perfil SIMPLIFICADO (sem ícones) -->
                     <div id="tab-perfil" class="tab-content hidden fade-in">
                         <div class="max-w-4xl mx-auto">
@@ -1588,7 +1906,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <label class="relative">
                                 <input type="radio" name="forma_pagamento" value="PIX" class="sr-only peer">
                                 <div class="p-4 border border-white/10 rounded-xl text-center cursor-pointer peer-checked:border-tech-primary peer-checked:bg-tech-primary/10 transition-all">
-                                    <i data-lucide="qrcode" class="w-6 h-6 text-white mx-auto mb-2"></i>
+                                    <i data-lucide="sparkles" class="w-6 h-6 text-white mx-auto mb-2"></i>
                                     <span class="text-sm font-medium text-white">PIX</span>
                                 </div>
                             </label>
@@ -2097,6 +2415,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 'dashboard': 'Home',
                 'treinos': 'Meus Treinos',
                 'loja': 'Loja',
+                'compras': 'Minhas Compras',
                 'perfil': 'Meu Perfil'
             };
             const pageTitle = document.getElementById('pageTitle');
@@ -2296,6 +2615,13 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             if (tab === 'loja') {
                 switchSubTabLoja(subTab);
+            }
+            
+            // NOVO: Se for aba de compras, recriar ícones após carregar
+            if (tab === 'compras') {
+                setTimeout(() => {
+                    recriarIcones();
+                }, 300);
             }
             
             // Inicializar validação do nome

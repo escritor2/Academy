@@ -37,7 +37,7 @@ class AlunoDAO {
 
     // --- CRIAÇÃO E ATUALIZAÇÃO AUTOMÁTICA DO BANCO ---
     private function inicializarTabela() {
-        // Tabela de Alunos
+        // Tabela de Alunos - VERSÃO SIMPLIFICADA
         $sqlAlunos = "CREATE TABLE IF NOT EXISTS alunos (
             id INT AUTO_INCREMENT PRIMARY KEY,
             nome VARCHAR(100) NOT NULL,
@@ -50,7 +50,6 @@ class AlunoDAO {
             objetivo VARCHAR(50),
             plano VARCHAR(20),
             status VARCHAR(20) DEFAULT 'Ativo',
-            foto_perfil VARCHAR(50) DEFAULT 'user',  // VALOR PADRÃO 'user'
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )";
         
@@ -75,38 +74,29 @@ class AlunoDAO {
         } catch (Exception $e) {
             error_log("Erro ao criar tabela frequencia: " . $e->getMessage());
         }
-
-        // Migrations - usando try-catch para cada operação individual
-        $migrations = [
-            "ALTER TABLE alunos ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'",
-            "ALTER TABLE alunos ADD COLUMN criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "ALTER TABLE alunos MODIFY COLUMN foto_perfil VARCHAR(50) DEFAULT 'user'",
-            "ALTER TABLE frequencia ADD COLUMN hora_entrada DATETIME DEFAULT NULL",
-            "ALTER TABLE frequencia ADD COLUMN hora_saida DATETIME DEFAULT NULL"
-        ];
-
-        foreach ($migrations as $migration) {
-            try {
-                $this->conn->exec($migration);
-            } catch (Exception $e) {
-                // Ignora erros de coluna já existente
-                // error_log("Migration ignorada: " . $e->getMessage());
-            }
-        }
     }
 
-    // --- CADASTRO ---
-    public function criarAluno(Aluno $aluno, $icone_perfil = null) {
+    // --- CADASTRO (VERSÃO SIMPLIFICADA E FUNCIONAL) ---
+    public function criarAluno(Aluno $aluno) {
+    try {
+        // Validação da senha
         $validacaoSenha = $this->validarSenhaForte($aluno->getSenha());
         if ($validacaoSenha !== true) {
             throw new Exception($validacaoSenha);
         }
         
+        // Limpar nome
         $nomeLimpo = trim(preg_replace('/\s+/', ' ', $aluno->getNome()));
+        
+        // Hash da senha
         $senhaHash = password_hash($aluno->getSenha(), PASSWORD_DEFAULT);
         
-        $sql = "INSERT INTO alunos (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status, foto_perfil";  // ADICIONADO foto_perfil
-        $sqlValues = "VALUES (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo', :foto_perfil";  // ADICIONADO :foto_perfil
+        // Query CORRIGIDA - removido o parâmetro foto_perfil que não existe
+        $sql = "INSERT INTO alunos 
+                (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status) 
+                VALUES 
+                (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo')";
+        
         $params = [
             ':nome' => $nomeLimpo, 
             ':data_nascimento' => $aluno->getDataNascimento(), 
@@ -116,21 +106,43 @@ class AlunoDAO {
             ':genero' => $aluno->getGenero(),
             ':senha' => $senhaHash, 
             ':objetivo' => $aluno->getObjetivo(), 
-            ':plano' => $aluno->getPlano(),
-            ':foto_perfil' => $icone_perfil ?? 'user'  // VALOR PADRÃO 'user' SE NULL
+            ':plano' => $aluno->getPlano()
         ];
         
-        $sql .= ") " . $sqlValues . ")";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute($params);
+        
+        // Executar e verificar
+        if ($stmt->execute($params)) {
+            return $this->conn->lastInsertId(); // Retorna o ID do aluno cadastrado
+        } else {
+            $error = $stmt->errorInfo();
+            throw new Exception("Erro no banco de dados: " . $error[2]);
+        }
+        
+    } catch (PDOException $e) {
+        // Tratar erros específicos do PDO
+        if ($e->getCode() == 23000) { // Violação de unicidade (email ou CPF duplicado)
+            if (strpos($e->getMessage(), 'email') !== false) {
+                throw new Exception("Este e-mail já está cadastrado.");
+            } elseif (strpos($e->getMessage(), 'cpf') !== false) {
+                throw new Exception("Este CPF já está cadastrado.");
+            } else {
+                throw new Exception("Dados duplicados. Verifique email e CPF.");
+            }
+        } else {
+            throw new Exception("Erro ao cadastrar: " . $e->getMessage());
+        }
+    } catch (Exception $e) {
+        throw $e; // Re-lançar exceções de validação
     }
+}
 
     // --- LOGIN E RECUPERAÇÃO ---
     public function buscarPorEmail($email) {
         $stmt = $this->conn->prepare("SELECT * FROM alunos WHERE email = :email");
         $stmt->execute([':email' => $email]);
         $aluno = $stmt->fetch(PDO::FETCH_ASSOC);
-        // Garantir que tem valor padrão para foto_perfil
+        
         if ($aluno && empty($aluno['foto_perfil'])) {
             $aluno['foto_perfil'] = 'user';
         }
@@ -141,7 +153,7 @@ class AlunoDAO {
         $stmt = $this->conn->prepare("SELECT * FROM alunos WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $aluno = $stmt->fetch(PDO::FETCH_ASSOC);
-        // Garantir que tem valor padrão para foto_perfil
+        
         if ($aluno && empty($aluno['foto_perfil'])) {
             $aluno['foto_perfil'] = 'user';
         }
@@ -162,7 +174,7 @@ class AlunoDAO {
         
         $hash = password_hash($novaSenha, PASSWORD_DEFAULT);
         $stmt = $this->conn->prepare("UPDATE alunos SET senha = :senha WHERE id = :id");
-        $stmt->execute([':senha' => $hash, ':id' => $id]);
+        return $stmt->execute([':senha' => $hash, ':id' => $id]);
     }
 
     // --- ADMINISTRAÇÃO ---
@@ -192,7 +204,7 @@ class AlunoDAO {
 
     public function atualizarStatus($id, $novoStatus) {
         $stmt = $this->conn->prepare("UPDATE alunos SET status = :status WHERE id = :id");
-        $stmt->execute([':status' => $novoStatus, ':id' => $id]);
+        return $stmt->execute([':status' => $novoStatus, ':id' => $id]);
     }
 
     public function atualizarDadosAdmin($id, $nome, $email, $telefone, $plano, $objetivo, $novaSenha = null, $icone_perfil = null) {
@@ -234,7 +246,6 @@ class AlunoDAO {
     }
 
     // --- ÁREA DO ALUNO ---
-
     public function getStatusFrequenciaHoje($alunoId) {
         $hoje = date('Y-m-d');
         $stmt = $this->conn->prepare("SELECT * FROM frequencia WHERE aluno_id = :id AND data_treino = :data");
@@ -338,16 +349,12 @@ class AlunoDAO {
     
     // Método para deletar foto antiga (removido o upload físico)
     public function deletarFotoAntiga($fotoCaminho) {
-        // Como agora usamos apenas ícones, não há mais arquivos físicos para deletar
-        // Este método é mantido apenas para compatibilidade, mas não faz nada
         return true;
     }
     
     // Método para processar upload de foto (removido)
     public function processarUploadFoto($arquivo, $alunoId) {
-        // Método removido pois agora usamos apenas ícones
-        // Retorna um valor padrão para compatibilidade
-        return 'user'; // Ícone padrão
+        return 'user';
     }
     
     public function getEstatisticasMes($alunoId, $mes = null, $ano = null) {
