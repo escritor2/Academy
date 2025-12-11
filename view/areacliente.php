@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $aluno = $alunoDao->buscarPorEmail($email);
         if ($aluno && password_verify($senha, $aluno['senha'])) {
             // --- NOVO BLOQUEIO DE STATUS ---
-            if (isset($aluno['status']) && $aluno['status'] !== 'Ativo') {
-                $msgErro = "Acesso negado. Sua conta está " . $aluno['status'] . ".";
+            if (isset($aluno['status2']) && $aluno['status2'] !== 'Ativo') {
+                $msgErro = "Acesso negado. Sua conta está " . $aluno['status2'] . ".";
                 header("Location: " . basename($_SERVER['PHP_SELF']) . "?login_erro=1&msg=" . urlencode($msgErro));
                 exit;
             }

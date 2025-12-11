@@ -31,6 +31,7 @@ class Connection {
                     senha VARCHAR(255) NOT NULL,
                     objetivo VARCHAR(50),
                     plano VARCHAR(20),
+                    status2 VARCHAR(20) DEFAULT 'Ativo', 
                     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )";
                 $pdo->exec($sqlTabela);

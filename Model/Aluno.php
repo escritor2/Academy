@@ -35,5 +35,5 @@ class Aluno {
     public function getSenha() { return $this->senha; }
     public function getObjetivo() { return $this->objetivo; }
     public function getPlano() { return $this->plano; }
-    public function getFotoPerfil() { return $this->foto_perfil; } // NOVO GETTER
+    public function getFotoPerfil() { return $this->foto_perfil; } 
 }

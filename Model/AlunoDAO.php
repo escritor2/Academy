@@ -49,7 +49,7 @@ class AlunoDAO {
             senha VARCHAR(255) NOT NULL,
             objetivo VARCHAR(50),
             plano VARCHAR(20),
-            status VARCHAR(20) DEFAULT 'Ativo',
+            status2 VARCHAR(20) DEFAULT 'Ativo',
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )";
         
@@ -93,7 +93,7 @@ class AlunoDAO {
         
         // Query CORRIGIDA - removido o parâmetro foto_perfil que não existe
         $sql = "INSERT INTO alunos 
-                (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status) 
+                (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status2) 
                 VALUES 
                 (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo')";
         
