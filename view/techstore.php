@@ -66,81 +66,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         }
     }
     
-    // FINALIZAR COMPRA
-   if ($_POST['acao'] === 'finalizar_compra') {
-    $forma_pagamento = $_POST['forma_pagamento'];
-    $total = 0;
-    $erros = [];
-    
-    // Coletar dados do pagamento baseado na forma escolhida
-    $dados_pagamento = [];
-    
-    if ($forma_pagamento === 'Cartão') {
-        $dados_pagamento = [
-            'tipo' => 'cartao',
-            'nome' => $_POST['nome_cartao'] ?? '',
-            'numero' => $_POST['numero_cartao'] ?? '',
-            'validade' => $_POST['validade_cartao'] ?? '',
-            'cvv' => $_POST['cvv_cartao'] ?? ''
-        ];
+    // FINALIZAR COMPRA - MODIFICADO: APENAS SIMULAÇÃO
+    if ($_POST['acao'] === 'finalizar_compra') {
+        $forma_pagamento = $_POST['forma_pagamento'];
+        $total = 0;
+        $erros = [];
         
-        // Validação básica do cartão
-        if (empty($dados_pagamento['nome']) || empty($dados_pagamento['numero']) || 
-            empty($dados_pagamento['validade']) || empty($dados_pagamento['cvv'])) {
-            $erros[] = "Preencha todos os dados do cartão!";
-        }
-    } elseif ($forma_pagamento === 'PIX') {
-        $dados_pagamento = [
-            'tipo' => 'pix',
-            'chave' => $_POST['chave_pix'] ?? ''
-        ];
+        // Coletar dados do pagamento baseado na forma escolhida
+        $dados_pagamento = [];
         
-        if (empty($dados_pagamento['chave'])) {
-            $erros[] = "Informe a chave PIX!";
+        if ($forma_pagamento === 'Cartão') {
+            $dados_pagamento = [
+                'tipo' => 'cartao',
+                'nome' => $_POST['nome_cartao'] ?? '',
+                'numero' => $_POST['numero_cartao'] ?? '',
+                'validade' => $_POST['validade_cartao'] ?? '',
+                'cvv' => $_POST['cvv_cartao'] ?? ''
+            ];
+            
+            // Validação básica do cartão
+            if (empty($dados_pagamento['nome']) || empty($dados_pagamento['numero']) || 
+                empty($dados_pagamento['validade']) || empty($dados_pagamento['cvv'])) {
+                $erros[] = "Preencha todos os dados do cartão!";
+            }
+        } elseif ($forma_pagamento === 'PIX') {
+            $dados_pagamento = [
+                'tipo' => 'pix',
+                'chave' => $_POST['chave_pix'] ?? ''
+            ];
+            
+            if (empty($dados_pagamento['chave'])) {
+                $erros[] = "Informe a chave PIX!";
+            }
         }
-    }
-    
-    if (empty($erros)) {
-        foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
-            $produto = $produtoDao->buscarPorId($produto_id);
-            if (!$produto) {
-                $erros[] = "Produto não encontrado!";
-                continue;
+        
+        if (empty($erros)) {
+            // Calcular total (apenas para exibição)
+            foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
+                $produto = $produtoDao->buscarPorId($produto_id);
+                if ($produto) {
+                    $total += $produto['preco'] * $quantidade;
+                }
             }
             
-            if ($produto['estoque'] < $quantidade) {
-                $erros[] = "Estoque insuficiente para {$produto['nome']}";
-                continue;
-            }
+            // Gerar código de confirmação
+            $codigo_confirmacao = 'TECH' . strtoupper(substr(md5(uniqid()), 0, 8));
+            $data_compra = date('d/m/Y H:i:s');
             
-            // Registrar venda com dados de pagamento em JSON
-            if ($vendaDao->registrarVenda(
-                $idUsuario, 
-                $produto_id, 
-                $quantidade, 
-                $produto['preco'], 
-                $forma_pagamento,
-                $dados_pagamento
-            )) {
-                // Atualizar estoque
-                $novoEstoque = $produto['estoque'] - $quantidade;
-                $produtoDao->atualizarEstoque($produto_id, $novoEstoque);
-                $total += $produto['preco'] * $quantidade;
-            } else {
-                $erros[] = "Erro ao registrar venda do produto {$produto['nome']}";
-            }
+            // Armazenar dados da compra em sessão para exibição
+            $_SESSION['ultima_compra'] = [
+                'codigo' => $codigo_confirmacao,
+                'total' => $total,
+                'data' => $data_compra,
+                'forma_pagamento' => $forma_pagamento,
+                'itens' => $_SESSION['carrinho']
+            ];
+            
+            // Limpar carrinho
+            $_SESSION['carrinho'] = [];
+            
+            // Não registrar no banco - apenas redirecionar para visualização de sucesso
+            $msg = "Compra realizada com sucesso!";
+            $tipoMsg = 'sucesso';
+            
+            // Redirecionar para mostrar tela de sucesso
+            header('Location: ?sub=compra_finalizada');
+            exit();
+        } else {
+            $msg = implode("<br>", $erros);
+            $tipoMsg = 'erro';
         }
     }
-    
-    if (empty($erros)) {
-        $_SESSION['carrinho'] = [];
-        $msg = "Compra realizada com sucesso! Total: R$ " . number_format($total, 2, ',', '.');
-        $tipoMsg = 'sucesso';
-    } else {
-        $msg = implode("<br>", $erros);
-        $tipoMsg = 'erro';
-    }
-}
 }
 
 // --- DADOS ---
@@ -148,35 +144,47 @@ $listaProdutos = $produtoDao->listar();
 $termoBuscaProd = $_GET['busca_produto'] ?? '';
 $categoriaFiltro = $_GET['categoria'] ?? '';
 
-// Filtrar produtos
-if ($termoBuscaProd || $categoriaFiltro) {
-    $listaProdutos = array_filter($listaProdutos, function($p) use ($termoBuscaProd, $categoriaFiltro) {
-        $matchNome = !$termoBuscaProd || stripos($p['nome'], $termoBuscaProd) !== false || stripos($p['categoria'], $termoBuscaProd) !== false;
-        $matchCategoria = !$categoriaFiltro || $p['categoria'] === $categoriaFiltro;
-        return $matchNome && $matchCategoria;
-    });
+// Determinar aba atual
+$subTab = $_GET['sub'] ?? 'produtos';
+
+// Se estiver na aba de compra finalizada, carregar dados da última compra
+$compra_finalizada = false;
+$dados_compra = [];
+if ($subTab === 'compra_finalizada' && isset($_SESSION['ultima_compra'])) {
+    $compra_finalizada = true;
+    $dados_compra = $_SESSION['ultima_compra'];
 }
 
-// Calcular total do carrinho
-$totalCarrinho = 0;
-$itensCarrinho = [];
-foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
-    $produto = $produtoDao->buscarPorId($produto_id);
-    if ($produto) {
-        $itensCarrinho[] = [
-            'id' => $produto_id,
-            'nome' => $produto['nome'],
-            'preco' => $produto['preco'],
-            'quantidade' => $quantidade,
-            'subtotal' => $produto['preco'] * $quantidade,
-            'estoque' => $produto['estoque']
-        ];
-        $totalCarrinho += $produto['preco'] * $quantidade;
+// Filtrar produtos (apenas se não estiver na tela de compra finalizada)
+if (!$compra_finalizada) {
+    if ($termoBuscaProd || $categoriaFiltro) {
+        $listaProdutos = array_filter($listaProdutos, function($p) use ($termoBuscaProd, $categoriaFiltro) {
+            $matchNome = !$termoBuscaProd || stripos($p['nome'], $termoBuscaProd) !== false || stripos($p['categoria'], $termoBuscaProd) !== false;
+            $matchCategoria = !$categoriaFiltro || $p['categoria'] === $categoriaFiltro;
+            return $matchNome && $matchCategoria;
+        });
     }
 }
 
-// Determinar aba atual
-$subTab = $_GET['sub'] ?? 'produtos';
+// Calcular total do carrinho (apenas se não estiver na tela de compra finalizada)
+$totalCarrinho = 0;
+$itensCarrinho = [];
+if (!$compra_finalizada) {
+    foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
+        $produto = $produtoDao->buscarPorId($produto_id);
+        if ($produto) {
+            $itensCarrinho[] = [
+                'id' => $produto_id,
+                'nome' => $produto['nome'],
+                'preco' => $produto['preco'],
+                'quantidade' => $quantidade,
+                'subtotal' => $produto['preco'] * $quantidade,
+                'estoque' => $produto['estoque']
+            ];
+            $totalCarrinho += $produto['preco'] * $quantidade;
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -313,6 +321,151 @@ $subTab = $_GET['sub'] ?? 'produtos';
             overflow-y: auto;
         }
         
+        /* Confetti animation */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            z-index: 9998;
+        }
+        
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* Success animation */
+        .success-checkmark {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .success-checkmark .check-icon {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            border-radius: 50%;
+            box-sizing: content-box;
+            border: 4px solid #10b981;
+        }
+        
+        .success-checkmark .check-icon::before {
+            top: 3px;
+            left: -2px;
+            width: 30px;
+            transform-origin: 100% 50%;
+            border-radius: 100px 0 0 100px;
+        }
+        
+        .success-checkmark .check-icon::after {
+            top: 0;
+            left: 30px;
+            width: 60px;
+            transform-origin: 0 50%;
+            border-radius: 0 100px 100px 0;
+            animation: rotate-circle 4.25s ease-in;
+        }
+        
+        .success-checkmark .check-icon .icon-line {
+            height: 5px;
+            background-color: #10b981;
+            display: block;
+            border-radius: 2px;
+            position: absolute;
+            z-index: 10;
+        }
+        
+        .success-checkmark .check-icon .icon-line.line-tip {
+            width: 25px;
+            left: 14px;
+            top: 46px;
+            transform: rotate(45deg);
+            animation: icon-line-tip 0.75s;
+        }
+        
+        .success-checkmark .check-icon .icon-line.line-long {
+            width: 47px;
+            right: 8px;
+            top: 38px;
+            transform: rotate(-45deg);
+            animation: icon-line-long 0.75s;
+        }
+        
+        @keyframes rotate-circle {
+            0% {
+                transform: rotate(-45deg);
+            }
+            5% {
+                transform: rotate(-45deg);
+            }
+            12% {
+                transform: rotate(-405deg);
+            }
+            100% {
+                transform: rotate(-405deg);
+            }
+        }
+        
+        @keyframes icon-line-tip {
+            0% {
+                width: 0;
+                left: 1px;
+                top: 19px;
+            }
+            54% {
+                width: 0;
+                left: 1px;
+                top: 19px;
+            }
+            70% {
+                width: 50px;
+                left: -8px;
+                top: 37px;
+            }
+            84% {
+                width: 17px;
+                left: 21px;
+                top: 48px;
+            }
+            100% {
+                width: 25px;
+                left: 14px;
+                top: 45px;
+            }
+        }
+        
+        @keyframes icon-line-long {
+            0% {
+                width: 0;
+                right: 46px;
+                top: 54px;
+            }
+            65% {
+                width: 0;
+                right: 46px;
+                top: 54px;
+            }
+            84% {
+                width: 55px;
+                right: 0px;
+                top: 35px;
+            }
+            100% {
+                width: 47px;
+                right: 8px;
+                top: 38px;
+            }
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .grid-cols-1 {
@@ -417,6 +570,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <i data-lucide="user" class="w-5 h-5 inline mr-1"></i> Área do Aluno
                         </a>
                     <?php endif; ?>
+                    <?php if(!$compra_finalizada): ?>
                     <button onclick="switchSubTab('carrinho')" class="relative">
                         <div class="p-2 hover:bg-white/5 rounded-lg transition-colors">
                             <i data-lucide="shopping-cart" class="w-6 h-6"></i>
@@ -427,11 +581,13 @@ $subTab = $_GET['sub'] ?? 'produtos';
                             <?php endif; ?>
                         </div>
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
         
         <!-- Tabs -->
+        <?php if(!$compra_finalizada): ?>
         <div class="container mx-auto px-4">
             <div class="flex gap-4 border-b border-white/10">
                 <button onclick="switchSubTab('produtos')" id="btn-produtos" class="pb-3 text-sm font-bold <?= $subTab == 'produtos' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-gray-400 hover:text-white' ?> transition-all whitespace-nowrap px-4">
@@ -442,12 +598,13 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 </button>
             </div>
         </div>
+        <?php endif; ?>
     </header>
 
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8">
         <!-- Toast Notification -->
-        <?php if($msg): ?>
+        <?php if($msg && !$compra_finalizada): ?>
         <div class="toast">
             <div class="card <?= $tipoMsg == 'erro' ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10' ?>">
                 <div class="flex items-center gap-3">
@@ -458,7 +615,135 @@ $subTab = $_GET['sub'] ?? 'produtos';
         </div>
         <?php endif; ?>
 
-        <!-- Produtos -->
+        <!-- Tela de Compra Finalizada -->
+        <?php if($compra_finalizada): ?>
+        <div id="view-compra-finalizada" class="fade-in">
+            <div class="max-w-2xl mx-auto">
+                <!-- Confetti will be generated by JavaScript -->
+                
+                <!-- Success Animation -->
+                <div class="text-center mb-8">
+                    <div class="success-checkmark mb-6">
+                        <div class="check-icon">
+                            <span class="icon-line line-tip"></span>
+                            <span class="icon-line line-long"></span>
+                            <div class="icon-circle"></div>
+                            <div class="icon-fix"></div>
+                        </div>
+                    </div>
+                    
+                    <h1 class="text-3xl font-bold text-white mb-3">Compra Realizada com Sucesso!</h1>
+                    <p class="text-gray-400 text-lg">Obrigado por comprar na TechFit Store</p>
+                </div>
+                
+                <!-- Resumo da Compra -->
+                <div class="card mb-6">
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full mb-4">
+                            <i data-lucide="check-circle" class="w-10 h-10 text-green-400"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2">Resumo do Pedido</h2>
+                        <p class="text-gray-400">Seu pedido foi processado com sucesso</p>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <!-- Código de Confirmação -->
+                        <div class="text-center">
+                            <p class="text-gray-400 mb-2">Código de Confirmação</p>
+                            <div class="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-white text-2xl font-bold py-3 px-6 rounded-xl tracking-wider">
+                                <?= $dados_compra['codigo'] ?>
+                            </div>
+                        </div>
+                        
+                        <!-- Detalhes da Compra -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="p-4 bg-white/5 rounded-xl">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="p-2 bg-orange-500/20 rounded-lg">
+                                        <i data-lucide="calendar" class="w-5 h-5 text-orange-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-400 text-sm">Data da Compra</p>
+                                        <p class="text-white font-medium"><?= $dados_compra['data'] ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4 bg-white/5 rounded-xl">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="p-2 bg-blue-500/20 rounded-lg">
+                                        <i data-lucide="credit-card" class="w-5 h-5 text-blue-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-400 text-sm">Forma de Pagamento</p>
+                                        <p class="text-white font-medium"><?= $dados_compra['forma_pagamento'] ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Total -->
+                        <div class="p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xl font-bold text-white">Total Pago</span>
+                                <span class="text-3xl font-bold text-green-400">R$ <?= number_format($dados_compra['total'], 2, ',', '.') ?></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informações Adicionais -->
+                <div class="card mb-6">
+                    <h3 class="text-xl font-bold text-white mb-4">Próximos Passos</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start gap-3">
+                            <div class="p-2 bg-blue-500/20 rounded-lg flex-shrink-0">
+                                <i data-lucide="mail" class="w-5 h-5 text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white mb-1">Confirmação por E-mail</h4>
+                                <p class="text-gray-400 text-sm">Você receberá um e-mail de confirmação em breve com todos os detalhes da sua compra.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start gap-3">
+                            <div class="p-2 bg-purple-500/20 rounded-lg flex-shrink-0">
+                                <i data-lucide="package" class="w-5 h-5 text-purple-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white mb-1">Acompanhe seu Pedido</h4>
+                                <p class="text-gray-400 text-sm">Use o código de confirmação para acompanhar o status da sua entrega na área do aluno.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start gap-3">
+                            <div class="p-2 bg-orange-500/20 rounded-lg flex-shrink-0">
+                                <i data-lucide="help-circle" class="w-5 h-5 text-orange-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white mb-1">Precisa de Ajuda?</h4>
+                                <p class="text-gray-400 text-sm">Entre em contato com nossa equipe através do e-mail contato@techfit.com ou pelo telefone (11) 99999-9999.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões de Ação -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="window.print()" class="w-full border border-white/10 text-gray-300 hover:bg-white/5 py-4 rounded-xl transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                        Imprimir Comprovante
+                    </button>
+                    <button onclick="voltarParaLoja()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                        Continuar Comprando
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Produtos (escondido quando em compra finalizada) -->
+        <?php else: ?>
         <div id="view-produtos" class="<?= $subTab == 'produtos' ? '' : 'hidden' ?> fade-in">
             <div class="mb-8">
                 <h2 class="text-2xl font-bold text-white mb-2">Nossos Produtos</h2>
@@ -748,6 +1033,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 </div>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
     </main>
 
     <!-- Footer -->
@@ -800,6 +1086,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
     </footer>
 
     <!-- Modal Adicionar ao Carrinho -->
+    <?php if(!$compra_finalizada): ?>
     <div id="modalAdicionar" class="modal-overlay hidden">
         <div class="modal-content p-6">
             <div class="flex justify-between items-center mb-6">
@@ -947,11 +1234,52 @@ $subTab = $_GET['sub'] ?? 'produtos';
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
     <script>
         // Inicializar ícones
         lucide.createIcons();
         
+        <?php if($compra_finalizada): ?>
+        // Função para criar confetti
+        function criarConfetti() {
+            const cores = ['#ea580c', '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'];
+            const quantidade = 100;
+            
+            for (let i = 0; i < quantidade; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = cores[Math.floor(Math.random() * cores.length)];
+                confetti.style.width = Math.random() * 10 + 5 + 'px';
+                confetti.style.height = Math.random() * 10 + 5 + 'px';
+                confetti.style.animation = `confetti-fall ${Math.random() * 3 + 2}s linear forwards`;
+                confetti.style.animationDelay = Math.random() * 2 + 's';
+                document.body.appendChild(confetti);
+                
+                // Remover após animação
+                setTimeout(() => {
+                    confetti.remove();
+                }, 5000);
+            }
+        }
+        
+        // Executar confetti quando a página carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            criarConfetti();
+            
+            // Adicionar mais confetti a cada 3 segundos
+            setInterval(() => {
+                criarConfetti();
+            }, 3000);
+        });
+        
+        // Função para voltar para a loja
+        function voltarParaLoja() {
+            window.location.href = '?sub=produtos';
+        }
+        
+        <?php else: ?>
         // Funções da Loja
         function switchSubTab(subTab) {
             const produtosView = document.getElementById('view-produtos');
@@ -1165,6 +1493,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             // Mostrar campos corretos ao abrir modal de pagamento
             mostrarCamposPagamento();
         });
+        <?php endif; ?>
         
         // Fechar toast automaticamente
         setTimeout(() => {
