@@ -890,7 +890,7 @@ if (isset($_GET['msg'])) {
                             </div>
                             <div class="flex gap-2">
                                 <button onclick="abrirModalExcluirAlunosMassa()" id="btnExcluirAlunosMassa" class="bg-red-900/20 border border-red-500/50 hover:bg-red-900/40 text-red-400 px-4 py-3 rounded-xl font-bold text-sm flex gap-2 shadow-glow disabled:opacity-50 disabled:cursor-not-allowed transition-all" disabled>
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir Selecionados
                                 </button>
                                 <button onclick="abrirModalAluno()" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold text-sm flex gap-2 shadow-glow transition-all">
                                     <i data-lucide="user-plus" class="w-5 h-5"></i> Novo Aluno
@@ -1078,8 +1078,8 @@ if (isset($_GET['msg'])) {
                                 <h3 class="text-2xl font-bold text-green-400">R$ <?= number_format($statsLoja['valor'], 2, ',', '.') ?></h3>
                             </div>
                             <button onclick="abrirModalExcluirMassa()" id="btnExcluirMassa" class="card bg-red-900/20 border border-red-500/50 hover:bg-red-900/40 text-red-400 flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir Selecionados
-                                </button>
+                                <i data-lucide="trash-2" class="w-5 h-5"></i> Excluir Selecionados
+                            </button>
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2197,7 +2197,46 @@ if (isset($_GET['msg'])) {
         }
         
         function confirmarExcluirAlunosMassa() {
-            document.getElementById('formAlunosMassa').submit();
+            // Coletar IDs selecionados
+            const checkboxes = document.querySelectorAll('input[name="ids_exclusao[]"]:checked');
+            const ids = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (ids.length === 0) {
+                alert('Nenhum aluno selecionado!');
+                return;
+            }
+            
+            // Criar um formulário dinâmico
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'adm.php';
+            
+            // Input ação
+            const acaoInput = document.createElement('input');
+            acaoInput.type = 'hidden';
+            acaoInput.name = 'acao';
+            acaoInput.value = 'excluir_alunos_massa';
+            form.appendChild(acaoInput);
+            
+            // Inputs para cada ID
+            ids.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids_exclusao[]';
+                input.value = id;
+                form.appendChild(input);
+            });
+            
+            // Input para redirecionar após exclusão
+            const tabInput = document.createElement('input');
+            tabInput.type = 'hidden';
+            tabInput.name = 'tab';
+            tabInput.value = 'alunos';
+            form.appendChild(tabInput);
+            
+            // Adicionar ao body e submeter
+            document.body.appendChild(form);
+            form.submit();
         }
         
         function abrirModalAluno() { 
@@ -2280,6 +2319,49 @@ if (isset($_GET['msg'])) {
         
         function fecharModalExcluirMassa() {
             document.getElementById('modalExcluirMassa').classList.add('hidden');
+        }
+        
+        function confirmarExcluirMassa() {
+            // Coletar IDs selecionados
+            const checkboxes = document.querySelectorAll('.check-item:checked');
+            const ids = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (ids.length === 0) {
+                alert('Nenhum produto selecionado!');
+                return;
+            }
+            
+            // Criar um formulário dinâmico
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'adm.php';
+            
+            // Input ação
+            const acaoInput = document.createElement('input');
+            acaoInput.type = 'hidden';
+            acaoInput.name = 'acao';
+            acaoInput.value = 'excluir_massa_produtos';
+            form.appendChild(acaoInput);
+            
+            // Inputs para cada ID
+            ids.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids_exclusao[]';
+                input.value = id;
+                form.appendChild(input);
+            });
+            
+            // Input para redirecionar após exclusão
+            const tabInput = document.createElement('input');
+            tabInput.type = 'hidden';
+            tabInput.name = 'tab';
+            tabInput.value = 'loja';
+            form.appendChild(tabInput);
+            
+            // Adicionar ao body e submeter
+            document.body.appendChild(form);
+            form.submit();
         }
         
         function abrirModalExcluir(id, tipo) {
@@ -2588,11 +2670,14 @@ if (isset($_GET['msg'])) {
         }
 
         function atualizarBotaoExcluir() {
-            const qtd = document.querySelectorAll('.check-item:checked').length;
+            const checkboxes = document.querySelectorAll('.check-item:checked');
+            const qtd = checkboxes.length;
             const btn = document.getElementById('btnExcluirMassa');
-            btn.disabled = qtd === 0;
-            btn.classList.toggle('opacity-50', qtd === 0);
-            btn.classList.toggle('cursor-not-allowed', qtd === 0);
+            if (btn) {
+                btn.disabled = qtd === 0;
+                btn.classList.toggle('opacity-50', qtd === 0);
+                btn.classList.toggle('cursor-not-allowed', qtd === 0);
+            }
         }
 
         async function carregarTreino(id, tipo) {

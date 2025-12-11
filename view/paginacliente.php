@@ -499,6 +499,34 @@ $subTab = $_GET['sub'] ?? 'produtos';
             padding-right: 0.75rem;
         }
         
+        /* Sidebar com divisões */
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .sidebar-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            color: #6b7280;
+            padding: 0 1rem;
+            margin-bottom: 0.5rem;
+            transition: opacity 0.3s;
+        }
+        
+        .sidebar-collapsed .section-title {
+            opacity: 0;
+            height: 0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
         /* Card styles */
         .card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
@@ -824,7 +852,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
 <body class="bg-[#0b1120] text-gray-100 font-sans h-full overflow-hidden">
     <div class="main-container">
         <div class="content-container">
-            <!-- Sidebar Corrigida -->
+            <!-- Sidebar Corrigida com divisões -->
             <aside id="sidebar" class="w-64 bg-[#111827]/95 backdrop-blur-lg border-r border-white/5 flex-col justify-between hidden md:flex transition-all duration-300 flex-shrink-0 sidebar relative">
                 <button onclick="toggleSidebar()" class="toggle-sidebar-btn">
                     <i id="toggleIcon" data-lucide="chevron-left" class="w-4 h-4"></i>
@@ -838,31 +866,50 @@ $subTab = $_GET['sub'] ?? 'produtos';
                     </div>
                     
                     <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-                        <button onclick="switchTab('dashboard')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-tech-primary/10 text-tech-primary shadow-sm border border-tech-primary/20">
-                            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                            <span class="nav-text">Home</span>
-                        </button>
-                        <button onclick="switchTab('treinos')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all <?= !$podeVerTreinos ? 'cursor-not-allowed opacity-50' : '' ?>">
-                            <i data-lucide="biceps-flexed" class="w-5 h-5"></i>
-                            <span class="nav-text">Meus Treinos</span>
-                        </button>
-                        <button onclick="switchTab('loja')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
-                            <span class="nav-text">Loja</span>
-                        </button>
-                        <!-- NOVO BOTÃO DE HISTÓRICO DE COMPRAS -->
-                        <button onclick="switchTab('compras')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                            <i data-lucide="receipt" class="w-5 h-5"></i>
-                            <span class="nav-text">Minhas Compras</span>
-                        </button>
-                        <button onclick="switchTab('perfil')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                            <i data-lucide="user-cog" class="w-5 h-5"></i>
-                            <span class="nav-text">Meu Perfil</span>
-                        </button>
-                        <button onclick="abrirCarteirinha()" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                            <i data-lucide="qr-code" class="w-5 h-5"></i>
-                            <span class="nav-text">Carteirinha</span>
-                        </button>
+                        <!-- Seção HOME -->
+                        <div class="sidebar-section">
+                            <div class="section-title">HOME</div>
+                            <button onclick="switchTab('dashboard')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-tech-primary/10 text-tech-primary shadow-sm border border-tech-primary/20">
+                                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                                <span class="nav-text">Dashboard</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Seção TREINO -->
+                        <div class="sidebar-section">
+                            <div class="section-title">TREINO</div>
+                            <button onclick="switchTab('treinos')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all <?= !$podeVerTreinos ? 'cursor-not-allowed opacity-50' : '' ?>">
+                                <i data-lucide="biceps-flexed" class="w-5 h-5"></i>
+                                <span class="nav-text">Meus Treinos</span>
+                            </button>
+                            <button onclick="abrirCarteirinha()" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                                <i data-lucide="qr-code" class="w-5 h-5"></i>
+                                <span class="nav-text">Carteirinha</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Seção LOJA -->
+                        <div class="sidebar-section">
+                            <div class="section-title">LOJA</div>
+                            <button onclick="switchTab('loja')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                                <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                                <span class="nav-text">Loja</span>
+                            </button>
+                            <!-- NOVO BOTÃO DE HISTÓRICO DE COMPRAS -->
+                            <button onclick="switchTab('compras')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                                <i data-lucide="receipt" class="w-5 h-5"></i>
+                                <span class="nav-text">Minhas Compras</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Seção ALUNO -->
+                        <div class="sidebar-section">
+                            <div class="section-title">ALUNO</div>
+                            <button onclick="switchTab('perfil')" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                                <i data-lucide="user-cog" class="w-5 h-5"></i>
+                                <span class="nav-text">Meu Perfil</span>
+                            </button>
+                        </div>
                     </nav>
                 </div>
                 
@@ -2446,7 +2493,7 @@ $subTab = $_GET['sub'] ?? 'produtos';
             
             // Atualizar título da página
             const titulos = {
-                'dashboard': 'Home',
+                'dashboard': 'Dashboard',
                 'treinos': 'Meus Treinos',
                 'loja': 'Loja',
                 'compras': 'Minhas Compras',

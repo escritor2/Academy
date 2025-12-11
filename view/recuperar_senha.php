@@ -22,29 +22,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "As senhas não coincidem!";
         $tipoMsg = "erro";
     } 
+    // 3. Validação de idade no servidor (mínimo 18 anos)
     else {
-        $dao = new AlunoDAO();
+        $dataNasc = new DateTime($data_nascimento);
+        $hoje = new DateTime();
+        $idade = $hoje->diff($dataNasc)->y;
         
-        // Busca o aluno e a senha atual
-        $aluno = $dao->validarRecuperacao($email, $cpf, $data_nascimento);
-
-        if ($aluno) {
-            // --- NOVA VERIFICAÇÃO DE SEGURANÇA ---
-            // Verifica se a nova senha é igual à antiga
-            if (password_verify($nova_senha, $aluno['senha'])) {
-                $msg = "A nova senha não pode ser igual à senha atual!";
-                $tipoMsg = "erro";
-            } 
-            else {
-                // Tudo certo: Atualiza
-                $dao->atualizarSenha($aluno['id'], $nova_senha);
-                $msg = "Senha redefinida com sucesso! Redirecionando...";
-                $tipoMsg = "sucesso";
-                header("refresh:3;url=index.php");
-            }
-        } else {
-            $msg = "Dados incorretos. Verifique E-mail, CPF e Data.";
+        if ($idade < 18) {
+            $msg = "É necessário ter 18 anos ou mais para usar o sistema!";
             $tipoMsg = "erro";
+        } 
+        // 4. Validação de data mínima (1900-01-01)
+        elseif ($dataNasc < new DateTime('1900-01-01')) {
+            $msg = "Data de nascimento muito antiga (mínimo: 1900-01-01)!";
+            $tipoMsg = "erro";
+        }
+        else {
+            $dao = new AlunoDAO();
+            
+            // Busca o aluno e a senha atual
+            $aluno = $dao->validarRecuperacao($email, $cpf, $data_nascimento);
+
+            if ($aluno) {
+                // --- NOVA VERIFICAÇÃO DE SEGURANÇA ---
+                // Verifica se a nova senha é igual à antiga
+                if (password_verify($nova_senha, $aluno['senha'])) {
+                    $msg = "A nova senha não pode ser igual à senha atual!";
+                    $tipoMsg = "erro";
+                } 
+                else {
+                    // Tudo certo: Atualiza
+                    $dao->atualizarSenha($aluno['id'], $nova_senha);
+                    $msg = "Senha redefinida com sucesso! Redirecionando...";
+                    $tipoMsg = "sucesso";
+                    header("refresh:3;url=index.php");
+                }
+            } else {
+                $msg = "Dados incorretos. Verifique E-mail, CPF e Data.";
+                $tipoMsg = "erro";
+            }
         }
     }
 }
@@ -75,6 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         input[type="password"]::-ms-reveal,
         input[type="password"]::-ms-clear { display: none; }
         input[type="password"]::-webkit-password-toggle-visibility { display: none !important; }
+        
+        /* Estiliza o dropdown de anos do calendário */
+        input[type="date"]::-webkit-datetime-edit-year-field:focus,
+        input[type="date"]::-webkit-datetime-edit-month-field:focus,
+        input[type="date"]::-webkit-datetime-edit-day-field:focus {
+            background-color: #1f2937;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-tech-900 text-white min-h-screen flex items-center justify-center p-4">
@@ -100,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" class="space-y-6 relative z-10" autocomplete="off">
+        <form method="POST" class="space-y-6 relative z-10" autocomplete="off" id="formRecuperacao">
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -128,7 +152,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider group-focus-within:text-tech-primary transition-colors">Nascimento</label>
                     <div class="relative">
                         <input type="date" name="data_nascimento" id="dataInput" required 
-                            class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-3 pr-3 py-3 focus:border-tech-primary focus:ring-1 focus:ring-tech-primary outline-none transition-all text-center text-gray-300 group-focus-within:text-white">
+                            class="w-full bg-tech-900 border border-tech-700 rounded-lg pl-3 pr-3 py-3 focus:border-tech-primary focus:ring-1 focus:ring-tech-primary outline-none transition-all text-center text-gray-300 group-focus-within:text-white"
+                            title="Mínimo 18 anos (nascimento em 2007 ou anterior)">
                     </div>
                 </div>
 
@@ -173,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="pt-8">
-                <button type="submit" class="w-full bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-orange-900/20 transform hover:scale-[1.01] flex items-center justify-center gap-2">
+                <button type="submit" class="w-full bg-gradient-to-r from-tech-primary to-orange-600 hover:to-orange-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-orange-900/20 transform hover:scale-[1.01] flex items-center justify-center gap-2" id="btnSubmit">
                     <i data-lucide="save" class="w-5 h-5"></i>
                     ATUALIZAR CREDENCIAIS
                 </button>
@@ -203,6 +228,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 eye.classList.remove('hidden');
                 eyeOff.classList.add('hidden');
             }
+        }
+
+        // Função para validar idade mínima (18 anos) e datas extremas
+        // AGORA SÓ VALIDA NO CLIQUE DO BOTÃO
+        function validarDataNascimentoSubmit(dataInput) {
+            const dataNascimento = new Date(dataInput);
+            const hoje = new Date();
+            const dataLimiteMinima = new Date('1900-01-01');
+            
+            // Calcula a idade
+            let idade = hoje.getFullYear() - dataNascimento.getFullYear();
+            const mesAtual = hoje.getMonth();
+            const diaAtual = hoje.getDate();
+            const mesNascimento = dataNascimento.getMonth();
+            const diaNascimento = dataNascimento.getDate();
+            
+            // Ajusta a idade se ainda não fez aniversário este ano
+            if (mesAtual < mesNascimento || (mesAtual === mesNascimento && diaAtual < diaNascimento)) {
+                idade--;
+            }
+            
+            // Validações
+            if (dataNascimento > hoje) {
+                return { valido: false, mensagem: "Data não pode ser futura!" };
+            }
+            
+            if (dataNascimento < dataLimiteMinima) {
+                return { valido: false, mensagem: "Data muito antiga (mínimo: 1900)!" };
+            }
+            
+            if (idade < 18) {
+                return { valido: false, mensagem: "É necessário ter 18 anos ou mais (nascimento em 2007 ou anterior)!" };
+            }
+            
+            return { valido: true, mensagem: "" };
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -247,30 +307,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
                 e.target.value = v;
             });
-            cpfInput.addEventListener('blur', function() {
-                if(this.value.length > 0 && this.value.length < 14) {
-                    this.classList.add('border-red-500');
-                    exibirToast("CPF incompleto.");
-                } else {
-                    this.classList.remove('border-red-500');
-                }
-            });
 
-            // 4. DATA (Validação no envio)
+            // 4. CONFIGURAÇÃO DO CAMPO DE DATA - ANO 2007 PARA BAIXO
             const dataInput = document.getElementById('dataInput');
+            
+            // Calcula o ano máximo (2007 para pessoas com 18 anos em 2025)
+            const anoMaximo = 2007;
+            const dataMaxima = `${anoMaximo}-12-31`; // 31 de dezembro de 2007
+            
+            // Data mínima: 1900-01-01
+            const dataMinima = '1900-01-01';
+            
+            // Data atual para validação
             const hoje = new Date();
-            dataInput.setAttribute("max", new Date().toISOString().split('T')[0]);
-            dataInput.setAttribute("min", "1900-01-01");
+            const dataAtual = hoje.toISOString().split('T')[0];
+            
+            // Define os atributos do campo
+            dataInput.setAttribute("max", dataMaxima);
+            dataInput.setAttribute("min", dataMinima);
+            
+            // Para navegadores que suportam step, podemos limitar os anos
+            // Isso ajuda a mostrar apenas anos relevantes no dropdown
+            dataInput.setAttribute("step", "1");
+            
+            // Adiciona um evento para quando o calendário abrir
+            dataInput.addEventListener('focus', function() {
+                // Força a redefinição do valor máximo/minimo para garantir
+                this.setAttribute("max", dataMaxima);
+                this.setAttribute("min", dataMinima);
+            });
+            
+            // Remove validações em tempo real - AGORA SÓ NO SUBMIT
+            // REMOVEMOS OS EVENTOS DE BLUR E CHANGE PARA VALIDAÇÃO EM TEMPO REAL
 
             // 5. SENHAS E ENVIO
-            const form = document.querySelector('form');
+            const form = document.getElementById('formRecuperacao');
             const novaSenha = document.getElementById('novaSenha');
             const confirmarSenha = document.getElementById('confirmarSenha');
             const msgMatch = document.getElementById('msgMatch');
             const msgForca = document.getElementById('msgForca');
             const emailInput = document.getElementById('emailInput');
+            const btnSubmit = document.getElementById('btnSubmit');
 
-            // Feedback Força da Senha (NOVO)
+            // Feedback Força da Senha (mantido para UX)
             novaSenha.addEventListener('input', function() {
                 const s = this.value;
                 if (s.length === 0) {
@@ -292,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
 
-            // Feedback Senhas Iguais
+            // Feedback Senhas Iguais (mantido para UX)
             confirmarSenha.addEventListener('input', function() {
                 if (this.value !== novaSenha.value) {
                     msgMatch.classList.remove('hidden');
@@ -303,48 +382,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
 
+            // VALIDAÇÃO SÓ NO CLIQUE DO BOTÃO
             form.addEventListener('submit', function(e) {
                 let temErro = false;
+                
+                // Limpa todas as bordas vermelhas antes de validar
+                document.querySelectorAll('.border-red-500').forEach(el => {
+                    el.classList.remove('border-red-500');
+                });
 
-                // CPF
+                // CPF - AGORA SÓ VALIDA NO SUBMIT
                 if (cpfInput.value.length !== 14) {
-                    exibirToast("O CPF deve ter 11 números.");
+                    exibirToast("O CPF deve ter 11 números completos (formato: 000.000.000-00).");
                     cpfInput.classList.add('border-red-500');
                     temErro = true;
                 }
 
-                // Data (Validação no envio)
-                if (dataInput.value) {
-                    const d = new Date(dataInput.value);
-                    if (d.getFullYear() < 1900) { exibirToast("Ano inválido."); temErro = true; }
-                    else if (d > new Date()) { exibirToast("Data futura inválida."); temErro = true; }
+                // Data - AGORA SÓ VALIDA NO SUBMIT
+                if (!dataInput.value) {
+                    exibirToast("Informe a data de nascimento.");
+                    dataInput.classList.add('border-red-500');
+                    temErro = true;
+                } else {
+                    const validacao = validarDataNascimentoSubmit(dataInput.value);
+                    
+                    if (!validacao.valido) {
+                        exibirToast(validacao.mensagem);
+                        dataInput.classList.add('border-red-500');
+                        temErro = true;
+                    }
                 }
 
-                // Senha Fraca (Regex)
+                // Senha Fraca (Regex) - AGORA SÓ VALIDA NO SUBMIT
                 const s = novaSenha.value;
                 const forte = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(s);
                 if (!forte) {
-                    exibirToast("A senha nova é muito fraca!");
+                    exibirToast("A senha deve ter mínimo 8 caracteres, incluindo letras, números e símbolos (@#$%&* etc).");
                     novaSenha.classList.add('border-red-500');
                     temErro = true;
                 }
 
-                // Senhas Diferentes
+                // Senhas Diferentes - AGORA SÓ VALIDA NO SUBMIT
                 if (s !== confirmarSenha.value) {
                     exibirToast("As senhas não coincidem!");
+                    confirmarSenha.classList.add('border-red-500');
+                    novaSenha.classList.add('border-red-500');
                     temErro = true;
                 }
 
-                // Email
-                if (!emailInput.value.includes('@') || !emailInput.value.includes('.')) {
-                    exibirToast("E-mail inválido.");
+                // Email - AGORA SÓ VALIDA NO SUBMIT
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(emailInput.value)) {
+                    exibirToast("Informe um e-mail válido (formato: exemplo@dominio.com).");
+                    emailInput.classList.add('border-red-500');
                     temErro = true;
                 }
 
                 if (temErro) {
                     e.preventDefault();
+                    
+                    // Adiciona animação de shake no botão para feedback
+                    btnSubmit.classList.add('animate-shake');
+                    setTimeout(() => {
+                        btnSubmit.classList.remove('animate-shake');
+                    }, 500);
                 }
             });
+
+            // Adiciona CSS para animação shake
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0) scale(1.01); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) scale(1.01); }
+                    20%, 40%, 60%, 80% { transform: translateX(5px) scale(1.01); }
+                }
+                .animate-shake {
+                    animation: shake 0.5s ease-in-out;
+                }
+            `;
+            document.head.appendChild(style);
         });
     </script>
 </body>

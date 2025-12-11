@@ -1,3 +1,4 @@
+
 <?php
 require_once __DIR__ . '/connection.php';
 
@@ -10,6 +11,7 @@ class VendaDAO {
     }
 
     private function inicializarTabela() {
+        // Primeiro, criar a tabela básica se não existir
         $sql = "CREATE TABLE IF NOT EXISTS vendas (
             id INT AUTO_INCREMENT PRIMARY KEY,
             aluno_id INT NOT NULL,
@@ -23,15 +25,30 @@ class VendaDAO {
             FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
             FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
         )";
-        $this->conn->exec($sql);
+        
+        try {
+            $this->conn->exec($sql);
+        } catch (Exception $e) {
+            // Ignorar erro se tabela já existe
+        }
+        
+        // AGORA SIMPLESMENTE USE O MÉTODO ATUALIZADO SEM NOVAS COLUNAS
+        // Vamos usar a forma_pagamento para armazenar informações básicas
     }
 
+    // MÉTODO SIMPLIFICADO - não usa as novas colunas
     public function registrarVenda($aluno_id, $produto_id, $quantidade, $valor_unitario, $forma_pagamento) {
         $valor_total = $valor_unitario * $quantidade;
         
         $stmt = $this->conn->prepare("
-            INSERT INTO vendas (aluno_id, produto_id, quantidade, valor_unitario, valor_total, forma_pagamento) 
-            VALUES (:aluno_id, :produto_id, :quantidade, :valor_unitario, :valor_total, :forma_pagamento)
+            INSERT INTO vendas (
+                aluno_id, produto_id, quantidade, valor_unitario, valor_total, 
+                forma_pagamento
+            ) 
+            VALUES (
+                :aluno_id, :produto_id, :quantidade, :valor_unitario, :valor_total, 
+                :forma_pagamento
+            )
         ");
         
         return $stmt->execute([
@@ -62,10 +79,10 @@ class VendaDAO {
         return $this->conn->query("SELECT COUNT(*) FROM vendas")->fetchColumn();
     }
 
-   public function getFaturamentoTotal() {
-    $result = $this->conn->query("SELECT COALESCE(SUM(valor_total), 0) FROM vendas")->fetchColumn();
-    return floatval($result);
-}
+    public function getFaturamentoTotal() {
+        $result = $this->conn->query("SELECT COALESCE(SUM(valor_total), 0) FROM vendas")->fetchColumn();
+        return floatval($result);
+    }
 
     public function getVendasPorAluno($aluno_id) {
         $stmt = $this->conn->prepare("

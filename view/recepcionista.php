@@ -1,565 +1,643 @@
 <?php
+// Exibir erros para debug (remova em produção)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 session_start();
-require_once __DIR__ . '/../Model/RecepcionistaDAO.php';
 
-// --- VERIFICA SE JÁ ESTÁ LOGADO COMO RECEPCIONISTA ---
-if (isset($_SESSION['tipo']) && $_SESSION['tipo'] === 'recepcionista') {
-    $dao = new RecepcionistaDAO();
-    $recepcionista = $dao->buscarPorId($_SESSION['usuario_id']);
-    
-    if (!$recepcionista) {
-        session_destroy();
-        header('Location: index.php');
-        exit;
-    }
-    
-    // MOSTRAR DASHBOARD DO RECEPCIONISTA
-    showDashboard($recepcionista);
+// --- SEGURANÇA ---
+// Verifica se passou pela verificação de segurança
+if (!isset($_SESSION['recepcionista_logado']) || $_SESSION['recepcionista_logado'] !== true) {
+    header('Location: recepcionista_verificacao.php'); 
     exit;
 }
 
-// --- LOGOUT ---
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: index.php');
-    exit;
-}
+// --- INCLUDES ---
+require_once __DIR__ . '/../Model/AlunoDAO.php';
+require_once __DIR__ . '/../Model/Aluno.php';
+require_once __DIR__ . '/../Model/ProdutoDAO.php';
+require_once __DIR__ . '/../Model/VendaDAO.php';
 
-// --- PROCESSAR LOGIN ---
+// Instanciar DAOs
+$alunoDao = new AlunoDAO();
+$produtoDao = new ProdutoDAO();
+$vendaDao = new VendaDAO();
+
+$msgSistema = '';
+$tipoMsg = '';
+
+// --- PROCESSAMENTO POST (Formulários) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
-    $senha = $_POST['senha'] ?? '';
     
-    if (empty($email) || empty($senha)) {
-        $erro = "Preencha todos os campos";
-    } else {
-        $dao = new RecepcionistaDAO();
-        $recepcionista = $dao->validarLogin($email, $senha);
-        
-        if ($recepcionista) {
-            // Verifica status
-            if (isset($recepcionista['status']) && $recepcionista['status'] !== 'Ativo') {
-                $msgErro = "Acesso negado. Sua conta está " . $recepcionista['status'] . ".";
-                header("Location: recepcionista.php?login_erro=1&msg=" . urlencode($msgErro));
-                exit;
-            }
-            
-            // Salva dados temporários para verificação
-            $_SESSION['recepcionista_pre_login_id'] = $recepcionista['id'];
-            $_SESSION['recepcionista_pre_nome'] = $recepcionista['nome'];
-            header('Location: recepcionista_verificacao.php');
-            exit;
-        } else {
-            $erro = "Credenciais inválidas";
+    // 1. Cadastrar Aluno
+    if (isset($_POST['acao']) && $_POST['acao'] === 'cadastrar_aluno') {
+        try {
+            $senha = !empty($_POST['senha']) ? $_POST['senha'] : 'TechFit123!';
+            $novoAluno = new Aluno(
+                $_POST['nome'],
+                $_POST['data_nascimento'],
+                $_POST['email'],
+                $_POST['telefone'],
+                $_POST['cpf'],
+                $_POST['genero'],
+                $senha,
+                $_POST['objetivo'],
+                $_POST['plano']
+            );
+            $alunoDao->criarAluno($novoAluno);
+            $msgSistema = "Aluno cadastrado com sucesso!";
+            $tipoMsg = 'sucesso';
+        } catch (Exception $e) {
+            $msgSistema = "Erro: " . $e->getMessage();
+            $tipoMsg = 'erro';
+        }
+    }
+
+    // 2. Cadastrar Produto
+    if (isset($_POST['acao']) && $_POST['acao'] === 'cadastrar_produto') {
+        try {
+            $produtoDao->cadastrar(
+                $_POST['nome'],
+                $_POST['preco'],
+                $_POST['estoque'],
+                $_POST['categoria'],
+                $_POST['descricao']
+            );
+            $msgSistema = "Produto adicionado ao catálogo!";
+            $tipoMsg = 'sucesso';
+        } catch (Exception $e) {
+            $msgSistema = "Erro: " . $e->getMessage();
+            $tipoMsg = 'erro';
         }
     }
 }
 
-// --- MOSTRAR FORMULÁRIO DE LOGIN ---
-showLoginForm($erro ?? null);
-exit;
+// --- DADOS PARA AS VIEWS ---
+$totalAlunos = $alunoDao->contarTotal();
+$totalAtivos = $alunoDao->contarPorStatus('Ativo');
+$listaAlunos = $alunoDao->buscarRecentes(50); // Lista para a tabela estilo ADM
 
-// ============================================
-// FUNÇÕES AUXILIARES
-// ============================================
+// Financeiro
+$faturamentoTotal = 0;
+$listaVendas = [];
+try {
+    $faturamentoTotal = $vendaDao->getFaturamentoTotal();
+    $listaVendas = $vendaDao->buscarRecentes(20);
+} catch(Exception $e) { /* Tabela pode não existir ainda */ }
 
-function showDashboard($recepcionista) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Recepção - TechFit</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://unpkg.com/lucide@latest"></script>
-        
-        <style>
-            body {
-                font-family: 'Inter', sans-serif;
-                background-color: #0B0F19;
-                color: #f3f4f6;
-                min-height: 100vh;
-            }
-            
-            .glass {
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }
-            
-            .stat-card {
-                transition: all 0.3s ease;
-            }
-            
-            .stat-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 10px 25px rgba(251, 146, 60, 0.2);
-            }
-            
-            .action-card {
-                transition: all 0.3s ease;
-                border: 1px solid rgba(251, 146, 60, 0.1);
-            }
-            
-            .action-card:hover {
-                border-color: rgba(251, 146, 60, 0.4);
-                background: rgba(251, 146, 60, 0.05);
-                transform: translateY(-3px);
-            }
-        </style>
-        
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            amber: {
-                                50: '#fffbeb',
-                                100: '#fef3c7',
-                                200: '#fde68a',
-                                300: '#fcd34d',
-                                400: '#fbbf24',
-                                500: '#f59e0b',
-                                600: '#d97706',
-                                700: '#b45309',
-                                800: '#92400e',
-                                900: '#78350f',
-                            },
-                            gray: {
-                                900: '#0B0F19',
-                                800: '#151b2b',
-                                700: '#374151',
-                            }
-                        }
+$listaProdutos = $produtoDao->listar();
+
+// Cálculos Rápidos
+$totalInativos = $totalAlunos - $totalAtivos;
+$vendasHoje = 0;
+$hoje = date('Y-m-d');
+foreach($listaVendas as $v) {
+    if(isset($v['data_venda']) && substr($v['data_venda'], 0, 10) == $hoje) $vendasHoje++;
+}
+?>
+
+<!DOCTYPE html>
+<html lang="pt-br" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icons/halter.png">
+    <title>Painel Recepção | TechFit</title>
+    
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    colors: { 
+                        tech: { 
+                            primary: '#ea580c', // Laranja TechFit (Igual Professor/Adm)
+                            hover: '#c2410c',   
+                            dark: '#0f172a',    // Slate 900 (Fundo Professor)
+                            card: '#1e293b',    // Slate 800 (Cards Professor)
+                            muted: '#94a3b8',   // Slate 400
+                            border: '#334155'   // Slate 700
+                        } 
                     }
-                }
+                } 
             }
-        </script>
-    </head>
-    <body class="min-h-screen">
-        <!-- Navbar -->
-        <nav class="bg-gray-900/80 backdrop-blur-md border-b border-amber-700/30 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-gradient-to-br from-amber-600 to-orange-600 p-2 rounded-lg">
-                            <i data-lucide="user-circle" class="h-6 w-6 text-white"></i>
-                        </div>
-                        <div>
-                            <span class="font-bold text-xl text-white">Recepção</span>
-                            <span class="text-amber-400 font-medium ml-2"><?php echo htmlspecialchars($recepcionista['nome']); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm text-amber-300 bg-amber-900/30 px-3 py-1 rounded-full flex items-center gap-2">
-                            <i data-lucide="clock" class="w-3 h-3"></i>
-                            Turno: <?php echo htmlspecialchars($recepcionista['turno'] ?? 'Diurno'); ?>
-                        </span>
-                        
-                        <div class="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1 rounded-lg">
-                            <i data-lucide="calendar" class="w-4 h-4 text-amber-400"></i>
-                            <span class="text-sm text-gray-300"><?php echo date('d/m/Y'); ?></span>
-                        </div>
-                        
-                        <a href="?logout=true" 
-                           class="text-sm text-red-300 hover:text-white hover:bg-red-500/10 px-3 py-2 rounded-lg flex items-center gap-1 transition-colors">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Sair</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        }
+    </script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
         
-        <!-- Dashboard Content -->
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold mb-2 text-white">Painel da Recepção</h1>
-                <p class="text-gray-400">Bem-vindo(a) ao sistema de gerenciamento da academia TechFit</p>
+        /* Animações */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
+        /* Sidebar */
+        .sidebar { transition: width 0.3s ease; }
+        .sidebar-collapsed { width: 5rem; }
+        .sidebar-expanded { width: 16rem; }
+        
+        .sidebar-collapsed .nav-text, 
+        .sidebar-collapsed .logo-text,
+        .sidebar-collapsed .group-label { display: none; }
+        
+        .sidebar-collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
+        
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-tech-dark text-slate-50 selection:bg-orange-500/30">
+
+    <aside id="sidebar" class="sidebar sidebar-expanded bg-tech-card border-r border-tech-border flex flex-col z-30 shadow-2xl relative">
+        <div class="h-16 flex items-center justify-between px-4 border-b border-tech-border bg-gray-900/20">
+            <div class="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+                <div class="w-8 h-8 min-w-[2rem] bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">TF</div>
+                <span class="font-bold text-lg tracking-wider logo-text text-white">TECHFIT</span>
             </div>
+            <button onclick="toggleSidebar()" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors">
+                <i data-lucide="chevrons-left" id="toggleIcon" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-6 space-y-1">
+            <div class="px-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider group-label">Principal</div>
             
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="stat-card glass rounded-xl p-6 border border-amber-700/30">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-bold text-lg text-white">Check-ins Hoje</h3>
-                        <div class="bg-amber-500/20 p-2 rounded-lg">
-                            <i data-lucide="users" class="w-6 h-6 text-amber-500"></i>
-                        </div>
-                    </div>
-                    <div class="text-4xl font-bold text-amber-400 mb-2">142</div>
-                    <div class="flex items-center text-sm text-amber-300/70">
-                        <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
-                        <span>+12% em relação a ontem</span>
-                    </div>
-                </div>
-                
-                <div class="stat-card glass rounded-xl p-6 border border-blue-700/30">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-bold text-lg text-white">Matrículas Pendentes</h3>
-                        <div class="bg-blue-500/20 p-2 rounded-lg">
-                            <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-500"></i>
-                        </div>
-                    </div>
-                    <div class="text-4xl font-bold text-blue-400 mb-2">8</div>
-                    <div class="text-sm text-blue-300/70">Aguardando análise e confirmação</div>
-                </div>
-                
-                <div class="stat-card glass rounded-xl p-6 border border-green-700/30">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-bold text-lg text-white">Agendamentos</h3>
-                        <div class="bg-green-500/20 p-2 rounded-lg">
-                            <i data-lucide="calendar" class="w-6 h-6 text-green-500"></i>
-                        </div>
-                    </div>
-                    <div class="text-4xl font-bold text-green-400 mb-2">19</div>
-                    <div class="text-sm text-green-300/70">Para hoje - <?php echo date('d/m'); ?></div>
-                </div>
-            </div>
-            
-            <!-- Quick Actions -->
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <i data-lucide="zap" class="w-5 h-5 text-amber-500"></i>
-                    Ações Rápidas
-                </h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <a href="#" class="action-card glass rounded-lg p-5 text-center transition-all group">
-                        <div class="bg-amber-500/10 p-3 rounded-full inline-flex mb-3 group-hover:bg-amber-500/20 transition-colors">
-                            <i data-lucide="user-plus" class="w-6 h-6 text-amber-500"></i>
-                        </div>
-                        <span class="font-medium text-white">Nova Matrícula</span>
-                        <p class="text-xs text-gray-400 mt-1">Cadastrar novo aluno</p>
-                    </a>
-                    
-                    <a href="#" class="action-card glass rounded-lg p-5 text-center transition-all group">
-                        <div class="bg-blue-500/10 p-3 rounded-full inline-flex mb-3 group-hover:bg-blue-500/20 transition-colors">
-                            <i data-lucide="calendar-clock" class="w-6 h-6 text-blue-500"></i>
-                        </div>
-                        <span class="font-medium text-white">Agendar Aula</span>
-                        <p class="text-xs text-gray-400 mt-1">Marcar horários</p>
-                    </a>
-                    
-                    <a href="#" class="action-card glass rounded-lg p-5 text-center transition-all group">
-                        <div class="bg-green-500/10 p-3 rounded-full inline-flex mb-3 group-hover:bg-green-500/20 transition-colors">
-                            <i data-lucide="credit-card" class="w-6 h-6 text-green-500"></i>
-                        </div>
-                        <span class="font-medium text-white">Pagamentos</span>
-                        <p class="text-xs text-gray-400 mt-1">Gerenciar mensalidades</p>
-                    </a>
-                    
-                    <a href="#" class="action-card glass rounded-lg p-5 text-center transition-all group">
-                        <div class="bg-purple-500/10 p-3 rounded-full inline-flex mb-3 group-hover:bg-purple-500/20 transition-colors">
-                            <i data-lucide="file-text" class="w-6 h-6 text-purple-500"></i>
-                        </div>
-                        <span class="font-medium text-white">Relatórios</span>
-                        <p class="text-xs text-gray-400 mt-1">Gerar relatórios</p>
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Recent Activity -->
-            <div class="glass rounded-xl p-6 border border-gray-700/50">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i data-lucide="activity" class="w-5 h-5 text-amber-500"></i>
-                        Atividade Recente
-                    </h2>
-                    <button class="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1">
-                        <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
-                        Atualizar
-                    </button>
-                </div>
-                
-                <div class="space-y-3">
-                    <div class="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                        <div class="bg-green-500/20 p-2 rounded-full">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-medium text-white">Maria Silva fez check-in</p>
-                            <p class="text-sm text-gray-400">Há 5 minutos • Plano: Pro</p>
-                        </div>
-                        <span class="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded">Check-in</span>
-                    </div>
-                    
-                    <div class="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                        <div class="bg-blue-500/20 p-2 rounded-full">
-                            <i data-lucide="dollar-sign" class="w-4 h-4 text-blue-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-medium text-white">João Santos renovou plano VIP</p>
-                            <p class="text-sm text-gray-400">Há 15 minutos • Valor: R$ 399,00</p>
-                        </div>
-                        <span class="text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded">Pagamento</span>
-                    </div>
-                    
-                    <div class="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                        <div class="bg-amber-500/20 p-2 rounded-full">
-                            <i data-lucide="user-plus" class="w-4 h-4 text-amber-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-medium text-white">Nova matrícula de Ana Oliveira</p>
-                            <p class="text-sm text-gray-400">Há 30 minutos • Plano: Start</p>
-                        </div>
-                        <span class="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Matrícula</span>
-                    </div>
-                    
-                    <div class="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                        <div class="bg-purple-500/20 p-2 rounded-full">
-                            <i data-lucide="calendar" class="w-4 h-4 text-purple-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-medium text-white">Pedro Costa agendou aula de Cross Tech</p>
-                            <p class="text-sm text-gray-400">Há 1 hora • 14:00 - Sala 2</p>
-                        </div>
-                        <span class="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">Agendamento</span>
-                    </div>
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white border-l-4 border-transparent hover:bg-white/5 transition-all active-nav">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="ml-3 font-medium nav-text whitespace-nowrap">Dashboard</span>
+            </button>
+
+            <div class="my-4 border-t border-tech-border mx-6"></div>
+            <div class="px-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider group-label">Gestão</div>
+
+            <button onclick="switchTab('alunos')" id="btn-alunos" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white border-l-4 border-transparent hover:bg-white/5 transition-all">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span class="ml-3 font-medium nav-text whitespace-nowrap">Alunos</span>
+            </button>
+
+            <button onclick="switchTab('financeiro')" id="btn-financeiro" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white border-l-4 border-transparent hover:bg-white/5 transition-all">
+                <i data-lucide="wallet" class="w-5 h-5"></i>
+                <span class="ml-3 font-medium nav-text whitespace-nowrap">Financeiro</span>
+            </button>
+
+            <div class="my-4 border-t border-tech-border mx-6"></div>
+            <div class="px-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider group-label">Loja</div>
+
+            <button onclick="switchTab('loja')" id="btn-loja" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white border-l-4 border-transparent hover:bg-white/5 transition-all">
+                <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                <span class="ml-3 font-medium nav-text whitespace-nowrap">Catálogo</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-tech-border bg-gray-900/50">
+            <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center border border-slate-600"><i data-lucide="user"></i></div>
+                <div class="nav-text whitespace-nowrap">
+                    <p class="text-sm font-medium text-white"><?= $_SESSION['usuario_nome'] ?? 'Recepcionista' ?></p>
+                    <a href="index.php?sair=true" class="text-xs text-red-400 hover:text-red-300">Sair</a>
                 </div>
             </div>
         </div>
-        
-        <!-- Footer -->
-        <footer class="mt-12 pt-8 border-t border-gray-700/30">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center text-sm text-gray-500">
-                    <p>Sistema de Recepção TechFit • <?php echo date('Y'); ?> • Versão 1.0</p>
-                    <p class="mt-1">Para suporte técnico, contate: suporte@techfit.com</p>
-                </div>
-            </div>
-        </footer>
-        
-        <script>
-            lucide.createIcons();
-            
-            // Atualizar hora atual
-            function updateTime() {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('pt-BR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                const timeElement = document.querySelector('.time-display');
-                if (timeElement) {
-                    timeElement.textContent = timeString;
-                }
-            }
-            
-            // Inicializar e atualizar a cada minuto
-            updateTime();
-            setInterval(updateTime, 60000);
-            
-            // Toast notification
-            function showToast(message, type = 'info') {
-                const toast = document.createElement('div');
-                const colors = {
-                    success: 'bg-green-500/20 border-green-500 text-green-300',
-                    error: 'bg-red-500/20 border-red-500 text-red-300',
-                    info: 'bg-blue-500/20 border-blue-500 text-blue-300',
-                    warning: 'bg-amber-500/20 border-amber-500 text-amber-300'
-                };
-                
-                toast.className = `${colors[type]} fixed bottom-4 right-4 border px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 z-50 animate-slideIn`;
-                toast.innerHTML = `
-                    <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-5 h-5"></i>
-                    <span>${message}</span>
-                `;
-                
-                document.body.appendChild(toast);
-                lucide.createIcons();
-                
-                setTimeout(() => {
-                    toast.classList.add('animate-slideOut');
-                    setTimeout(() => toast.remove(), 300);
-                }, 4000);
-            }
-            
-            // Adicionar animação CSS
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-                .animate-slideIn { animation: slideIn 0.3s ease-out; }
-                .animate-slideOut { animation: slideOut 0.3s ease-in forwards; }
-            `;
-            document.head.appendChild(style);
-            
-            // Exemplo de uso: showToast('Operação realizada com sucesso!', 'success');
-        </script>
-    </body>
-    </html>
-    <?php
-}
+    </aside>
 
-function showLoginForm($erro = null) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Login Recepcionista - TechFit</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://unpkg.com/lucide@latest"></script>
+    <main class="flex-1 h-full overflow-y-auto relative bg-tech-dark p-6 md:p-8 scroll-smooth">
         
-        <style>
-            body {
-                background: linear-gradient(135deg, #0B0F19 0%, #151b2b 100%);
-                font-family: 'Inter', sans-serif;
-            }
-            
-            .login-container {
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            }
-            
-            .input-field {
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                transition: all 0.3s ease;
-            }
-            
-            .input-field:focus {
-                border-color: rgba(251, 146, 60, 0.5);
-                box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.1);
-            }
-        </style>
-        
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            amber: {
-                                600: '#d97706',
-                                700: '#b45309',
-                            }
-                        }
-                    }
-                }
-            }
-        </script>
-    </head>
-    <body class="min-h-screen flex items-center justify-center p-4">
-        <div class="login-container rounded-2xl p-8 w-full max-w-md">
-            <div class="text-center mb-8">
-                <div class="flex justify-center mb-6">
-                    <div class="bg-gradient-to-br from-amber-600 to-orange-600 p-4 rounded-full">
-                        <i data-lucide="user-circle" class="w-16 h-16 text-white"></i>
-                    </div>
-                </div>
-                <h2 class="text-3xl font-bold text-white mb-2">Recepção TechFit</h2>
-                <p class="text-gray-400">Acesso exclusivo para recepcionistas</p>
+        <?php if ($msgSistema): ?>
+        <div id="toast" class="fixed top-6 right-6 z-50 flex items-center w-full max-w-xs p-4 rounded-xl shadow-2xl border border-tech-border bg-tech-card animate-fade-in">
+            <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg <?= $tipoMsg == 'sucesso' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' ?>">
+                <i data-lucide="<?= $tipoMsg == 'sucesso' ? 'check' : 'alert-circle' ?>" class="w-5 h-5"></i>
             </div>
-            
-            <?php if (isset($_GET['login_erro'])): ?>
-                <div class="bg-red-500/20 border border-red-500/50 text-red-200 p-4 rounded-lg mb-6 text-sm animate-pulse">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
-                        <span><?php echo isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : 'Credenciais inválidas'; ?></span>
-                    </div>
-                </div>
-            <?php endif; ?>
-            
-            <form method="POST" class="space-y-6">
+            <div class="ml-3 text-sm font-medium text-white"><?= $msgSistema ?></div>
+            <button onclick="document.getElementById('toast').remove()" class="ml-auto text-gray-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <script>setTimeout(() => { const t = document.getElementById('toast'); if(t) t.remove(); }, 4000);</script>
+        <?php endif; ?>
+
+        <section id="tab-dashboard" class="space-y-8 animate-fade-in">
+            <header class="flex justify-between items-end">
                 <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-2">E-mail Institucional</label>
-                    <div class="relative">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                            <i data-lucide="mail" class="w-5 h-5 text-gray-500"></i>
+                    <h1 class="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+                    <p class="text-tech-muted mt-1">Visão geral do dia.</p>
+                </div>
+                <div class="text-sm font-medium text-tech-muted bg-tech-card px-4 py-2 rounded-full border border-tech-border">
+                    <?= date('d \d\e F, Y') ?>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-tech-card rounded-2xl p-6 border border-tech-border shadow-lg group hover:border-tech-primary/30 transition-all">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-tech-muted text-sm font-medium">Total Alunos</p>
+                            <h3 class="text-3xl font-bold text-white mt-2"><?= $totalAlunos ?></h3>
                         </div>
-                        <input type="email" name="email" placeholder="seu@techfit.com" 
-                               class="input-field w-full pl-10 p-3 rounded-lg text-white focus:outline-none"
-                               required autofocus>
+                        <div class="p-3 bg-blue-500/10 rounded-xl text-blue-500"><i data-lucide="users" class="w-6 h-6"></i></div>
                     </div>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-2">Senha</label>
-                    <div class="relative">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                            <i data-lucide="lock" class="w-5 h-5 text-gray-500"></i>
+                <div class="bg-tech-card rounded-2xl p-6 border border-tech-border shadow-lg group hover:border-green-500/30 transition-all">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-tech-muted text-sm font-medium">Ativos</p>
+                            <h3 class="text-3xl font-bold text-green-500 mt-2"><?= $totalAtivos ?></h3>
                         </div>
-                        <input type="password" name="senha" placeholder="********" 
-                               class="input-field w-full pl-10 p-3 rounded-lg text-white focus:outline-none"
-                               required>
-                        <button type="button" onclick="togglePassword()" 
-                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white cursor-pointer">
-                            <i id="eyeIcon" data-lucide="eye" class="w-5 h-5"></i>
+                        <div class="p-3 bg-green-500/10 rounded-xl text-green-500"><i data-lucide="activity" class="w-6 h-6"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-tech-card rounded-2xl p-6 border border-tech-border shadow-lg group hover:border-orange-500/30 transition-all">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-tech-muted text-sm font-medium">Faturamento</p>
+                            <h3 class="text-3xl font-bold text-white mt-2">R$ <?= number_format($faturamentoTotal, 2, ',', '.') ?></h3>
+                        </div>
+                        <div class="p-3 bg-orange-500/10 rounded-xl text-orange-500"><i data-lucide="dollar-sign" class="w-6 h-6"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-tech-card rounded-2xl p-6 border border-tech-border shadow-lg group hover:border-purple-500/30 transition-all">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-tech-muted text-sm font-medium">Vendas Hoje</p>
+                            <h3 class="text-3xl font-bold text-purple-400 mt-2"><?= $vendasHoje ?></h3>
+                        </div>
+                        <div class="p-3 bg-purple-500/10 rounded-xl text-purple-500"><i data-lucide="shopping-cart" class="w-6 h-6"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-tech-card p-6 rounded-2xl border border-tech-border shadow-lg">
+                    <h3 class="text-lg font-bold text-white mb-6">Financeiro Recente</h3>
+                    <div class="h-64 w-full relative"><canvas id="chartFinanceiro"></canvas></div>
+                </div>
+                <div class="bg-tech-card p-6 rounded-2xl border border-tech-border shadow-lg">
+                    <h3 class="text-lg font-bold text-white mb-6">Status dos Alunos</h3>
+                    <div class="h-64 w-full relative flex justify-center"><canvas id="chartAlunos"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-alunos" class="hidden space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-white">Gerenciar Alunos</h2>
+                <button onclick="toggleModal('modal-aluno')" class="bg-tech-primary hover:bg-tech-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-orange-500/20 transition-all">
+                    <i data-lucide="plus"></i> Novo Aluno
+                </button>
+            </div>
+            
+            <div class="bg-tech-card rounded-xl border border-tech-border overflow-hidden shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/50 border-b border-tech-border text-xs uppercase text-slate-400 tracking-wider">
+                                <th class="p-4 font-semibold">Aluno</th>
+                                <th class="p-4 font-semibold">Contato</th>
+                                <th class="p-4 font-semibold">Plano</th>
+                                <th class="p-4 font-semibold">Status</th>
+                                <th class="p-4 font-semibold text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-tech-border text-sm">
+                            <?php foreach($listaAlunos as $aluno): ?>
+                            <tr class="hover:bg-slate-700/30 transition-colors group">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-tech-primary font-bold border border-slate-600">
+                                            <?= strtoupper(substr($aluno['nome'], 0, 1)) ?>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-white"><?= $aluno['nome'] ?></div>
+                                            <div class="text-xs text-slate-500">CPF: <?= $aluno['cpf'] ?></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-slate-400">
+                                    <div><?= $aluno['email'] ?></div>
+                                    <div class="text-xs text-slate-600"><?= $aluno['telefone'] ?></div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs font-medium border border-blue-500/20"><?= $aluno['plano'] ?></span>
+                                </td>
+                                <td class="p-4">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold <?= $aluno['status'] == 'Ativo' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20' ?>">
+                                        <span class="w-1.5 h-1.5 rounded-full <?= $aluno['status'] == 'Ativo' ? 'bg-green-500' : 'bg-red-500' ?>"></span>
+                                        <?= $aluno['status'] ?>
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <button class="text-slate-400 hover:text-tech-primary p-2 hover:bg-slate-700 rounded transition-colors"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-financeiro" class="hidden space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold text-white">Histórico Financeiro</h2>
+            
+            <div class="bg-tech-card rounded-xl border border-tech-border overflow-hidden shadow-xl">
+                <div class="p-4 border-b border-tech-border bg-slate-900/30 flex justify-between items-center">
+                    <h3 class="font-bold text-white text-sm uppercase tracking-wider">Últimas Transações</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="text-slate-400 border-b border-tech-border bg-slate-900/50 uppercase text-xs">
+                                <th class="p-4 font-semibold">Data</th>
+                                <th class="p-4 font-semibold">Cliente</th>
+                                <th class="p-4 font-semibold">Produto / Serviço</th>
+                                <th class="p-4 font-semibold">Valor Total</th>
+                                <th class="p-4 font-semibold text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-tech-border text-slate-300">
+                            <?php foreach($listaVendas as $venda): ?>
+                            <tr class="hover:bg-slate-700/30 transition-colors">
+                                <td class="p-4 text-slate-400 font-mono text-xs"><?= date('d/m/y H:i', strtotime($venda['data_venda'])) ?></td>
+                                <td class="p-4 font-medium text-white"><?= $venda['nome_cliente'] ?></td>
+                                <td class="p-4">
+                                    <?= $venda['nome_produto'] ?>
+                                    <span class="text-xs bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 ml-1">x<?= $venda['quantidade'] ?></span>
+                                </td>
+                                <td class="p-4 text-green-400 font-bold tracking-wide">R$ <?= number_format($venda['valor_total'], 2, ',', '.') ?></td>
+                                <td class="p-4 text-right">
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+                                        <i data-lucide="check" class="w-3 h-3"></i> Pago
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-loja" class="hidden space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Catálogo de Produtos</h2>
+                    <p class="text-tech-muted text-sm">Gerencie o estoque e realize vendas.</p>
+                </div>
+                <button onclick="toggleModal('modal-produto')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 border border-slate-600 transition-all hover:border-slate-500">
+                    <i data-lucide="plus"></i> Novo Produto
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <?php foreach($listaProdutos as $prod): ?>
+                <div class="bg-tech-card border border-tech-border rounded-xl p-5 hover:border-tech-primary/50 transition-all group flex flex-col justify-between h-full shadow-lg">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-slate-900 text-slate-400 border border-slate-700"><?= $prod['categoria'] ?></span>
+                            <span class="text-xs font-mono font-medium <?= $prod['estoque']>0?'text-green-400':'text-red-400' ?>"><?= $prod['estoque'] ?> un</span>
+                        </div>
+                        <h3 class="font-bold text-white text-lg leading-tight mb-2 group-hover:text-tech-primary transition-colors"><?= $prod['nome'] ?></h3>
+                        <p class="text-xs text-slate-500 line-clamp-2 mb-4"><?= $prod['descricao'] ?></p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between border-t border-tech-border pt-4 mt-auto">
+                        <span class="text-xl font-bold text-white">R$ <?= number_format($prod['preco'], 2, ',', '.') ?></span>
+                        
+                        <button onclick="abrirModalEmBreve('<?= $prod['nome'] ?>')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-tech-primary/10 hover:bg-tech-primary text-tech-primary hover:text-white transition-all text-sm font-medium">
+                            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Vender
                         </button>
                     </div>
                 </div>
-                
-                <button type="submit" 
-                        class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-amber-500/20">
-                    <i data-lucide="log-in" class="w-5 h-5"></i>
-                    Entrar na Recepção
-                </button>
-                
-                <?php if ($erro): ?>
-                    <div class="text-red-500 text-sm text-center p-3 bg-red-500/10 rounded-lg animate-pulse">
-                        <?php echo htmlspecialchars($erro); ?>
-                    </div>
-                <?php endif; ?>
-            </form>
+                <?php endforeach; ?>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="modal-em-breve" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-tech-card w-full max-w-sm rounded-2xl border border-tech-border p-6 shadow-2xl animate-fade-in text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-red-600"></div>
             
-            <div class="mt-8 pt-6 border-t border-gray-700/50">
-                <p class="text-sm text-gray-500 text-center">
-                    <a href="../index.php" class="text-amber-500 hover:text-amber-400 transition-colors inline-flex items-center gap-1">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                        Voltar para página inicial
-                    </a>
-                </p>
+            <div class="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-tech-primary">
+                <i data-lucide="clock" class="w-8 h-8"></i>
             </div>
             
-            <div class="mt-6 text-center">
-                <p class="text-xs text-gray-600">
-                    Sistema seguro • Verificação em 2 etapas • 
-                    <span class="text-amber-500"><?php echo date('Y'); ?></span>
-                </p>
-            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Funcionalidade em Breve!</h3>
+            <p class="text-slate-400 text-sm mb-6">
+                A venda do produto <span id="nome-produto-aviso" class="text-white font-semibold"></span> estará disponível na próxima atualização do sistema TechFit.
+            </p>
+            
+            <button onclick="document.getElementById('modal-em-breve').classList.add('hidden')" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2.5 rounded-lg transition-colors">
+                Entendido
+            </button>
         </div>
-        
-        <script>
+    </div>
+
+    <div id="modal-aluno" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-tech-card w-full max-w-2xl rounded-2xl border border-tech-border p-6 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b border-tech-border pb-4">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="user-plus" class="text-tech-primary"></i> Novo Aluno</h3>
+                <button onclick="toggleModal('modal-aluno')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" name="acao" value="cadastrar_aluno">
+                <div class="col-span-2 md:col-span-1 space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Nome</label>
+                    <input type="text" name="nome" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="col-span-2 md:col-span-1 space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">CPF</label>
+                    <input type="text" name="cpf" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Email</label>
+                    <input type="email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Telefone</label>
+                    <input type="text" name="telefone" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Nascimento</label>
+                    <input type="date" name="data_nascimento" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Gênero</label>
+                    <select name="genero" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none">
+                        <option>Masculino</option><option>Feminino</option><option>Outro</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Plano</label>
+                    <select name="plano" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none">
+                        <option>Mensal</option><option>Trimestral</option><option>Anual</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Objetivo</label>
+                    <select name="objetivo" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none">
+                        <option>Emagrecimento</option><option>Hipertrofia</option><option>Saúde</option>
+                    </select>
+                </div>
+                <div class="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-tech-border">
+                    <button type="button" onclick="toggleModal('modal-aluno')" class="px-4 py-2 text-slate-400 hover:text-white">Cancelar</button>
+                    <button type="submit" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-all">Salvar Aluno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-produto" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-tech-card w-full max-w-lg rounded-2xl border border-tech-border p-6 shadow-2xl animate-fade-in">
+            <div class="flex justify-between items-center mb-6 border-b border-tech-border pb-4">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="package-plus" class="text-tech-primary"></i> Novo Produto</h3>
+                <button onclick="toggleModal('modal-produto')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form method="POST" class="space-y-4">
+                <input type="hidden" name="acao" value="cadastrar_produto">
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Nome</label>
+                    <input type="text" name="nome" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400 uppercase font-bold">Preço</label>
+                        <input type="number" step="0.01" name="preco" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400 uppercase font-bold">Estoque</label>
+                        <input type="number" name="estoque" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Categoria</label>
+                    <select name="categoria" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none">
+                        <option>Suplemento</option><option>Bebida</option><option>Roupa</option><option>Acessório</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Descrição</label>
+                    <textarea name="descricao" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-tech-primary focus:outline-none transition-colors"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-tech-border">
+                    <button type="button" onclick="toggleModal('modal-produto')" class="px-4 py-2 text-slate-400 hover:text-white">Cancelar</button>
+                    <button type="submit" class="bg-tech-primary hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-all">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Alternar Sidebar
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const icon = document.getElementById('toggleIcon');
+            if (sb.classList.contains('sidebar-expanded')) {
+                sb.classList.replace('sidebar-expanded', 'sidebar-collapsed');
+                icon.setAttribute('data-lucide', 'chevrons-right');
+            } else {
+                sb.classList.replace('sidebar-collapsed', 'sidebar-expanded');
+                icon.setAttribute('data-lucide', 'chevrons-left');
+            }
             lucide.createIcons();
+        }
+
+        // Navegação de Abas
+        function switchTab(id) {
+            document.querySelectorAll('section[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + id).classList.remove('hidden');
             
-            function togglePassword() {
-                const passwordInput = document.querySelector('input[name="senha"]');
-                const eyeIcon = document.getElementById('eyeIcon');
-                
-                if (passwordInput.type === 'password') {
-                    passwordInput.type = 'text';
-                    eyeIcon.setAttribute('data-lucide', 'eye-off');
-                } else {
-                    passwordInput.type = 'password';
-                    eyeIcon.setAttribute('data-lucide', 'eye');
-                }
-                lucide.createIcons();
-            }
+            // Resetar botões
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('text-white', 'border-tech-primary', 'bg-white/5');
+                el.classList.add('text-gray-400', 'border-transparent');
+            });
             
-            // Limpar parâmetros da URL após 3 segundos
-            if (window.location.search.includes('login_erro')) {
-                setTimeout(() => {
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                }, 3000);
-            }
-            
-            // Auto-focus no primeiro campo
-            document.querySelector('input[name="email"]')?.focus();
-        </script>
-    </body>
-    </html>
-    <?php
-}
-?>
+            // Ativar botão atual
+            const btn = document.getElementById('btn-' + id);
+            btn.classList.add('text-white', 'border-tech-primary', 'bg-white/5');
+            btn.classList.remove('text-gray-400', 'border-transparent');
+        }
+
+        // Modais Gerais
+        function toggleModal(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        // Modal "Em Breve" Específico
+        function abrirModalEmBreve(nomeProduto) {
+            document.getElementById('nome-produto-aviso').innerText = nomeProduto;
+            document.getElementById('modal-em-breve').classList.remove('hidden');
+        }
+
+        // Inicialização dos Gráficos
+        document.addEventListener('DOMContentLoaded', () => {
+            switchTab('dashboard'); // Aba padrão
+
+            try {
+                // Configuração Global ChartJS
+                Chart.defaults.color = '#94a3b8';
+                Chart.defaults.borderColor = '#334155';
+
+                // Dados Mockados de exemplo baseados no PHP (seguro contra falhas)
+                const vendasData = <?= json_encode(!empty($listaVendas) ? array_slice($listaVendas, 0, 10) : []) ?>;
+                const labels = vendasData.map(v => new Date(v.data_venda).toLocaleDateString().slice(0,5)).reverse();
+                const dadosValores = vendasData.map(v => parseFloat(v.valor_total)).reverse();
+
+                // 1. Gráfico Financeiro (Barra)
+                new Chart(document.getElementById('chartFinanceiro'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels.length ? labels : ['Sem dados'],
+                        datasets: [{
+                            label: 'Vendas (R$)',
+                            data: dadosValores.length ? dadosValores : [0],
+                            backgroundColor: '#ea580c', // Tech Primary
+                            borderRadius: 4,
+                            barThickness: 20
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { 
+                            y: { grid: { color: '#334155' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+
+                // 2. Gráfico Alunos (Doughnut)
+                new Chart(document.getElementById('chartAlunos'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Ativos', 'Inativos'],
+                        datasets: [{
+                            data: [<?= $totalAtivos ?>, <?= $totalInativos ?>],
+                            backgroundColor: ['#22c55e', '#334155'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }
+                    }
+                });
+            } catch (error) { console.log('Erro gráficos:', error); }
+        });
+    </script>
+</body>
+</html>

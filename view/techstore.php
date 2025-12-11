@@ -1,5 +1,5 @@
 <?php
-// loja.php
+// techstore.php
 session_start();
 require_once __DIR__ . '/../Model/ProdutoDAO.php';
 require_once __DIR__ . '/../Model/VendaDAO.php';
@@ -67,11 +67,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
     }
     
     // FINALIZAR COMPRA
-    if ($_POST['acao'] === 'finalizar_compra') {
-        $forma_pagamento = $_POST['forma_pagamento'];
-        $total = 0;
-        $erros = [];
+   if ($_POST['acao'] === 'finalizar_compra') {
+    $forma_pagamento = $_POST['forma_pagamento'];
+    $total = 0;
+    $erros = [];
+    
+    // Coletar dados do pagamento baseado na forma escolhida
+    $dados_pagamento = [];
+    
+    if ($forma_pagamento === 'Cartão') {
+        $dados_pagamento = [
+            'tipo' => 'cartao',
+            'nome' => $_POST['nome_cartao'] ?? '',
+            'numero' => $_POST['numero_cartao'] ?? '',
+            'validade' => $_POST['validade_cartao'] ?? '',
+            'cvv' => $_POST['cvv_cartao'] ?? ''
+        ];
         
+        // Validação básica do cartão
+        if (empty($dados_pagamento['nome']) || empty($dados_pagamento['numero']) || 
+            empty($dados_pagamento['validade']) || empty($dados_pagamento['cvv'])) {
+            $erros[] = "Preencha todos os dados do cartão!";
+        }
+    } elseif ($forma_pagamento === 'PIX') {
+        $dados_pagamento = [
+            'tipo' => 'pix',
+            'chave' => $_POST['chave_pix'] ?? ''
+        ];
+        
+        if (empty($dados_pagamento['chave'])) {
+            $erros[] = "Informe a chave PIX!";
+        }
+    }
+    
+    if (empty($erros)) {
         foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
             $produto = $produtoDao->buscarPorId($produto_id);
             if (!$produto) {
@@ -84,24 +113,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
                 continue;
             }
             
-            // Registrar venda
-            if ($vendaDao->registrarVenda($idUsuario, $produto_id, $quantidade, $produto['preco'], $forma_pagamento)) {
+            // Registrar venda com dados de pagamento em JSON
+            if ($vendaDao->registrarVenda(
+                $idUsuario, 
+                $produto_id, 
+                $quantidade, 
+                $produto['preco'], 
+                $forma_pagamento,
+                $dados_pagamento
+            )) {
                 // Atualizar estoque
                 $novoEstoque = $produto['estoque'] - $quantidade;
                 $produtoDao->atualizarEstoque($produto_id, $novoEstoque);
                 $total += $produto['preco'] * $quantidade;
+            } else {
+                $erros[] = "Erro ao registrar venda do produto {$produto['nome']}";
             }
         }
-        
-        if (empty($erros)) {
-            $_SESSION['carrinho'] = [];
-            $msg = "Compra realizada com sucesso! Total: R$ " . number_format($total, 2, ',', '.');
-            $tipoMsg = 'sucesso';
-        } else {
-            $msg = implode("<br>", $erros);
-            $tipoMsg = 'erro';
-        }
     }
+    
+    if (empty($erros)) {
+        $_SESSION['carrinho'] = [];
+        $msg = "Compra realizada com sucesso! Total: R$ " . number_format($total, 2, ',', '.');
+        $tipoMsg = 'sucesso';
+    } else {
+        $msg = implode("<br>", $erros);
+        $tipoMsg = 'erro';
+    }
+}
 }
 
 // --- DADOS ---
@@ -342,6 +381,18 @@ $subTab = $_GET['sub'] ?? 'produtos';
         .quantity-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        
+        /* Animação de saída do toast */
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
     </style>
 </head>
@@ -805,26 +856,73 @@ $subTab = $_GET['sub'] ?? 'produtos';
                 </button>
             </div>
             
-            <form method="POST">
+            <form method="POST" id="formPagamento">
                 <input type="hidden" name="acao" value="finalizar_compra">
                 
                 <div class="mb-6">
                     <label class="block text-gray-400 mb-3">Forma de Pagamento</label>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-3 mb-4">
                         <label class="relative">
-                            <input type="radio" name="forma_pagamento" value="Cartão" class="sr-only peer" checked>
+                            <input type="radio" name="forma_pagamento" value="Cartão" class="sr-only peer" checked onchange="mostrarCamposPagamento()">
                             <div class="p-4 border border-white/10 rounded-xl text-center cursor-pointer peer-checked:border-orange-500 peer-checked:bg-orange-500/10 transition-all">
                                 <i data-lucide="credit-card" class="w-6 h-6 text-white mx-auto mb-2"></i>
                                 <span class="text-sm font-medium text-white">Cartão</span>
                             </div>
                         </label>
                         <label class="relative">
-                            <input type="radio" name="forma_pagamento" value="PIX" class="sr-only peer">
+                            <input type="radio" name="forma_pagamento" value="PIX" class="sr-only peer" onchange="mostrarCamposPagamento()">
                             <div class="p-4 border border-white/10 rounded-xl text-center cursor-pointer peer-checked:border-orange-500 peer-checked:bg-orange-500/10 transition-all">
                                 <i data-lucide="qr-code" class="w-6 h-6 text-white mx-auto mb-2"></i>
                                 <span class="text-sm font-medium text-white">PIX</span>
                             </div>
                         </label>
+                    </div>
+                    
+                    <!-- Campos do Cartão -->
+                    <div id="camposCartao">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-gray-400 mb-2">Nome no Cartão</label>
+                                <input type="text" name="nome_cartao" placeholder="Nome completo" 
+                                       class="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-gray-400 mb-2">Número do Cartão</label>
+                                <input type="text" name="numero_cartao" placeholder="0000 0000 0000 0000" maxlength="19"
+                                       class="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3" required>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-gray-400 mb-2">Validade</label>
+                                    <input type="text" name="validade_cartao" placeholder="MM/AA" maxlength="5"
+                                           class="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3" required>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 mb-2">CVV</label>
+                                    <input type="text" name="cvv_cartao" placeholder="123" maxlength="4"
+                                           class="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos do PIX -->
+                    <div id="camposPix" class="hidden">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-gray-400 mb-2">Chave PIX</label>
+                                <input type="text" name="chave_pix" placeholder="CPF, e-mail ou telefone" 
+                                       class="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3" required>
+                            </div>
+                            <div class="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                                <p class="text-sm text-blue-300">
+                                    <i data-lucide="info" class="w-4 h-4 inline mr-2"></i>
+                                    Após confirmar a compra, você receberá um QR Code para pagamento
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -921,13 +1019,50 @@ $subTab = $_GET['sub'] ?? 'produtos';
         }
         
         function abrirModalPagamento(total) {
-            document.getElementById('modalTotalCompra').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+            // Converter para formato brasileiro
+            const totalFormatado = total.toFixed(2).replace('.', ',');
+            document.getElementById('modalTotalCompra').textContent = 'R$ ' + totalFormatado;
             document.getElementById('modalPagamento').classList.remove('hidden');
+            
+            // Mostrar campos corretos
+            mostrarCamposPagamento();
             lucide.createIcons();
         }
         
         function fecharModalPagamento() {
             document.getElementById('modalPagamento').classList.add('hidden');
+        }
+        
+        function mostrarCamposPagamento() {
+            const formaPagamento = document.querySelector('input[name="forma_pagamento"]:checked').value;
+            const camposCartao = document.getElementById('camposCartao');
+            const camposPix = document.getElementById('camposPix');
+            
+            if (formaPagamento === 'Cartão') {
+                camposCartao.classList.remove('hidden');
+                camposPix.classList.add('hidden');
+                
+                // Tornar campos do cartão obrigatórios
+                document.querySelectorAll('#camposCartao input').forEach(input => {
+                    input.required = true;
+                });
+                // Tornar campos PIX não obrigatórios
+                document.querySelectorAll('#camposPix input').forEach(input => {
+                    input.required = false;
+                });
+            } else {
+                camposCartao.classList.add('hidden');
+                camposPix.classList.remove('hidden');
+                
+                // Tornar campos PIX obrigatórios
+                document.querySelectorAll('#camposPix input').forEach(input => {
+                    input.required = true;
+                });
+                // Tornar campos do cartão não obrigatórios
+                document.querySelectorAll('#camposCartao input').forEach(input => {
+                    input.required = false;
+                });
+            }
         }
         
         // Funções do Carrinho
@@ -993,6 +1128,43 @@ $subTab = $_GET['sub'] ?? 'produtos';
             document.body.appendChild(form);
             form.submit();
         }
+        
+        // Formatar número do cartão e validade
+        function formatarNumeroCartao(input) {
+            let value = input.value.replace(/\D/g, '');
+            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+            input.value = value.substring(0, 19);
+        }
+        
+        function formatarValidadeCartao(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (value.length >= 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2, 4);
+            }
+            input.value = value.substring(0, 5);
+        }
+        
+        // Adicionar event listeners para formatação
+        document.addEventListener('DOMContentLoaded', function() {
+            // Formatar número do cartão
+            const numeroCartaoInput = document.querySelector('input[name="numero_cartao"]');
+            if (numeroCartaoInput) {
+                numeroCartaoInput.addEventListener('input', function(e) {
+                    formatarNumeroCartao(e.target);
+                });
+            }
+            
+            // Formatar validade do cartão
+            const validadeCartaoInput = document.querySelector('input[name="validade_cartao"]');
+            if (validadeCartaoInput) {
+                validadeCartaoInput.addEventListener('input', function(e) {
+                    formatarValidadeCartao(e.target);
+                });
+            }
+            
+            // Mostrar campos corretos ao abrir modal de pagamento
+            mostrarCamposPagamento();
+        });
         
         // Fechar toast automaticamente
         setTimeout(() => {

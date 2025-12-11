@@ -1,7 +1,13 @@
 <?php
 session_start();
 
-// Verificar se houve tentativa de login como recepcionista
+// 1. Se o usuário já estiver logado oficialmente, manda direto para o painel
+if (isset($_SESSION['recepcionista_logado']) && $_SESSION['recepcionista_logado'] === true) {
+    header('Location: recepcionista.php');
+    exit;
+}
+
+// 2. Verificar se houve tentativa de login prévia (se não tem o ID temp e não está logado, vai pro index)
 if (!isset($_SESSION['recepcionista_pre_login_id'])) {
     header('Location: index.php');
     exit;
@@ -41,6 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['usuario_id'] = $recepcionista['id'];
         $_SESSION['usuario_nome'] = $recepcionista['nome'];
         $_SESSION['tipo'] = 'recepcionista';
+        
+        // --- A CORREÇÃO ESTÁ AQUI EMBAIXO ---
+        $_SESSION['recepcionista_logado'] = true; // ESSA LINHA ERA A QUE FALTAVA
+        
         $_SESSION['recepcionista_email'] = $recepcionista['email'];
         $_SESSION['recepcionista_turno'] = $recepcionista['turno'] ?? 'Diurno';
         $_SESSION['recepcionista_status'] = $recepcionista['status'];
@@ -52,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $success = true;
         
-        // REDIRECIONAR PARA recepcionista.php EM VEZ DE recepcionista_dashboard.php
+        // Redirecionar
         header("Refresh: 2; url=recepcionista.php");
     } else {
         $error = "Dados de verificação incorretos. Tente novamente.";
@@ -64,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="icons/halter.png">
     <title>Verificação de Segurança - Recepcionista</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
