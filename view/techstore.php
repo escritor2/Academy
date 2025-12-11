@@ -13,6 +13,17 @@ if (!isset($_SESSION['carrinho'])) {
     $_SESSION['carrinho'] = [];
 }
 
+// --- ESTOQUE SIMULADO ---
+// Inicializar estoque simulado na sessão se não existir
+if (!isset($_SESSION['estoque_simulado'])) {
+    // Carregar estoque real do banco para inicializar a simulação
+    $produtos = $produtoDao->listar();
+    $_SESSION['estoque_simulado'] = [];
+    foreach ($produtos as $produto) {
+        $_SESSION['estoque_simulado'][$produto['id']] = $produto['estoque'];
+    }
+}
+
 // Mensagens
 $msg = '';
 $tipoMsg = '';
@@ -24,9 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         $produto_id = $_POST['produto_id'];
         $quantidade = $_POST['quantidade'] ?? 1;
         
-        // Verifica estoque
+        // Verifica estoque SIMULADO
+        $estoque_disponivel = $_SESSION['estoque_simulado'][$produto_id] ?? 0;
         $produto = $produtoDao->buscarPorId($produto_id);
-        if ($produto && $produto['estoque'] >= $quantidade) {
+        
+        if ($produto && $estoque_disponivel >= $quantidade) {
             if (isset($_SESSION['carrinho'][$produto_id])) {
                 $_SESSION['carrinho'][$produto_id] += $quantidade;
             } else {
@@ -56,9 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         $quantidade = $_POST['quantidade'];
         
         if ($quantidade > 0) {
-            $_SESSION['carrinho'][$produto_id] = $quantidade;
-            $msg = "Carrinho atualizado!";
-            $tipoMsg = 'sucesso';
+            // Verifica estoque antes de atualizar
+            $estoque_disponivel = $_SESSION['estoque_simulado'][$produto_id] ?? 0;
+            if ($quantidade <= $estoque_disponivel) {
+                $_SESSION['carrinho'][$produto_id] = $quantidade;
+                $msg = "Carrinho atualizado!";
+                $tipoMsg = 'sucesso';
+            } else {
+                $msg = "Estoque insuficiente! Quantidade máxima: " . $estoque_disponivel;
+                $tipoMsg = 'erro';
+            }
         } else {
             unset($_SESSION['carrinho'][$produto_id]);
             $msg = "Produto removido!";
@@ -66,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         }
     }
     
-    // FINALIZAR COMPRA - MODIFICADO: APENAS SIMULAÇÃO
+    // FINALIZAR COMPRA - MODIFICADO: DIMINUI ESTOQUE SIMULADO
     if ($_POST['acao'] === 'finalizar_compra') {
         $forma_pagamento = $_POST['forma_pagamento'];
         $total = 0;
@@ -101,38 +121,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'])) {
         }
         
         if (empty($erros)) {
-            // Calcular total (apenas para exibição)
+            // Verificar estoque e calcular total
+            $itens_compra = [];
             foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
                 $produto = $produtoDao->buscarPorId($produto_id);
-                if ($produto) {
-                    $total += $produto['preco'] * $quantidade;
+                if (!$produto) {
+                    $erros[] = "Produto não encontrado!";
+                    continue;
                 }
+                
+                $estoque_disponivel = $_SESSION['estoque_simulado'][$produto_id] ?? 0;
+                if ($estoque_disponivel < $quantidade) {
+                    $erros[] = "Estoque insuficiente para {$produto['nome']}. Disponível: {$estoque_disponivel}";
+                    continue;
+                }
+                
+                $itens_compra[] = [
+                    'id' => $produto_id,
+                    'nome' => $produto['nome'],
+                    'quantidade' => $quantidade,
+                    'preco' => $produto['preco'],
+                    'subtotal' => $produto['preco'] * $quantidade
+                ];
+                
+                $total += $produto['preco'] * $quantidade;
             }
             
-            // Gerar código de confirmação
-            $codigo_confirmacao = 'TECH' . strtoupper(substr(md5(uniqid()), 0, 8));
-            $data_compra = date('d/m/Y H:i:s');
-            
-            // Armazenar dados da compra em sessão para exibição
-            $_SESSION['ultima_compra'] = [
-                'codigo' => $codigo_confirmacao,
-                'total' => $total,
-                'data' => $data_compra,
-                'forma_pagamento' => $forma_pagamento,
-                'itens' => $_SESSION['carrinho']
-            ];
-            
-            // Limpar carrinho
-            $_SESSION['carrinho'] = [];
-            
-            // Não registrar no banco - apenas redirecionar para visualização de sucesso
-            $msg = "Compra realizada com sucesso!";
-            $tipoMsg = 'sucesso';
-            
-            // Redirecionar para mostrar tela de sucesso
-            header('Location: ?sub=compra_finalizada');
-            exit();
-        } else {
+            if (empty($erros) && !empty($itens_compra)) {
+                // DIMINUIR ESTOQUE SIMULADO
+                foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
+                    if (isset($_SESSION['estoque_simulado'][$produto_id])) {
+                        $_SESSION['estoque_simulado'][$produto_id] -= $quantidade;
+                        // Garantir que não fique negativo
+                        if ($_SESSION['estoque_simulado'][$produto_id] < 0) {
+                            $_SESSION['estoque_simulado'][$produto_id] = 0;
+                        }
+                    }
+                }
+                
+                // Gerar código de confirmação
+                $codigo_confirmacao = 'TECH' . strtoupper(substr(md5(uniqid()), 0, 8));
+                $data_compra = date('d/m/Y H:i:s');
+                
+                // Armazenar dados da compra em sessão para exibição
+                $_SESSION['ultima_compra'] = [
+                    'codigo' => $codigo_confirmacao,
+                    'total' => $total,
+                    'data' => $data_compra,
+                    'forma_pagamento' => $forma_pagamento,
+                    'itens' => $itens_compra
+                ];
+                
+                // Limpar carrinho
+                $_SESSION['carrinho'] = [];
+                
+                // Redirecionar para mostrar tela de sucesso
+                header('Location: ?sub=compra_finalizada');
+                exit();
+            } elseif (empty($itens_compra)) {
+                $erros[] = "Seu carrinho está vazio!";
+            }
+        }
+        
+        if (!empty($erros)) {
             $msg = implode("<br>", $erros);
             $tipoMsg = 'erro';
         }
@@ -155,6 +206,11 @@ if ($subTab === 'compra_finalizada' && isset($_SESSION['ultima_compra'])) {
     $dados_compra = $_SESSION['ultima_compra'];
 }
 
+// Preparar lista de produtos com estoque SIMULADO
+foreach ($listaProdutos as &$produto) {
+    $produto['estoque_simulado'] = $_SESSION['estoque_simulado'][$produto['id']] ?? $produto['estoque'];
+}
+
 // Filtrar produtos (apenas se não estiver na tela de compra finalizada)
 if (!$compra_finalizada) {
     if ($termoBuscaProd || $categoriaFiltro) {
@@ -173,13 +229,14 @@ if (!$compra_finalizada) {
     foreach ($_SESSION['carrinho'] as $produto_id => $quantidade) {
         $produto = $produtoDao->buscarPorId($produto_id);
         if ($produto) {
+            $estoque_disponivel = $_SESSION['estoque_simulado'][$produto_id] ?? $produto['estoque'];
             $itensCarrinho[] = [
                 'id' => $produto_id,
                 'nome' => $produto['nome'],
                 'preco' => $produto['preco'],
                 'quantidade' => $quantidade,
                 'subtotal' => $produto['preco'] * $quantidade,
-                'estoque' => $produto['estoque']
+                'estoque' => $estoque_disponivel
             ];
             $totalCarrinho += $produto['preco'] * $quantidade;
         }
@@ -682,6 +739,25 @@ if (!$compra_finalizada) {
                             </div>
                         </div>
                         
+                        <!-- Itens Comprados -->
+                        <div class="mt-6">
+                            <h3 class="text-lg font-bold text-white mb-4">Itens Comprados</h3>
+                            <div class="space-y-3">
+                                <?php foreach($dados_compra['itens'] as $item): ?>
+                                <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                                    <div>
+                                        <p class="text-white font-medium"><?= htmlspecialchars($item['nome']) ?></p>
+                                        <p class="text-gray-400 text-sm">Quantidade: <?= $item['quantidade'] ?></p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-orange-500 font-bold">R$ <?= number_format($item['preco'], 2, ',', '.') ?></p>
+                                        <p class="text-gray-400 text-sm">Subtotal: R$ <?= number_format($item['subtotal'], 2, ',', '.') ?></p>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        
                         <!-- Total -->
                         <div class="p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
                             <div class="flex justify-between items-center">
@@ -829,8 +905,9 @@ if (!$compra_finalizada) {
                                 break;
                         }
                         
-                        $semEstoque = $prod['estoque'] <= 0;
-                        $poucoEstoque = $prod['estoque'] > 0 && $prod['estoque'] < 5;
+                        $estoque_simulado = $prod['estoque_simulado'];
+                        $semEstoque = $estoque_simulado <= 0;
+                        $poucoEstoque = $estoque_simulado > 0 && $estoque_simulado < 5;
                     ?>
                     <div class="card <?= $semEstoque ? 'opacity-50' : '' ?>">
                         <!-- Categoria Badge -->
@@ -861,7 +938,7 @@ if (!$compra_finalizada) {
                         <div class="flex justify-between items-center mt-4">
                             <div>
                                 <span class="text-2xl font-bold text-orange-500">R$ <?= number_format($prod['preco'], 2, ',', '.') ?></span>
-                                <p class="text-xs text-gray-500">Estoque: <?= $prod['estoque'] ?> un.</p>
+                                <p class="text-xs text-gray-500">Estoque: <?= $estoque_simulado ?> un.</p>
                             </div>
                             
                             <?php if($semEstoque): ?>
@@ -869,7 +946,7 @@ if (!$compra_finalizada) {
                                     <i data-lucide="x" class="w-5 h-5"></i>
                                 </button>
                             <?php else: ?>
-                                <button onclick="abrirModalAdicionar(<?= $prod['id'] ?>, '<?= htmlspecialchars(addslashes($prod['nome'])) ?>', <?= $prod['estoque'] ?>)" 
+                                <button onclick="abrirModalAdicionar(<?= $prod['id'] ?>, '<?= htmlspecialchars(addslashes($prod['nome'])) ?>', <?= $estoque_simulado ?>)" 
                                         class="p-3 bg-orange-500 rounded-lg text-white hover:bg-orange-600 transition-colors">
                                     <i data-lucide="shopping-cart" class="w-5 h-5"></i>
                                 </button>
