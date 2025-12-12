@@ -177,7 +177,7 @@ class AlunoDAO {
         return $stmt->execute([':senha' => $hash, ':id' => $id]);
     }
 
-    // --- ADMINISTRAÇÃO ---
+
     public function contarTotal() { 
         return $this->conn->query("SELECT COUNT(*) FROM alunos")->fetchColumn(); 
     }

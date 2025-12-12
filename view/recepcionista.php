@@ -5,8 +5,7 @@ ini_set('display_errors', 1);
 
 session_start();
 
-// --- SEGURANÇA ---
-// Verifica se passou pela verificação de segurança
+
 if (!isset($_SESSION['recepcionista_logado']) || $_SESSION['recepcionista_logado'] !== true) {
     header('Location: recepcionista_verificacao.php'); 
     exit;
