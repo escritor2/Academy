@@ -9,8 +9,8 @@ class AlunoController {
         $this->dao = new AlunoDAO();
     }
 
-    public function cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano) {
-        $aluno = new Aluno($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano);
+    public function cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $status, $plano) {
+        $aluno = new Aluno($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $status, $plano);
         return $this->dao->criarAluno($aluno);
     }
 }

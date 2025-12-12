@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plano = $_POST['plan'] ?? 'Start';
 
             // Passando NULL para foto_perfil (que terá valor padrão 'user' no banco)
-            $controller->cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo, $plano);
+            $controller->cadastrar($nome, $data_nascimento, $email, $telefone, $cpf, $genero, $senha, $objetivo,'ativo' , $plano);
 
             header("Location: areacliente.php?cadastro=sucesso");
             exit;

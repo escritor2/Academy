@@ -93,7 +93,7 @@ class AlunoDAO {
         
         // Query CORRIGIDA - removido o parâmetro foto_perfil que não existe
         $sql = "INSERT INTO alunos 
-                (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status2) 
+                (nome, data_nascimento, email, telefone, cpf, genero, senha, objetivo, plano, status) 
                 VALUES 
                 (:nome, :data_nascimento, :email, :telefone, :cpf, :genero, :senha, :objetivo, :plano, 'Ativo')";
         
